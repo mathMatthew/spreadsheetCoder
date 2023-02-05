@@ -7,6 +7,8 @@ How to:
 * Prep your environment.
 ** You'll want a folder in your user directory titled "SpreadsheetCoder". 
 ** You want a subfolder of that folder named "XMLLibrary". Technically this could be empty but start with the contents in this subfolder XMLLibrary
+** Open the SC excel file from here. It has macros in it and you'll have to enable the macros to work.
+** Ensure that all of the following references are checked (Visual Basic Window, Tools->References): 1) Visual Basic for Applications 2) Microsoft Excel 16.0 Object Library 3) OLE Automation 4) Microsoft Office 16.0 Object Library 5) Microsoft XML, v6.0, 6) Microsoft Visual Basic fo Applications Extensibility 5.3
 
 * Now code a function from excel.
 * You'll want two spreadsheets open. 1) the spreadsheet with the function in it that you want to turn into code 2) the spreadsheet coder spreadsheet.
