@@ -31,3 +31,5 @@ How to:
 * When complete a popup box that says "Complete" will show. [If you are looking at the VB page you might not see it as it shows in excel.]
 
 * That's it. In many cases the code will be saved in a file. If so, the file will be located in the SpreadsheetCoder directory referenced above.
+
+--23862686275127358676078431734411442979792948070027924026
