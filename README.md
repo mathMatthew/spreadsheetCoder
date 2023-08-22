@@ -37,15 +37,15 @@ Enjoy.
 
 Troubleshooting
 * How to run a macro.
- * Enable the Developer ribbon in Excel
-  * Click on the "File" tab in the upper left corner of the Excel window.
-	 * In the File menu, click on "Options" at the bottom of the navigation pane. This will open the Excel Options window.
-	 * In the Excel Options window, click on "Customize Ribbon" on the left sidebar.
-	 * On the right side of the Excel Options window, you'll see a list of tabs. Check the box next to "Developer" to enable the Developer tab.
-	 * Click the "OK" button to save your changes and close the Excel Options window.
-Go to the developer tab and choose Visual Basic
- * Go to the Develop ribbon and click the 'Macros' button
- * Select the macro you want (create) and then click the 'run' button
+	* Enable the Developer ribbon in Excel
+	* Click on the "File" tab in the upper left corner of the Excel window.
+		* In the File menu, click on "Options" at the bottom of the navigation pane. This will open the Excel Options window.
+		* In the Excel Options window, click on "Customize Ribbon" on the left sidebar.
+		* On the right side of the Excel Options window, you'll see a list of tabs. Check the box next to "Developer" to enable the Developer tab.
+		* Click the "OK" button to save your changes and close the Excel Options window.
+	* Go to the developer tab and choose Visual Basic
+	* Go to the Develop ribbon and click the 'Macros' button
+	* Select the macro you want (create) and then click the 'run' button
 * References. You may want to double check that all the references are correct. Go to the Visual Basic Window, Tools->References). Validate that all of these are checked: 1) Visual Basic for Applications 2) Microsoft Excel 16.0 Object Library 3) OLE Automation 4) Microsoft Office 16.0 Object Library 5) Microsoft XML, v6.0, 6) Microsoft Visual Basic fo Applications Extensibility 5.3
 
 
