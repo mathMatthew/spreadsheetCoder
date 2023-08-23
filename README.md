@@ -8,7 +8,7 @@ How to:
   * You'll want a folder in your user directory titled "SpreadsheetCoder". Move the sc.xlsm file into that folder.
   * You want a subfolder of that folder named "XMLLibrary". Technically this could be empty but start with the contents in this subfolder's XMLLibrary
   * Open sc.xlsm. Note the file uses macros and you'll have to [enable the macros for this to work.](https://support.microsoft.com/en-us/topic/a-potentially-dangerous-macro-has-been-blocked-0952faa0-37e7-4316-b61d-5b5ed6024216)
-
+	* In Trust Center check 'trust access to the VBA project object model'. Note this is a module that creates vba code (and other languages). in order for this vba code to create vba code this option (which essentially says--allow this to create vba code) must be checked. Note that this is also a setting that someone writing malware may want you to check. do not run macros you don't trust when this is checked. Also, if you aren't sure how to get to trust center see troubleshooting below. 
 * Now code a function from excel.
 * You'll want two spreadsheets open. 1) the spreadsheet with the function in it that you want to turn into code 2) the spreadsheet coder spreadsheet.
 * The spreadsheet coder excel file name needs to begin with "sc". (If you don't change the name, you're good here.)
@@ -46,6 +46,11 @@ Troubleshooting
 	* Go to the developer tab and choose Visual Basic
 	* Go to the Develop ribbon and click the 'Macros' button
 	* Select the macro you want (create) and then click the 'run' button
+* How to enable 'trust access to the vba project model'.
+	* If you're using Excel 2010 or later click on the "File" tab, then click on "Options" near the bottom of the navigation pane.
+	* You'll see a list of categories on the left side. Click on "Trust Center".
+	* You'll see a "Microsoft Excel Trust Center" heading with a button "Trust Center Setting" under and to the right. Click on that.
+    	* You'll see a heading "Developer Macro Settings". click the checkbox "Trust access to the VBA project object model"
 * References. You may want to double check that all the references are correct. Go to the Visual Basic Window, Tools->References). Validate that all of these are checked: 1) Visual Basic for Applications 2) Microsoft Excel 16.0 Object Library 3) OLE Automation 4) Microsoft Office 16.0 Object Library 5) Microsoft XML, v6.0, 6) Microsoft Visual Basic fo Applications Extensibility 5.3
 
 
