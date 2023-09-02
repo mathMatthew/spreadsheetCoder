@@ -17,17 +17,17 @@ How to:
   * Label your inputs one cell to the left of each input.
   * Put all of your output cells for your function in a similar range
   * Label your outputs for your function to the left of each output.
-  * Give your function a name. If your function has a single output then the name to the left of that output will be the name of the.
+  * Give your function a name. If your function has a single output then the name to the left of that output will be the name of the function.
   * If your function has multiple outputs it is a bit more tricky.
-    * For no particularly good reason, if your function has more than one output, put the function name in the following somewhat location: 
+    * For no particularly good reason, if your function has more than one output, put the function name in the following arbitrary location: 
     * Put the name in the cell just above the first label for the first output cell.
   * Avoid using 
-    * text functions. This is really just for math stuff. 
+    * text manipulation functions. This is really just for math stuff. 
     * indirect and any weird functions like that
     * functions that operate on ranges of cells. You can get away with sum, product and some of the lookup functions. 
       * [placeholder for listing a lot of other limitations]
 * Make sure the settings on your "Options" tab of the spreadsheet are what you want. Defaults are a good place to start.
-* Run the Macro "Create" from your worksheet that has the funciton in it. If you aren't sure how to run a macro see troubleshooting section below.
+* Run the Macro "Create" from your worksheet that has the function in it. If you aren't sure how to run a macro see troubleshooting section below.
 * It will ask you to select your input and output cells.
 * When complete a popup box that says "Complete" will show. [If you are looking at the VB page you might not see it as it shows in excel.]
 
