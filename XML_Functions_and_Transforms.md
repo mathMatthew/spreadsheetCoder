@@ -1,7 +1,9 @@
 # XML Functions File Documentation
 
 ## Overview
-The SpreadsheetCoder application uses XML-like files to decompose complex functions into simpler, mappable components. These files assist in translating spreadsheet functions into various computer languages by breaking them down into basic building blocks.
+The SpreadsheetCoder application uses XML-like files to decompose complex functions into simpler, mappable components.  This XML Function format is stored within a text box one the page of the function when using 'Strict' mode. SpreadsheetCoder can then use those definitions when translating other functions if this function is embedded. Also when put in a .XML file and stored in the folder "SpreadsheetCoder/XMLFunctions" (the actual location can be overridden using the named range XMLFunctionLibraryPath within the SC file) then SpreadsheetCoder always has access to the function definition. That XML files in that folder are collectively the 'library' of functions that SpreadsheetCoder has access to.
+
+SpreadsheetCoder can create these files for you automatically of course. All you need to do is to set the target language to XML and run SpreadsheetCoder. If you want the output added to your library, move the restulting file into your library directory. However there are some properties that it doesn't automatically set which may be valuable to you. This is within the LangSpec section.
 
 ## Main Elements:
 ### CodeCalculation
