@@ -1,20 +1,64 @@
+# XML Format for SpreadsheetCoder Translations
+
+## Overview
+
+SpreadsheetCoder employs XML libraries to enhance flexibility, offering two types:
+- **Function Definitions**
+- **Transformations**
+
+Instead of altering the SpreadsheetCoder core, users can extend its functions using these libraries. 
+
+For basic Excel functions like `+`, `-`, `*`, and others, SpreadsheetCoder provides hard-coded translations. Users can:
+1. Craft the function in Excel.
+2. Use SpreadsheetCoder to translate it into VisualBasic for internal Excel utilization.
+3. Convert it into the chosen target language.
+
+Note: If the user uses the VisualBasic version of certain set of logical steps to create a larger Excel function, SpreadsheetCoder will utilize the definition of the component function to translate the larger Excel function.
+
+For functionalities outside SpreadsheetCoder's default offerings, users can:
+1. Adjust the open-source SpreadsheetCoder code.
+2. Implement the XML libraries without modifying the core.
+
+## Expanding SpreadsheetCoder's Functionality using the XML
+
+### Example:
+
+You wish to employ the Teradata `STRTOK` function within a custom Excel function you will create. STRTOK extracts tokens (substrings) from a string based on defined delimiters, returning the nth specified token. For the string "apple,banana,cherry", using a comma as the delimiter and requesting the 2nd token would return "banana". Consider three ways to do this. All three will require you to let SpreadsheetCoder know that STRTOK is a valid function in the target language (teradata) by designated the XML function as a stub function (details in the `LangSpec` section below).
+
+### Method 1: VisualBasic
+
+For those proficient in VisualBasic,  code in VisualBasic a function mirroring the desired target language function.  In this example, develop a VBA function named `STRTOK` analogous to the Teradata version. Then, convert your custom function to the target language.
+
+### Method 2: Auto-VisualBasic
+
+If users can define the logic of the target language function in Excel, they can rely on SpreadsheetCoder to generate VisualBasic code. Subsequent steps mirror Method 1.
+
+### Method 3: Utilizing Transforms
+
+Transforms offer an alternative. When Excel has a similar yet distinct function, transforms bridge the gap.  `STRTOK` isn't the best example, but converting `MID` to Teradata's analogous `SUBSTRING` function is straightforward. By creating a simple transform, `MID` is converted to `SUBSTRING`.
+
+> **Note**: 
+> In 'Strict' mode, the XML function format resides in a text box on the function's page. Alternatively or in addition, storing the `.XML` format in **SpreadsheetCoder/XMLFunctions** (path alterable with `XMLFunctionLibraryPath`) grants SpreadsheetCoder ongoing access. This XML collection constitutes SpreadsheetCoder's function library, while **SpreadsheetCoder/XMLTransformations** holds transformation libraries.
+
 # XML Functions File Documentation
 
 ## Overview
-The SpreadsheetCoder application uses XML-like files to decompose complex functions into simpler, mappable components.  This XML Function format is stored within a text box one the page of the function when using 'Strict' mode. SpreadsheetCoder can then use those definitions when translating other functions if this function is embedded. Also when put in a .XML file and stored in the folder "SpreadsheetCoder/XMLFunctions" (the actual location can be overridden using the named range XMLFunctionLibraryPath within the SC file) then SpreadsheetCoder always has access to the function definition. That XML files in that folder are collectively the 'library' of functions that SpreadsheetCoder has access to.
 
-SpreadsheetCoder can create these files for you automatically of course. All you need to do is to set the target language to XML and run SpreadsheetCoder. If you want the output added to your library, move the restulting file into your library directory. However there are some properties that it doesn't automatically set which may be valuable to you. This is within the LangSpec section.
+SpreadsheetCoder uses XML-like files to break down intricate functions into basic, mappable elements. These definitions aid in translating embedded functions. Once stored in "SpreadsheetCoder/XMLFunctions" (location adjustable via `XMLFunctionLibraryPath` in the SC file), SpreadsheetCoder consistently accesses this function library.
 
-## Main Elements:
+## Key Elements:
+
 ### CodeCalculation
-This is the root element. It contains attributes such as:
-- **Name**: The name of the complex function being defined.
-- **Version**: The version of the function definition.
-- **HasMultipleOutputs**: A flag indicating whether the function has multiple outputs (1 for true, 0 for false).
+
+Root element with attributes like:
+- **Name**: Defined complex function.
+- **Version**: Function version.
+- **HasMultipleOutputs**: Indicates if multiple outputs exist (1 for true, 0 for false).
 
 ### LangSpec
-Provides details on how the function should be treated for a specific target language. Attributes include:
-- **Language**: The ID representing the target language. Mapped as:
+
+Details on target language-specific function handling. Attributes encompass:
+- **Language**: Target language ID.
   - **1**: VB - Simple
   - **2**: SQL - Simple
   - **3**: VB - Complex
@@ -25,16 +69,12 @@ Provides details on how the function should be treated for a specific target lan
   - **8**: SQL - Tera - Function
   - **9**: SQL - Tera - Proc
   - **10**: Excel
-- **ProcessStub**: A flag indicating the approach towards processing the function for the specific language.
-  - If set to **1** (true), the application will use only the name of the function and its inputs, without breaking down the function into its constituent parts. This is particularly useful when the complex function already has a direct representation in the target language.
-  - If set to **0** (false), the function will be broken down as per its detailed definition.
-- **Skip**: Indicates whether the function should be skipped or processed for the specified language. (1 for skip, 0 for process)
+- **ProcessStub**: Dictates function processing for a particular language.
+- **Skip**: Dictates if the function is processed or skipped (1 for skip, 0 for process).
 
 ### Inputs
-Contains child elements for each input the function takes.
 
-#### Input
-Represents a single input. Attributes include:
+Houses individual function input elements.
 - **InputId**: The position or order of the input.
 - **Name**: Descriptive name of the input.
 - **Type**: The type of input. Mapped as:
@@ -44,47 +84,41 @@ Represents a single input. Attributes include:
   - **3**: Date
 
 ### InputDependencies
-Lists the dependencies between inputs and nodes. Each InputDependency element has:
-- **InputId**: Which input it refers to.
-- **NodeId**: The node that this input affects.
+
+Specifies dependencies between inputs and nodes.
 
 ### FunctionNodes
-Contains definitions for each functional node used in the calculation.
 
-#### FunctionNode
-Represents a specific function. Attributes include:
-- **NodeId**: The ID of the function node.
-- **Name**: The name of the function.
-- **HasMultipleChildren**: Indicates if the function has multiple children nodes (1 for true, 0 for false).
+Holds each functional node definition.
 
 ### ConstantNodes
-Defines constants used in the function.
 
-#### ConstantNode
-A specific constant value. Attributes are:
-- **NodeId**: The ID of the constant node.
-- **Type**: The type of constant. (Mapping is the same as for input types.)
-- **Value**: The actual value of the constant.
-- **HasMultipleChildren**: Indicates if the constant node has multiple children nodes (1 for true, 0 for false).
+Describes constants within the function.
 
-### NamedNodes and NodeComments
-These sections seem to be placeholders and don't contain information in the given example. Further details would be needed to document them.
+### NamedNodes & NodeComments
+
+Seemingly placeholders; comprehensive documentation requires additional details.
 
 ### Outputs
-Describes the outputs of the function.
 
-#### Output
-A single output. Attributes include:
-- **Id**: The output's ID.
-- **Name**: The name of the output.
-- **Type**: The type of output (Mapped as described in the Inputs section).
-- **NodeId**: Refers to the node that computes this output.
+Portrays function outputs.
 
 ### NodeDependencies
-Lists the dependencies between nodes, describing how they are interconnected.
 
-#### NodeDependency
-Describes a specific connection. Attributes include:
-- **ParentNodeId**: The ID of the parent node.
-- **ChildNodeId**: The ID of the child node that depends on the parent.
-- **ParentPosition**: Indicates the position/order in which the child node references the parent.
+Illustrates interconnected nodes.
+
+# Transform File Documentation for SpreadsheetCoder
+
+## Overview
+
+Transform files instruct SpreadsheetCoder to transition one format to another. The main distinction between XML Function and Transform lies in their handling of complex scenarios.
+
+### Key Differences: Outputs
+
+Transform files necessitate defining two primary outputs in the `Outputs` section:
+1. **From**: Original pattern.
+2. **To**: Transformed pattern.
+It can also include as many additional ouptuts as desired. each of these is considered "safe", meaning that when the transform recognizes that pattern it won't apply this transformation to any internally matching part of the transformation.
+
+> **Note**:
+> If an XML Function has a singular output, the same result can be achieved using a transform. The transformation hinges on referencing all inputs in the 'From' cell (or upstream calculations referencing the inputs) and presenting the transformed code in the 'To' cell (or upstream calculations referenceing the inputs).
