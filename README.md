@@ -3,40 +3,48 @@
 Some background:
 * The purpose of this Excel macro is to allow you to convert a function you've written in Excel into another programming language.
 
-How to:
-* Prep your environment.
-  * You'll want a folder in your user directory titled "SpreadsheetCoder". Move the sc.xlsm file into that folder. [You could override this and use a different folder name but let's keep it simple to get started.]
-  * Create a subfolder within the "SpreadsheetCoder" folder and name it "XMLLibrary". While this folder can technically be empty, it's recommended to begin with the contents provided in the "XMLLibrary" subfolder.
-  * You also need a subfolder named "XMLTransforms". Copy the files in this subfolder's XMLTransforms into that.
-  * Open sc.xlsm.
-    * Note: The file uses macros. Make sure to enable the macros for this to work (See [how to enable macros](https://support.microsoft.com/en-us/topic/a-potentially-dangerous-macro-has-been-blocked-0952faa0-37e7-4316-b61d-5b5ed6024216)).
-  * In the Trust Center, check 'Trust access to the VBA project object model'.
-    * **Note**: This module allows the creation of VBA code (and other languages). To allow this VBA code to generate more VBA code, this option must be enabled.
-    * **Caution**: This setting might be exploited by malware. Do not run untrusted macros when this option is enabled. For more details on accessing the Trust Center, refer to the troubleshooting section.
-* Now code a function from excel.
-* You'll need to have two spreadsheets open: 1) the spreadsheet containing the function you wish to convert into code, and 2) the spreadsheet coder file.
-* The spreadsheet coder excel file name needs to begin with "sc". (If you don't change the name, you're good here.)
-* You will need to prep your excel function
-  * Put all of the input cells for your function in a range of cells arranged verically (i.e. width = 1, height = however many inputs you want)
-  * Label your inputs one cell to the left of each input.
-  * Put all of your output cells for your function in a similar range
-  * Label your outputs for your function to the left of each output.
-  * Give your function a name. If your function has a single output then the name to the left of that output will be the name of the function.
-  * If your function has multiple outputs it is a bit more tricky.
-    * If your function has more than one output, put the function name in the following arbitrary location: 
-    * Put the name in the cell just above the first label for the first output cell.
-  * Avoid using 
-    * Text manipulation functions. This is really just for math stuff. That doesn't mean you can't make it work, but it might be more trouble than its worth.
-    * Indirect or any weird functions like that.
-    * Functions that operate on ranges of cells. You can get away with sum, product and some of the lookup functions. 
-      * [placeholder for listing a lot of other limitations]
-* Make sure the settings on your "Options" tab of the spreadsheet are what you want. Defaults are a good place to start.
-* Run the Macro "Create" from your worksheet that has the function in it. If you aren't sure how to run a macro see troubleshooting section below.
-* It will prompt you to select your input and output cells. The default setting utilizes strict mode, which mandates the presence of test cases.
-    * To create test cases, allocate one row for each test case. For each function input, design one column. For a practical example, refer to the file [How_to_do_lookups.xlsm](./How_to_do_lookups.xlsm).
-* When complete, a popup box that says "Complete" will show. [If you are looking at the VB page you might not see it as it shows in excel.]
+### 1. Environment Preparation:
+- **Directory Structure**: Create a folder in your user directory titled "SpreadsheetCoder".
+  - Move the `sc.xlsm` file into the created folder.
+  - Within "SpreadsheetCoder", create subfolders: "XMLLibrary" and "XMLTransforms".
+  - Copy provided contents into the respective folders.
+- **Macro Settings**: 
+  - Open `sc.xlsm` and [enable the macros](https://support.microsoft.com/en-us/topic/a-potentially-dangerous-macro-has-been-blocked-0952faa0-37e7-4316-b61d-5b5ed6024216).
+  - In the Trust Center, enable 'Trust access to the VBA project object model'.
+    - **Caution**: Beware of malware. Only run trusted macros when this option is on. More details are in the troubleshooting section.
 
-* That's it. Depending on your settings the code will be saved in a file. If so, the file will be located in the SpreadsheetCoder directory referenced above. If you re-run it again with the same functionName it will save over the old one, so if you want to keep the old one make sure to rename or copy it before running the create macro again for that function.
+### 2. Coding a Function in Excel:
+- **Spreadsheet Selection**: Open two spreadsheets:
+  1. The spreadsheet containing the function you wish to convert.
+  2. The `spreadsheetCoder` file. Don't rename. The name must start with "sc".
+  
+- **Function Organization**: 
+  - **Inputs**:
+    - Arrange input cells vertically.
+    - Label them to the left.
+  - **Outputs**:
+    - Organize output cells in the same vertical manner.
+    - Label them on the left side.
+    - If there's a single output, its label is the function name.
+    - For multiple outputs, place the function name directly above the label of the first output.
+  
+- **Coding Restrictions**: 
+  - Avoid text manipulation functions.
+  - Refrain from using indirect or unconventional functions.
+  - Do not use functions that operate on cell ranges. 
+    - Exceptions include `sum`, `product`, and some lookup functions. 
+
+### 3. Execution:
+- **Settings Check**: Ensure the settings in the "Options" tab of your spreadsheet are as desired. Begin with default settings.
+- **Macro Execution**: 
+  - Run the "Create" Macro from your worksheet containing the target function.
+  - If unfamiliar with running macros, refer to the troubleshooting section below.
+  - During execution, select your input and output cells as prompted.
+  - Use strict mode is preferred as it provides advantages but also requires test case presence. For test case creation, see [How_to_do_lookups.xlsm](./How_to_do_lookups.xlsm).
+  
+- **Completion**: A "Complete" popup will appear once the macro has finished. If you are viewing the VB window you may miss it as it shows in Excel.
+
+- **Output**: By default spreadsheetCoder will generate a VBA function in your spreadsheet that replicates your Excel function. If you change the settings to generate VBA or another coding language as a file, the generated code will save within the "SpreadsheetCoder" directory. If you execute the macro again with the same function name, it overwrites the previous file. Rename or copy the old one to keep it.
 
 Enjoy.
 
