@@ -48,6 +48,10 @@ Some background:
 
 Enjoy.
 
+Additional information
+* [XML_Functions_and_Transforms.md](./XML_Functions_and_Transforms.md)
+* [How_to_do_lookups.xlsm](./How_to_do_lookups.xlsm)
+  
 Troubleshooting
 * How to run a macro.
 	* Enable the Developer ribbon in Excel
