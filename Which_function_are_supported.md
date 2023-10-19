@@ -1,25 +1,32 @@
-The purpose of this page is to give you some understanding of how spreadsheetCoder works internally.
+# Understanding How `spreadsheetCoder` Works Internally
 
-There are multiple ways that a function in excel can get coded into the target language.
-1. Direct support for the target language
-The way spreadsheetCoder works, each target language has its logic (implemented as a class module in core) which takes the final steps of translating the logic of the function into the target language. As part of this process that logic can check for a specific excel function and translate it into a specific function in the target language. 
+`spreadsheetCoder` translates Excel functions into the target language code. This document aims to explain the mechanisms behind this transformation.
 
-This is the way all of the languages handle the simple math functions like plus, minus, multiply etc.  Some languages also handle additional functions like this. To see an example of that look at how "ROUNDDOWN" is handled in the class module SQL_2KF.
+## 1. **Direct Support for the Target Language**
+Each target language within `spreadsheetCoder` has its own logic, implemented as a class module in core. This logic facilitates the translation of specific Excel functions into their equivalents in the target language.
 
-2. Breakapart support
-Before creating the specific target language code, SpreadsheetCoder breaks apart some of the function logic into more basic functional components. This breakapart support is independent of the target langauge.
+- **Example:** All languages translate basic math functions (e.g., plus, minus, multiply) directly. However, some might handle additional functions too. For a detailed example, observe the handling of "ROUNDDOWN" in the `SQL_2KF` class module.
 
-For example the function sum will breakapart all of the inputs into a bunch of addition functions. 
+## 2. **Breakapart Support**
+Before generating the specific target language code, `spreadsheetCoder` dissects some function logic into simpler functional units. This process remains consistent irrespective of the target language.
 
-Even though the process itself is not dependent on the target language, within the logic of a specific target language (it's class module) there is an opportunity for that class module to override the breakapart. So using the same example of sum, if a target language has a built in sum function that works like Excel's sum function (i.e. it can take any number of inputs and it will add them together), the class module can override for SUM so that it isn't broken apart as part of that process. This will then give the class module the ability to code that directly.
+- **Example:** The `SUM` function in Excel breaks apart its inputs into individual addition functions. Though the breaking apart mechanism doesn't change based on the target language, each target language's logic (its class module) can choose to override it. So, if a language supports a `SUM` function similar to Excel's, its class module can directly use that instead of allowing the breakapart process to convert it to a set of additions which get translated into the language that way.
 
-3. XML Library support
-If a function has a fixed number of inputs, you can add support for it to SpreadsheetCoder if you can describe the logic with functions that SpreadsheetCoder already supports. I have already done this for a number of functions and these are part of the  XML library on github.
+## 3. **XML Library Support**
+For functions with a fixed number of inputs, you can enhance `spreadsheetCoder` by defining the logic using functions it already recognizes. Several such functions are part of the XML library on GitHub.
 
-Though you have to be careful not to create circular dependencies, one of the functions within the library can include a function that is also in the library.
+**Note:** Avoid creating circular dependencies. It's permissible for one library function to reference another as long as dependencies don't loop.
 
-For example, PV is a handy function to calculate the present value of an annuity. If you look at the excel help for this function it will tell you how to use it and by following the link for more information you can see the formula Excel uses to calculate the value.
+- **Example:** The Excel function `PV` calculates the present value of an annuity. If `PV` wasn't pre-defined in the XML Library, and you wanted to use it as part of a function that is translated into a target language like Teradata, you could of course do the following manual method.
 
-Suppose you have logic for a function in Excel and you want to translate that to run on Teradata. The function in Excel makes use of PV and for this discussion let's suppose PV wasn't already defined in the XML Library. 
+    1. Understand the formula behind Excel's `PV` from its help documentation.
+    2. In your Excel file, you could replace `PV` with its underlying calculations.
 
-Given that you know the formula for PV (you can see it in the Excel help) you could in your Excel file get rid of PV and just use the more basic calculations to calcule the present value; however, this will make your code harder to read, more error prone and will get tedious if you use PV multiple times and in different functions. So what you can do instead is you can create a function that mimics what the built-in Excel PV does. Then set your target language to XML and create the XML file that incorporates that. You'll get a file like the PV.XML file that is already in the XML Function library. But if it weren't already there, you would then put the file you created there and that means that now you can use Excel's PV function in any function you need to translate into your target language and spreadsheetCoder behind the scenes will translate it into the target language at the appropriate spots. From the perspective of the resulting code it will be the same as if you had removed the PV function from your Excel calculations and replaced them with the formula directly that Excel uses to calculate PV.
+But, this work around would complicate your code in Excel. To avoid this you could add to the XML library. (We are assumign for this example it isn't already there--though it is). 
+
+    1. Design a function in Excel that mirrors Excel's `PV`. 
+    2. In your spreadsheetCoder settings, change the target language to XML
+    3. Generate the corresponding XML file. Because you named the output "PV", and there is a single output, the file will be named `PV.XML` and will be saved to your spreadsheetCoder folder.
+    4. Move the XML file to the XML Function library. 
+
+After these steps whenever you use Excel's `PV`, `spreadsheetCoder` will translate it using the underlying formula represented in the XML file in the library.
