@@ -33,7 +33,7 @@ How to:
 * Make sure the settings on your "Options" tab of the spreadsheet are what you want. Defaults are a good place to start.
 * Run the Macro "Create" from your worksheet that has the function in it. If you aren't sure how to run a macro see troubleshooting section below.
 * It will prompt you to select your input and output cells. The default setting utilizes strict mode, which mandates the presence of test cases.
-    * To create test cases, allocate one row for each test case. For each function input, design one column. For a practical example, refer to the file [How_to_do_lookups.xlsm](#).
+    * To create test cases, allocate one row for each test case. For each function input, design one column. For a practical example, refer to the file [How_to_do_lookups.xlsm](./How_to_do_lookups.xlsm).
 * When complete, a popup box that says "Complete" will show. [If you are looking at the VB page you might not see it as it shows in excel.]
 
 * That's it. Depending on your settings the code will be saved in a file. If so, the file will be located in the SpreadsheetCoder directory referenced above. If you re-run it again with the same functionName it will save over the old one, so if you want to keep the old one make sure to rename or copy it before running the create macro again for that function.
