@@ -17,16 +17,22 @@ For functions with a fixed number of inputs, you can enhance `spreadsheetCoder` 
 
 **Note:** Avoid creating circular dependencies. It's permissible for one library function to reference another as long as dependencies don't loop.
 
-- **Example:** The Excel function `PV` calculates the present value of an annuity. If `PV` wasn't pre-defined in the XML Library, and you wanted to use it as part of a function that is translated into a target language like Teradata, you could of course do the following manual method.
+- **Example with Excel's `PV` function:** 
 
-    1. Understand the formula behind Excel's `PV` from its help documentation.
-    2. In your Excel file, you could replace `PV` with its underlying calculations.
+The `PV` function in Excel calculates the present value of an annuity. Suppose it wasn't already part of the XML Library (although in reality it is), and you needed to use it in a function that translates to a target language like Teradata. 
 
-But, this work around would complicate your code in Excel. To avoid this you could add to the XML library. (We are assumign for this example it isn't already there--though it is). 
+A straightforward method would be to:
 
-    1. Design a function in Excel that mirrors Excel's `PV`. 
-    2. In your spreadsheetCoder settings, change the target language to XML
-    3. Generate the corresponding XML file. Because you named the output "PV", and there is a single output, the file will be named `PV.XML` and will be saved to your spreadsheetCoder folder.
-    4. Move the XML file to the XML Function library. 
+  1. Look at Excel's help documentation to find the formula behind `PV`.
+  2. Directly replace the `PV` function in your Excel file with its underlying formula.
 
-After these steps whenever you use Excel's `PV`, `spreadsheetCoder` will translate it using the underlying formula represented in the XML file in the library.
+However, this approach can clutter your Excel file, making it harder to manage.
+
+**A better alternative:** Enhance the XML library.
+
+  1. Create a function in Excel that imitates the behavior of Excel's `PV`.
+  2. Adjust your `spreadsheetCoder` settings, setting the target language to XML.
+  3. Run the create macro to generate the corresponding XML file. Given the output name is "PV" and there's only one output, the file will be named `PV.XML` and stored in your `spreadsheetCoder` directory.
+  4. Relocate this XML file to the XML Function library.
+
+After these actions, each time you use Excel's `PV` function, `spreadsheetCoder` will utilize the formula encapsulated in the XML library file for translation.
