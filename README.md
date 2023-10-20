@@ -1,8 +1,6 @@
-# spreadsheetCoder
 ![image of painter painting spreadsheet and computer generating corresponding code](./images/spreadsheetCoder.png)
 
-Some background:
-* The purpose of this Excel macro is to allow you to convert a function you've written in Excel into another programming language.
+spreadsheetCoder is an Excel macro which can convert a function you've written in Excel into another programming language.
 
 ### 1. Environment Preparation:
 - **Directory Structure**: Create a folder in your user directory titled "SpreadsheetCoder".
