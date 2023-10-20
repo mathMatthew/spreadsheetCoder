@@ -1,4 +1,5 @@
 # spreadsheetCoder
+![image of painter painting spreadsheet and computer generating corresponding code](./images/spreadsheetCoder.png)
 
 Some background:
 * The purpose of this Excel macro is to allow you to convert a function you've written in Excel into another programming language.
