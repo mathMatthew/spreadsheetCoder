@@ -63,12 +63,12 @@ Below is the document structure for the resulting XML files.
 ### CodeCalculation
 
 Root element with attributes like:
-- **Name**: Defined complex function.
-- **Version**: Function version.
+- **Name**: The name of the defined function.
+- **Version**: The XML Format version used for encoding the logic. The current version is 4.0.
 - **HasMultipleOutputs**: Indicates if multiple outputs exist (1 for true, 0 for false).
 - **AppliesTo**: Two possible values:  'All except skip' and 'Only where defined'. Not case sensitive.
-  - 'All except skip' means that this XML file will be used for any language except there is a LangSpec record for that language designated Skip. 
-  - 'Only where defined' means that this XML file will not be used for any language unless there is a LangSpec record for it. Even then if there is a LangSpec record for that language which says to Skip for this language it will still, of course not be used.
+  - 'All except skip' means that this XML file will be used for any language except when there is a LangSpec record for that language designated Skip. 
+  - 'Only where defined' means that this XML file will not be used for any language unless there is a LangSpec record for it. Even then if there is a LangSpec record for that language which says to Skip for this language it will still, of course, not be used.
 
 ### LangSpec
 
