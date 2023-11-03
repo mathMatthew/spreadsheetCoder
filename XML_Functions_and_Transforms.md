@@ -1,5 +1,7 @@
 # XML Format for spreadsheetCoder Translations
 
+This page explains several concepts helpful for extending the core functionality of spreadsheetCoder.
+
 ## Overview
 
 spreadsheetCoder employs XML libraries to enhance functionality, offering two types:
