@@ -39,7 +39,7 @@ spreadsheetCoder is an Excel macro which can convert a function you've written i
   - Run the "Create" Macro from your worksheet containing the target function.
   - If unfamiliar with running macros, refer to the troubleshooting section below.
   - During execution, select your input and output cells as prompted.
-  - Use strict mode is preferred as it provides advantages but also requires you to create test cases. For test case creation, see [How_to_do_lookups.xlsm](./How_to_do_lookups.xlsm).
+  - Use strict mode is preferred as it provides advantages but also requires you to create test cases. For test case creation, look at the examples in the file [How to do lookups](./How_to_do_lookups.xlsm).
   
 - **Completion**: A "Complete" popup will appear once the macro has finished. If you are viewing the VB window you may miss it as it shows in Excel.
 
@@ -49,7 +49,8 @@ Enjoy.
 
 ### Additional information
 * [XML_Functions_and_Transforms](./XML_Functions_and_Transforms.md)
-* [How_to_do_lookups.xlsm](./How_to_do_lookups.xlsm)
+* Download: [How to do lookups](./How_to_do_lookups.xlsm)
+* [Understanding how spreadsheetCoder works internally](./Which_function_are_supported.md)
   
 ### Troubleshooting
 * How to run a macro.
