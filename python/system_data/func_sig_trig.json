@@ -1,0 +1,64 @@
+{
+  "signatures": {
+    "ACOS": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "ASIN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "ATAN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "COS": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "SIN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "TAN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ]
+  }
+}

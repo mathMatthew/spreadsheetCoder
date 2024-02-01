@@ -1,0 +1,784 @@
+{
+    "signatures": {
+        "N": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": " -(",
+                "code_after": ")"
+            }
+        ],
+        "NOT": [
+            {
+                "inputs": [
+                    "Boolean"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": " not "
+            }
+        ],
+        "ABS": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "abs(",
+                "code_after": ")"
+            }
+        ],
+        "SIN": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.sin(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "COS": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.cos(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "TAN": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.tan(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "ASIN": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.asin(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "ACOS": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.acos(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "ATAN": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.atan(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "SQRT": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.sqrt(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "EXP": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.exp(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "LN": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.log(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "LOG10": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.log10(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "FACT": [
+            {
+                "inputs": [
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "math.factorial(",
+                "code_after": ")",
+                "module": "math"
+            }
+        ],
+        "SUM": [
+            {
+                "inputs": [
+                    "Multiple[Number]"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "sum([",
+                "code_after": "])"
+            }
+        ],
+        "MIN": [
+            {
+                "inputs": [
+                    "Multiple[Number]"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "min([",
+                "code_after": "])"
+            }
+        ],
+        "MAX": [
+            {
+                "inputs": [
+                    "Multiple[Number]"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "max([",
+                "code_after": "])"
+            }
+        ],
+        "AND": [
+            {
+                "inputs": [
+                    "Multiple[Boolean]"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "code_before": "all([",
+                "code_after": "])"
+            }
+        ],
+        "OR": [
+            {
+                "inputs": [
+                    "Multiple[Boolean]"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "code_before": "any([",
+                "code_after": "])"
+            }
+        ],
+        "PRODUCT": [
+            {
+                "inputs": [
+                    "Multiple[Number]"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "code_before": "reduce(lambda x, y: x * y, [",
+                "code_after": "], 1)"
+            }
+        ],
+        "+": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "operator": "+",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Date",
+                    "Number"
+                ],
+                "outputs": [
+                    "Date"
+                ],
+                "code_before": "add_on.add_days_to_datetime(",
+                "code_after": ")",
+                "module": "add_on"
+            }
+        ],
+        "-": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "operator": "-",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Date",
+                    "Number"
+                ],
+                "outputs": [
+                    "Date"
+                ],
+                "code_before": "add_on.subtract_days_from_datetime(",
+                "code_after": ")",
+                "module": "add_on"
+            }
+        ],
+        "*": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "operator": "*",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "/": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "operator": "/",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "^": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "operator": "**",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "MOD": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "operator": "%",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        ">": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": ">",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "<": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "<",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        ">=": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": ">=",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "<=": [
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "<=",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "&": [
+            {
+                "inputs": [
+                    "Text",
+                    "Text"
+                ],
+                "outputs": [
+                    "Text"
+                ],
+                "operator": "+",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "=": [
+            {
+                "inputs": [
+                    "TABLE_COLUMN[Number]",
+                    "Number"
+                ],
+                "outputs": [
+                    "TABLE_COLUMN[Boolean]"
+                ],
+                "operator": " == ",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "TABLE_COLUMN[Text]",
+                    "Text"
+                ],
+                "outputs": [
+                    "TABLE_COLUMN[Boolean]"
+                ],
+                "operator": " == ",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "ARRAY[Number]",
+                    "Number"
+                ],
+                "outputs": [
+                    "ARRAY[Boolean]"
+                ],
+                "code_before": "add_on.sc_compare_elements(",
+                "code_after": ")",
+                "module": "add_on"
+            },
+            {
+                "inputs": [
+                    "ARRAY[Text]",
+                    "Text"
+                ],
+                "outputs": [
+                    "ARRAY[Boolean]"
+                ],
+                "code_before": "add_on.sc_compare_elements(",
+                "code_after": ")",
+                "module": "add_on"
+            },
+            {
+                "inputs": [
+                    "Text",
+                    "Text"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "==",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "==",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Date",
+                    "Date"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "==",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Boolean",
+                    "Boolean"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "==",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "<>": [
+            {
+                "inputs": [
+                    "Text",
+                    "Text"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "!=",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "!=",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Date",
+                    "Date"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "!=",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Boolean",
+                    "Boolean"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "!=",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "AND2": [
+            {
+                "inputs": [
+                    "Boolean",
+                    "Boolean"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "and",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "TABLE_COLUMN[Boolean]",
+                    "TABLE_COLUMN[Boolean]"
+                ],
+                "outputs": [
+                    "TABLE_COLUMN[Boolean]"
+                ],
+                "operator": " & ",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "OR2": [
+            {
+                "inputs": [
+                    "Boolean",
+                    "Boolean"
+                ],
+                "outputs": [
+                    "Boolean"
+                ],
+                "operator": "or",
+                "code_before": "(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "TABLE_COLUMN[Boolean]",
+                    "TABLE_COLUMN[Boolean]"
+                ],
+                "outputs": [
+                    "TABLE_COLUMN[Boolean]"
+                ],
+                "operator": " | ",
+                "code_before": "(",
+                "code_after": ")"
+            }
+        ],
+        "IF": [
+            {
+                "inputs": [
+                    "Boolean",
+                    "Number",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_if(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "Boolean",
+                    "Text",
+                    "Text"
+                ],
+                "outputs": [
+                    "Text"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_if(",
+                "code_after": ")"
+            }
+        ],
+        "FILTER": [
+            {
+                "inputs": [
+                    "ARRAY[Number]",
+                    "ARRAY[Boolean]",
+                    "Number"
+                ],
+                "outputs": [
+                    "ARRAY[Number]"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_filter(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "ARRAY[Text]",
+                    "ARRAY[Boolean]",
+                    "Text"
+                ],
+                "outputs": [
+                    "ARRAY[Text]"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_filter(",
+                "code_after": ")"
+            }
+        ],
+        "SC_FIRST_TRUE": [
+            {
+                "inputs": [
+                    "ARRAY[Date]",
+                    "ARRAY[Boolean]",
+                    "Date"
+                ],
+                "outputs": [
+                    "Date"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_first_true(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "ARRAY[Text]",
+                    "ARRAY[Boolean]",
+                    "Text"
+                ],
+                "outputs": [
+                    "Text"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_first_true(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "ARRAY[Number]",
+                    "ARRAY[Boolean]",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_first_true(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "TABLE_COLUMN[Text]",
+                    "TABLE_COLUMN[Boolean]",
+                    "Text"
+                ],
+                "outputs": [
+                    "Text"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_first_true_pd(",
+                "code_after": ")"
+            },
+            {
+                "inputs": [
+                    "TABLE_COLUMN[Number]",
+                    "TABLE_COLUMN[Boolean]",
+                    "Number"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_first_true_pd(",
+                "code_after": ")"
+            }
+        ],
+        "EOMONTH": [
+            {
+                "inputs": [
+                    "Date",
+                    "Number"
+                ],
+                "outputs": [
+                    "Date"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_eomonth(",
+                "code_after": ")"
+            }
+        ],
+        "LOOKUP": [
+            {
+                "inputs": [
+                    "Date",
+                    "TABLE_COLUMN[Date]",
+                    "TABLE_COLUMN[Number]"
+                ],
+                "outputs": [
+                    "Number"
+                ],
+                "module": "add_on",
+                "code_before": "add_on.sc_lookup(",
+                "code_after": ")"
+            }
+        ]
+    }
+}

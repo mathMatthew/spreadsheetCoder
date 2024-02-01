@@ -1,0 +1,14 @@
+{
+  "signatures": {
+    "FACT": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ]
+  }
+}

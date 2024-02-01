@@ -1,0 +1,15 @@
+{
+  "signatures": {
+    "&": [
+      {
+        "inputs": [
+          "Text",
+          "Text"
+        ],
+        "outputs": [
+          "Text"
+        ]
+      }
+    ]
+  }
+}

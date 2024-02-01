@@ -1,0 +1,46 @@
+{
+  "signatures": {
+    "INDEX": [
+      {
+        "inputs": [
+          "ARRAY[Text]",
+          "Number"
+        ],
+        "outputs": [
+          "Text"
+        ]
+      },
+      {
+        "inputs": [
+          "ARRAY[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "MATCH": [
+      {
+        "inputs": [
+          "Number",
+          "ARRAY[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      },
+      {
+        "inputs": [
+          "Text",
+          "ARRAY[Text]",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ]
+  }
+}

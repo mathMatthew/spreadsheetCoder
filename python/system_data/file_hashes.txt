@@ -1,0 +1,2 @@
+sql_supported_functions.jcd,34e2bb5afe0aadbfd5b525be591649b6
+sql_supported_functions.json,0e06324b57d97093f0abd297dd5c9bc0

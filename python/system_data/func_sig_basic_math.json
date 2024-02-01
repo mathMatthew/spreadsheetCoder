@@ -1,0 +1,141 @@
+{
+  "signatures": {
+    "%": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "*": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "+": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "-": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "/": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "ABS": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "EXP": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "LN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "LOG10": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "MOD": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "N": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "SQRT": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "^": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ]
+  }
+}

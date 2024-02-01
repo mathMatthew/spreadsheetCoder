@@ -1,0 +1,1569 @@
+<CodeCalculation Name="myPandL" Version="4" AppliesTo="All except skip" HasMultipleOutputs="0">
+	<Inputs>
+		<Input InputId="1" Name="Fees" Type="1"/>
+		<Input InputId="2" Name="Balance" Type="1"/>
+		<Input InputId="3" Name="interest" Type="1"/>
+		<Input InputId="4" Name="cof_rate" Type="1"/>
+		<Input InputId="5" Name="cost_per_bal" Type="1"/>
+		<Input InputId="6" Name="tax_rate" Type="1"/>
+	</Inputs>
+	<InputDependencies>
+		<InputDependency InputId="1" NodeId="1"/>
+		<InputDependency InputId="3" NodeId="2"/>
+		<InputDependency InputId="2" NodeId="5"/>
+		<InputDependency InputId="2" NodeId="7"/>
+		<InputDependency InputId="4" NodeId="8"/>
+		<InputDependency InputId="1" NodeId="13"/>
+		<InputDependency InputId="5" NodeId="15"/>
+		<InputDependency InputId="2" NodeId="16"/>
+		<InputDependency InputId="6" NodeId="21"/>
+	</InputDependencies>
+	<TestCases>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="490"/>
+			<OutputValue Type="1" Value="-49"/>
+			<OutputValue Type="1" Value="441"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="166.666666666667"/>
+			<OutputValue Type="1" Value="666.666666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="166.666666666667"/>
+			<OutputValue Type="1" Value="-16.6666666666667"/>
+			<OutputValue Type="1" Value="150"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-375"/>
+			<OutputValue Type="1" Value="-375"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-875"/>
+			<OutputValue Type="1" Value="105"/>
+			<OutputValue Type="1" Value="-770"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-1208.33333333333"/>
+			<OutputValue Type="1" Value="-1208.33333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-1708.33333333333"/>
+			<OutputValue Type="1" Value="205"/>
+			<OutputValue Type="1" Value="-1503.33333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-3708.33333333333"/>
+			<OutputValue Type="1" Value="-3208.33333333333"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-5708.33333333333"/>
+			<OutputValue Type="1" Value="685"/>
+			<OutputValue Type="1" Value="-5023.33333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-833.333333333333"/>
+			<OutputValue Type="1" Value="-733.333333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-1233.33333333333"/>
+			<OutputValue Type="1" Value="148"/>
+			<OutputValue Type="1" Value="-1085.33333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="166.666666666667"/>
+			<OutputValue Type="1" Value="216.666666666667"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="206.666666666667"/>
+			<OutputValue Type="1" Value="-20.6666666666667"/>
+			<OutputValue Type="1" Value="186"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="1716.66666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="1216.66666666667"/>
+			<OutputValue Type="1" Value="-121.666666666667"/>
+			<OutputValue Type="1" Value="1095"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="8333.33333333333"/>
+			<OutputValue Type="1" Value="8333.33333333333"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="5833.33333333333"/>
+			<OutputValue Type="1" Value="-583.333333333333"/>
+			<OutputValue Type="1" Value="5250"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-16.6666666666667"/>
+			<OutputValue Type="1" Value="83.3333333333333"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="33.3333333333333"/>
+			<OutputValue Type="1" Value="-3.33333333333333"/>
+			<OutputValue Type="1" Value="30"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="408.333333333333"/>
+			<OutputValue Type="1" Value="458.333333333333"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="358.333333333333"/>
+			<OutputValue Type="1" Value="-35.8333333333333"/>
+			<OutputValue Type="1" Value="322.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="7500"/>
+			<OutputValue Type="1" Value="7600"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="5100"/>
+			<OutputValue Type="1" Value="-510"/>
+			<OutputValue Type="1" Value="4590"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="33.3333333333333"/>
+			<OutputValue Type="1" Value="83.3333333333333"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="73.3333333333333"/>
+			<OutputValue Type="1" Value="-7.33333333333333"/>
+			<OutputValue Type="1" Value="66"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-450"/>
+			<OutputValue Type="1" Value="54"/>
+			<OutputValue Type="1" Value="-396"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="-25"/>
+			<OutputValue Type="1" Value="3"/>
+			<OutputValue Type="1" Value="-22"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-166.666666666667"/>
+			<OutputValue Type="1" Value="-66.6666666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-566.666666666667"/>
+			<OutputValue Type="1" Value="68"/>
+			<OutputValue Type="1" Value="-498.666666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="1741.66666666667"/>
+			<OutputValue Type="1" Value="1841.66666666667"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="1741.66666666667"/>
+			<OutputValue Type="1" Value="-174.166666666667"/>
+			<OutputValue Type="1" Value="1567.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="2166.66666666667"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="2066.66666666667"/>
+			<OutputValue Type="1" Value="-206.666666666667"/>
+			<OutputValue Type="1" Value="1860"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-2450"/>
+			<OutputValue Type="1" Value="245"/>
+			<OutputValue Type="1" Value="-2205"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-3333.33333333333"/>
+			<OutputValue Type="1" Value="-3333.33333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-3833.33333333333"/>
+			<OutputValue Type="1" Value="460"/>
+			<OutputValue Type="1" Value="-3373.33333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="166.666666666667"/>
+			<OutputValue Type="1" Value="666.666666666667"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="656.666666666667"/>
+			<OutputValue Type="1" Value="-78.8"/>
+			<OutputValue Type="1" Value="577.866666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="600"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="550"/>
+			<OutputValue Type="1" Value="-55"/>
+			<OutputValue Type="1" Value="495"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="1766.66666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="1266.66666666667"/>
+			<OutputValue Type="1" Value="-152"/>
+			<OutputValue Type="1" Value="1114.66666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="8333.33333333333"/>
+			<OutputValue Type="1" Value="8833.33333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="8333.33333333333"/>
+			<OutputValue Type="1" Value="-1000"/>
+			<OutputValue Type="1" Value="7333.33333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-7.5"/>
+			<OutputValue Type="1" Value="42.5"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="-7.5"/>
+			<OutputValue Type="1" Value="0.75"/>
+			<OutputValue Type="1" Value="-6.75"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-400"/>
+			<OutputValue Type="1" Value="48"/>
+			<OutputValue Type="1" Value="-352"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="5000"/>
+			<OutputValue Type="1" Value="5000"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="2500"/>
+			<OutputValue Type="1" Value="-300"/>
+			<OutputValue Type="1" Value="2200"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="575"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="475"/>
+			<OutputValue Type="1" Value="-47.5"/>
+			<OutputValue Type="1" Value="427.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-24.1666666666667"/>
+			<OutputValue Type="1" Value="-24.1666666666667"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="-34.1666666666667"/>
+			<OutputValue Type="1" Value="4.1"/>
+			<OutputValue Type="1" Value="-30.0666666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-241.666666666667"/>
+			<OutputValue Type="1" Value="-141.666666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-641.666666666667"/>
+			<OutputValue Type="1" Value="64.1666666666667"/>
+			<OutputValue Type="1" Value="-577.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="575"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="-9"/>
+			<OutputValue Type="1" Value="66"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="90"/>
+			<OutputValue Type="1" Value="-10.8"/>
+			<OutputValue Type="1" Value="79.2"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="8333.33333333333"/>
+			<OutputValue Type="1" Value="8833.33333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="8333.33333333333"/>
+			<OutputValue Type="1" Value="-833.333333333333"/>
+			<OutputValue Type="1" Value="7500"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="125"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-375"/>
+			<OutputValue Type="1" Value="45"/>
+			<OutputValue Type="1" Value="-330"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="90"/>
+			<OutputValue Type="1" Value="-9"/>
+			<OutputValue Type="1" Value="81"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="2166.66666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="-166.666666666667"/>
+			<OutputValue Type="1" Value="1500"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="7.5"/>
+			<OutputValue Type="1" Value="7.5"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="-42.5"/>
+			<OutputValue Type="1" Value="4.25"/>
+			<OutputValue Type="1" Value="-38.25"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="1500"/>
+			<OutputValue Type="1" Value="2000"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="1900"/>
+			<OutputValue Type="1" Value="-190"/>
+			<OutputValue Type="1" Value="1710"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-16.6666666666667"/>
+			<OutputValue Type="1" Value="483.333333333333"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="473.333333333333"/>
+			<OutputValue Type="1" Value="-56.8"/>
+			<OutputValue Type="1" Value="416.533333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-24.1666666666667"/>
+			<OutputValue Type="1" Value="75.8333333333333"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="65.8333333333333"/>
+			<OutputValue Type="1" Value="-7.9"/>
+			<OutputValue Type="1" Value="57.9333333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="6"/>
+			<OutputValue Type="1" Value="-44"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-24.1666666666667"/>
+			<OutputValue Type="1" Value="-24.1666666666667"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="-34.1666666666667"/>
+			<OutputValue Type="1" Value="3.41666666666667"/>
+			<OutputValue Type="1" Value="-30.75"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="375"/>
+			<OutputValue Type="1" Value="875"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="375"/>
+			<OutputValue Type="1" Value="-45"/>
+			<OutputValue Type="1" Value="330"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-1208.33333333333"/>
+			<OutputValue Type="1" Value="-1108.33333333333"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-3608.33333333333"/>
+			<OutputValue Type="1" Value="433"/>
+			<OutputValue Type="1" Value="-3175.33333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-66.6666666666667"/>
+			<OutputValue Type="1" Value="33.3333333333333"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="-16.6666666666667"/>
+			<OutputValue Type="1" Value="2"/>
+			<OutputValue Type="1" Value="-14.6666666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-375"/>
+			<OutputValue Type="1" Value="-325"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-825"/>
+			<OutputValue Type="1" Value="82.5"/>
+			<OutputValue Type="1" Value="-742.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="7500"/>
+			<OutputValue Type="1" Value="8000"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="7500"/>
+			<OutputValue Type="1" Value="-900"/>
+			<OutputValue Type="1" Value="6600"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-16.6666666666667"/>
+			<OutputValue Type="1" Value="33.3333333333333"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="-16.6666666666667"/>
+			<OutputValue Type="1" Value="1.66666666666667"/>
+			<OutputValue Type="1" Value="-15"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-333.333333333333"/>
+			<OutputValue Type="1" Value="-333.333333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-833.333333333333"/>
+			<OutputValue Type="1" Value="83.3333333333333"/>
+			<OutputValue Type="1" Value="-750"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="1741.66666666667"/>
+			<OutputValue Type="1" Value="1791.66666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="1291.66666666667"/>
+			<OutputValue Type="1" Value="-129.166666666667"/>
+			<OutputValue Type="1" Value="1162.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="1166.66666666667"/>
+			<OutputValue Type="1" Value="-140"/>
+			<OutputValue Type="1" Value="1026.66666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="575"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="-7.5"/>
+			<OutputValue Type="1" Value="67.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="33.3333333333333"/>
+			<OutputValue Type="1" Value="533.333333333333"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="483.333333333333"/>
+			<OutputValue Type="1" Value="-48.3333333333333"/>
+			<OutputValue Type="1" Value="435"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="1666.66666666667"/>
+			<OutputValue Type="1" Value="1766.66666666667"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-733.333333333333"/>
+			<OutputValue Type="1" Value="88"/>
+			<OutputValue Type="1" Value="-645.333333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="60"/>
+			<OutputValue Type="1" Value="-440"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-400"/>
+			<OutputValue Type="1" Value="48"/>
+			<OutputValue Type="1" Value="-352"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-33.3333333333333"/>
+			<OutputValue Type="1" Value="466.666666666667"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="456.666666666667"/>
+			<OutputValue Type="1" Value="-45.6666666666667"/>
+			<OutputValue Type="1" Value="411"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-666.666666666667"/>
+			<OutputValue Type="1" Value="-666.666666666667"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="-766.666666666667"/>
+			<OutputValue Type="1" Value="92"/>
+			<OutputValue Type="1" Value="-674.666666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="150"/>
+			<OutputValue Type="1" Value="150"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="140"/>
+			<OutputValue Type="1" Value="-16.8"/>
+			<OutputValue Type="1" Value="123.2"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="150"/>
+			<OutputValue Type="1" Value="250"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="240"/>
+			<OutputValue Type="1" Value="-28.8"/>
+			<OutputValue Type="1" Value="211.2"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="166.666666666667"/>
+			<OutputValue Type="1" Value="266.666666666667"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="216.666666666667"/>
+			<OutputValue Type="1" Value="-26"/>
+			<OutputValue Type="1" Value="190.666666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-16.6666666666667"/>
+			<OutputValue Type="1" Value="483.333333333333"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="433.333333333333"/>
+			<OutputValue Type="1" Value="-43.3333333333333"/>
+			<OutputValue Type="1" Value="390"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="60"/>
+			<OutputValue Type="1" Value="-440"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="5"/>
+			<OutputValue Type="1" Value="-45"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-333.333333333333"/>
+			<OutputValue Type="1" Value="-283.333333333333"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="-383.333333333333"/>
+			<OutputValue Type="1" Value="46"/>
+			<OutputValue Type="1" Value="-337.333333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="125"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-375"/>
+			<OutputValue Type="1" Value="37.5"/>
+			<OutputValue Type="1" Value="-337.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="16.6666666666667"/>
+			<OutputValue Type="1" Value="16.6666666666667"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="-33.3333333333333"/>
+			<OutputValue Type="1" Value="3.33333333333333"/>
+			<OutputValue Type="1" Value="-30"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="7500"/>
+			<OutputValue Type="1" Value="7500"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="5000"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="4500"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="5000"/>
+			<OutputValue Type="1" Value="5500"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="5000"/>
+			<OutputValue Type="1" Value="-600"/>
+			<OutputValue Type="1" Value="4400"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="833.333333333333"/>
+			<OutputValue Type="1" Value="933.333333333333"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-1566.66666666667"/>
+			<OutputValue Type="1" Value="156.666666666667"/>
+			<OutputValue Type="1" Value="-1410"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="450"/>
+			<OutputValue Type="1" Value="-45"/>
+			<OutputValue Type="1" Value="405"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="175"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="75"/>
+			<OutputValue Type="1" Value="-9"/>
+			<OutputValue Type="1" Value="66"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-1666.66666666667"/>
+			<OutputValue Type="1" Value="-1616.66666666667"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-4116.66666666667"/>
+			<OutputValue Type="1" Value="494"/>
+			<OutputValue Type="1" Value="-3622.66666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="16.6666666666667"/>
+			<OutputValue Type="1" Value="16.6666666666667"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="6.66666666666666"/>
+			<OutputValue Type="1" Value="-0.8"/>
+			<OutputValue Type="1" Value="5.86666666666666"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-1666.66666666667"/>
+			<OutputValue Type="1" Value="-1566.66666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-2066.66666666667"/>
+			<OutputValue Type="1" Value="248"/>
+			<OutputValue Type="1" Value="-1818.66666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="5000"/>
+			<OutputValue Type="1" Value="5500"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="5000"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="4500"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="333.333333333333"/>
+			<OutputValue Type="1" Value="383.333333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-116.666666666667"/>
+			<OutputValue Type="1" Value="11.6666666666667"/>
+			<OutputValue Type="1" Value="-105"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-2000"/>
+			<OutputValue Type="1" Value="240"/>
+			<OutputValue Type="1" Value="-1760"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-66.6666666666667"/>
+			<OutputValue Type="1" Value="433.333333333333"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="423.333333333333"/>
+			<OutputValue Type="1" Value="-50.8"/>
+			<OutputValue Type="1" Value="372.533333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-7.5"/>
+			<OutputValue Type="1" Value="-7.5"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="-17.5"/>
+			<OutputValue Type="1" Value="1.75"/>
+			<OutputValue Type="1" Value="-15.75"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-450"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="60"/>
+			<OutputValue Type="1" Value="-440"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-666.666666666667"/>
+			<OutputValue Type="1" Value="-666.666666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-1166.66666666667"/>
+			<OutputValue Type="1" Value="140"/>
+			<OutputValue Type="1" Value="-1026.66666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="833.333333333333"/>
+			<OutputValue Type="1" Value="833.333333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="333.333333333333"/>
+			<OutputValue Type="1" Value="-40"/>
+			<OutputValue Type="1" Value="293.333333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="833.333333333333"/>
+			<OutputValue Type="1" Value="1333.33333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="833.333333333333"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="733.333333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-375"/>
+			<OutputValue Type="1" Value="125"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-2375"/>
+			<OutputValue Type="1" Value="237.5"/>
+			<OutputValue Type="1" Value="-2137.5"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-2450"/>
+			<OutputValue Type="1" Value="294"/>
+			<OutputValue Type="1" Value="-2156"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="375"/>
+			<OutputValue Type="1" Value="475"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-2025"/>
+			<OutputValue Type="1" Value="243"/>
+			<OutputValue Type="1" Value="-1782"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-2450"/>
+			<OutputValue Type="1" Value="294"/>
+			<OutputValue Type="1" Value="-2156"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="150"/>
+			<OutputValue Type="1" Value="250"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="240"/>
+			<OutputValue Type="1" Value="-24"/>
+			<OutputValue Type="1" Value="216"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="16.6666666666667"/>
+			<OutputValue Type="1" Value="66.6666666666667"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="16.6666666666667"/>
+			<OutputValue Type="1" Value="-2"/>
+			<OutputValue Type="1" Value="14.6666666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="7.5"/>
+			<OutputValue Type="1" Value="57.5"/>
+			<OutputValue Type="1" Value="-50"/>
+			<OutputValue Type="1" Value="7.5"/>
+			<OutputValue Type="1" Value="-0.75"/>
+			<OutputValue Type="1" Value="6.75"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="-1666.66666666667"/>
+			<OutputValue Type="1" Value="-1616.66666666667"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-2116.66666666667"/>
+			<OutputValue Type="1" Value="211.666666666667"/>
+			<OutputValue Type="1" Value="-1905"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.05"/>
+			<InputValue Type="1" Value="0.03"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="833.333333333333"/>
+			<OutputValue Type="1" Value="833.333333333333"/>
+			<OutputValue Type="1" Value="-2500"/>
+			<OutputValue Type="1" Value="-1666.66666666667"/>
+			<OutputValue Type="1" Value="200"/>
+			<OutputValue Type="1" Value="-1466.66666666667"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="100"/>
+			<InputValue Type="1" Value="500000"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="-3708.33333333333"/>
+			<OutputValue Type="1" Value="-3608.33333333333"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="-4108.33333333333"/>
+			<OutputValue Type="1" Value="493"/>
+			<OutputValue Type="1" Value="-3615.33333333333"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="500"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.005"/>
+			<InputValue Type="1" Value="0.1"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="500"/>
+			<OutputValue Type="1" Value="-500"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="50"/>
+			<InputValue Type="1" Value="10000"/>
+			<InputValue Type="1" Value="0.21"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="50"/>
+			<OutputValue Type="1" Value="100"/>
+			<OutputValue Type="1" Value="150"/>
+			<OutputValue Type="1" Value="-10"/>
+			<OutputValue Type="1" Value="140"/>
+			<OutputValue Type="1" Value="-16.8"/>
+			<OutputValue Type="1" Value="123.2"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="0"/>
+			<InputValue Type="1" Value="100000"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="0.001"/>
+			<InputValue Type="1" Value="0.12"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="0"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="-100"/>
+			<OutputValue Type="1" Value="12"/>
+			<OutputValue Type="1" Value="-88"/>
+		</TestCase>
+	</TestCases>
+	<LangSpecs>
+	</LangSpecs>
+	<FunctionNodes>
+		<FunctionNode NodeId="4" Name="/" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="6" Name="*" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="9" Name="*" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="11" Name="/" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="12" Name="-" HasMultipleChildren="-1"/>
+		<FunctionNode NodeId="14" Name="+" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="17" Name="*" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="18" Name="N" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="19" Name="+" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="20" Name="N" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="22" Name="*" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="23" Name="+" HasMultipleChildren="0"/>
+	</FunctionNodes>
+	<ConstantNodes>
+		<ConstantNode NodeId="3" Type="1" Value="12" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="10" Type="1" Value="12" HasMultipleChildren="0"/>
+	</ConstantNodes>
+	<NamedNodes>
+		<NamedNode NodeId="6" NameLevel="10" Name="G3"/>
+		<NamedNode NodeId="11" NameLevel="10" Name="G4"/>
+		<NamedNode NodeId="12" NameLevel="10" Name="G5"/>
+		<NamedNode NodeId="17" NameLevel="10" Name="G7"/>
+	</NamedNodes>
+	<NodeComments/>
+	<Outputs>
+		<Output Id="1" Name="fee income" Type="1" NodeId="1"/>
+		<Output Id="2" Name="net int income" Type="1" NodeId="12"/>
+		<Output Id="3" Name="Revenue" Type="1" NodeId="14"/>
+		<Output Id="4" Name="Cost" Type="1" NodeId="18"/>
+		<Output Id="5" Name="before tax profit" Type="1" NodeId="19"/>
+		<Output Id="6" Name="tax" Type="1" NodeId="22"/>
+		<Output Id="7" Name="after tax profit" Type="1" NodeId="23"/>
+	</Outputs>
+	<NodeDependencies>
+		<NodeDependency ParentNodeId="2" ChildNodeId="4" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="3" ChildNodeId="4" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="4" ChildNodeId="6" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="5" ChildNodeId="6" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="7" ChildNodeId="9" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="8" ChildNodeId="9" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="9" ChildNodeId="11" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="10" ChildNodeId="11" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="6" ChildNodeId="12" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="11" ChildNodeId="12" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="13" ChildNodeId="14" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="12" ChildNodeId="14" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="15" ChildNodeId="17" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="16" ChildNodeId="17" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="17" ChildNodeId="18" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="14" ChildNodeId="19" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="18" ChildNodeId="19" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="19" ChildNodeId="20" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="20" ChildNodeId="22" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="21" ChildNodeId="22" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="19" ChildNodeId="23" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="22" ChildNodeId="23" ParentPosition="2"/>
+	</NodeDependencies>
+</CodeCalculation>
+

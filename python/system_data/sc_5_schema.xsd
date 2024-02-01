@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
+  xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" vc:minVersion="1.0">
+
+
+  <xs:simpleType name="NodeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="function"/>
+      <xs:enumeration value="input"/>
+      <xs:enumeration value="constant"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="NodeNameType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="alias"/>
+      <xs:enumeration value="address"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="CodeCalculation">
+    <xs:complexType>
+      <xs:all>
+        <xs:element minOccurs="0" ref="LangSpecs"/>
+        <xs:element minOccurs="0" ref="TestCases"/>
+        <xs:element ref="Nodes"/>
+        <xs:element ref="NamedNodes"/>
+        <xs:element ref="NodeComments"/>
+        <xs:element ref="Outputs"/>
+        <xs:element ref="NodeDependencies"/>
+      </xs:all>
+      <xs:attribute name="name" use="required"/>
+      <xs:attribute name="AppliesTo"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LangSpecs">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="LangSpec"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LangSpec">
+    <xs:complexType>
+      <xs:attribute name="Language" use="required" type="xs:integer"/>
+      <xs:attribute name="ProcessStub" type="xs:integer"/>
+      <xs:attribute name="Skip" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="TestCases">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="test_case"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="test_case">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="input_value"/>
+        <xs:element maxOccurs="unbounded" ref="output_value"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="input_value">
+    <xs:complexType>
+      <xs:attribute name="data_type" />
+      <xs:attribute name="Value" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="output_value">
+    <xs:complexType>
+      <xs:attribute name="data_type" />
+      <xs:attribute name="Value" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Nodes">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="Node"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Node">
+    <xs:complexType>
+      <xs:attribute name="input_order" type="xs:integer"/>
+      <xs:attribute name="input_name"/>
+      <xs:attribute name="function_name"/>
+      <xs:attribute name="node_id" use="required" type="xs:integer"/>
+      <xs:attribute name="node_type" type="NodeType" use="required"/>
+      <xs:attribute name="data_type" />
+      <xs:attribute name="value"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NamedNodes">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="NamedNode"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NamedNode">
+    <xs:complexType>
+      <xs:attribute name="node_name" use="required" type="xs:string"/>
+      <xs:attribute name="node_name_type" use="required" type="NodeNameType"/>
+      <xs:attribute name="node_id" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NodeComments">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="Outputs">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="Output"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Output">
+    <xs:complexType>
+      <xs:attribute name="output_name" use="required"/>
+      <xs:attribute name="node_id" use="required" type="xs:integer"/>
+      <xs:attribute name="output_order" use="required" type="xs:integer"/>
+      <xs:attribute name="data_type" use="required" />
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NodeDependencies">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="NodeDependency"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NodeDependency">
+    <xs:complexType>
+      <xs:attribute name="child_node_id" use="required" type="xs:integer"/>
+      <xs:attribute name="parent_node_id" use="required" type="xs:integer"/>
+      <xs:attribute name="parent_position" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

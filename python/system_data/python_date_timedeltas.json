@@ -1,0 +1,32 @@
+{
+  "signatures": {
+    "+": [
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "code_before": "add_on.add_days_to_datetime(",
+        "code_after": ")",
+        "module": "add_on"
+      }
+    ],
+    "-": [
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "code_before": "add_on.subtract_days_from_datetime(",
+        "code_after": ")",
+        "module": "add_on"
+      }
+    ]
+  }
+}

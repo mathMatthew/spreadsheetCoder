@@ -1,0 +1,429 @@
+{
+  "signatures": {
+    "LOOKUP_EXACT_MATCH_1": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Text]",
+          "Text",
+          "TABLE_COLUMN[Text]",
+          "Text"
+        ],
+        "input-descriptions": [
+          "Table column that exact match is to",
+          "Value of exact match",
+          "Table column of results",
+          "Default value if no match is found"
+        ],
+        "outputs": [
+          "Text"
+        ],
+        "requires_cache": true,
+        "template": "LOOKUP_EXACT_MATCH_1"
+      },
+      {
+        "inputs": [
+          "TABLE_COLUMN[Text]",
+          "Text",
+          "TABLE_COLUMN[Number]",
+          "Text"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "requires_cache": true,
+        "template": "LOOKUP_EXACT_MATCH_1"
+      }
+    ],
+    "IF": [
+      {
+        "inputs": [
+          "Boolean",
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "template": "CASE_3_INPUTS"
+      }
+    ],
+    "N": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": " -(",
+        "code_after": ")"
+      }
+    ],
+    "ABS": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "ABS(",
+        "code_after": ")"
+      }
+    ],
+    "SIN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "SIN(",
+        "code_after": ")"
+      }
+    ],
+    "COS": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "COS(",
+        "code_after": ")"
+      }
+    ],
+    "TAN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "TAN(",
+        "code_after": ")"
+      }
+    ],
+    "ASIN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "ASIN(",
+        "code_after": ")"
+      }
+    ],
+    "ACOS": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "ACOS(",
+        "code_after": ")"
+      }
+    ],
+    "ATAN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "ATAN(",
+        "code_after": ")"
+      }
+    ],
+    "SQRT": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "SQRT(",
+        "code_after": ")"
+      }
+    ],
+    "EXP": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "EXP(",
+        "code_after": ")"
+      }
+    ],
+    "LN": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "LN(",
+        "code_after": ")"
+      }
+    ],
+    "LOG10": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "LOG10(",
+        "code_after": ")"
+      }
+    ],
+    "+": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "+",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "-": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "-",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "*": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "*",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "/": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "/",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "^": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "power(",
+        "code_after": ")",
+        "req_custom_function_name": "power",
+        "custom_func_num_params": 2,
+        "custom_function_code": "<![CDATA[
+def power(x, y):
+  return x ** y
+]]>"
+      }
+    ],
+    ">": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ],
+        "operator": ">",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "<": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ],
+        "operator": "<",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    ">=": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ],
+        "operator": ">=",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "<=": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ],
+        "operator": "<=",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "&": [
+      {
+        "inputs": [
+          "Text",
+          "Text"
+        ],
+        "outputs": [
+          "Text"
+        ],
+        "operator": "||",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "AND2": [
+      {
+        "inputs": [
+          "Boolean",
+          "Boolean"
+        ],
+        "outputs": [
+          "Boolean"
+        ],
+        "operator": "and",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "OR2": [
+      {
+        "inputs": [
+          "Boolean",
+          "Boolean"
+        ],
+        "outputs": [
+          "Boolean"
+        ],
+        "operator": "or",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "MOD": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "%",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ]
+  },
+  "templates": {
+    "LOOKUP_EXACT_MATCH_1": {
+      "template": "<![CDATA[
+
+UPDATE <primary_table>
+SET <var> = (
+  SELECT COALESCE(
+    (
+    SELECT b.<input3_col>
+    FROM <input1_table_name> b
+    WHERE b.<input1_col> COLLATE NOCASE = <input2> 
+    ),
+    <input4>
+  )
+);
+  
+]]>"
+    },
+    "CASE_3_INPUTS": {
+      "template": "<![CDATA[
+CASE WHEN <input1> THEN <input2> ELSE <input3>
+END
+]]>"
+    },
+    "cache_default": {
+      "template": "<![CDATA[
+UPDATE <primary_table>
+SET <var> = <value>;
+
+
+]]>"
+    }
+  },
+  "commutative_functions_to_convert_to_binomial": {
+    "AND": {
+      "bin_func": "AND2"
+    },
+    "OR": {
+      "bin_func": "OR2"
+    },
+    "SUM": {
+      "bin_func": "+"
+    },
+    "PRODUCT": {
+      "bin_func": "*"
+    }
+  }
+}

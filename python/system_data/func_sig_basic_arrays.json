@@ -1,0 +1,115 @@
+{
+  "signatures": {
+    "ARRAY": [
+      {
+        "inputs": [
+          "Number",
+          "Number",
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "ARRAY[Number]"
+        ]
+      },
+      {
+        "inputs": [
+          "Number",
+          "Number",
+          "Multiple[Text]"
+        ],
+        "outputs": [
+          "ARRAY[Text]"
+        ]
+      },
+      {
+        "inputs": [
+          "Number",
+          "Number",
+          "Multiple[Boolean]"
+        ],
+        "outputs": [
+          "ARRAY[Boolean]"
+        ]
+      }
+    ],
+    "SUM": [
+      {
+        "inputs": [
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      },
+      {
+        "inputs": [
+          "Multiple[ARRAY[Number]]"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "<=": [
+      {
+        "inputs": [
+          "ARRAY[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "ARRAY[Boolean]"
+        ]
+      }
+    ],
+    "*": [
+      {
+        "inputs": [
+          "ARRAY[Boolean]",
+          "ARRAY[Boolean]"
+        ],
+        "outputs": [
+          "ARRAY[Boolean]"
+        ]
+      },
+      {
+        "inputs": [
+          "ARRAY[Boolean]",
+          "ARRAY[Number]"
+        ],
+        "outputs": [
+          "ARRAY[Number]"
+        ]
+      }
+    ],
+    "=": [
+      {
+        "inputs": [
+          "ARRAY[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "ARRAY[Boolean]"
+        ]
+      },
+      {
+        "inputs": [
+          "ARRAY[Text]",
+          "Text"
+        ],
+        "outputs": [
+          "ARRAY[Boolean]"
+        ]
+      }
+    ],
+    "MAX": [
+      {
+        "inputs": [
+          "ARRAY[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ]
+  }
+}

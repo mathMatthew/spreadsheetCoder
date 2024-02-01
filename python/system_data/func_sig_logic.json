@@ -1,0 +1,178 @@
+{
+  "signatures": {
+    "<": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ],
+    "<=": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ],
+    "<>": [
+      {
+        "inputs": [
+          "Text",
+          "Text"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      },
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      },
+      {
+        "inputs": [
+          "Date",
+          "Date"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      },
+      {
+        "inputs": [
+          "Boolean",
+          "Boolean"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ],
+    "=": [
+      {
+        "inputs": [
+          "Text",
+          "Text"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      },
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      },
+      {
+        "inputs": [
+          "Date",
+          "Date"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      },
+      {
+        "inputs": [
+          "Boolean",
+          "Boolean"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ],
+    ">": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ],
+    ">=": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ],
+    "AND2": [
+      {
+        "inputs": [
+          "Boolean",
+          "Boolean"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ],
+    "IF": [
+      {
+        "inputs": [
+          "Boolean",
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      },
+      {
+        "inputs": [
+          "Boolean",
+          "Text",
+          "Text"
+        ],
+        "outputs": [
+          "Text"
+        ]
+      }
+    ],
+    "NOT": [
+      {
+        "inputs": [
+          "Boolean"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "OR2": [
+      {
+        "inputs": [
+          "Boolean",
+          "Boolean"
+        ],
+        "outputs": [
+          "Boolean"
+        ]
+      }
+    ]
+  }
+}

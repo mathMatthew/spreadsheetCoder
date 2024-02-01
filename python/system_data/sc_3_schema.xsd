@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
+  xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" vc:minVersion="1.0">
+  <xs:element name="CodeCalculation">
+    <xs:complexType>
+      <xs:all>
+        <xs:element ref="LangSpecs" minOccurs="0"/>
+        <xs:element ref="TestCases" minOccurs="0"/>
+        <xs:element ref="Inputs"/>
+        <xs:element ref="InputDependencies"/>
+        <xs:element ref="FunctionNodes"/>
+        <xs:element ref="ConstantNodes"/>
+        <xs:element ref="NamedNodes"/>
+        <xs:element ref="NodeComments"/>
+        <xs:element ref="Outputs"/>
+        <xs:element ref="NodeDependencies"/>
+      </xs:all>
+      <xs:attribute name="AppliesTo"/>
+      <xs:attribute name="HasMultipleOutputs" use="required" type="xs:integer"/>
+      <xs:attribute name="Name" use="required"/>
+      <xs:attribute name="Version" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="3"/>
+            <xs:enumeration value="4"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="InputDependencies">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="InputDependency"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="InputDependency">
+    <xs:complexType>
+      <xs:attribute name="InputId" use="required" type="xs:integer"/>
+      <xs:attribute name="NodeId" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Inputs">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="Input"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Input">
+    <xs:complexType>
+      <xs:attribute name="InputId" use="required" type="xs:integer"/>
+      <xs:attribute name="Name" use="required"/>
+      <xs:attribute name="Type" use="required" />
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="TestCases">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="TestCase"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="TestCase">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="InputValue"/>
+        <xs:element maxOccurs="unbounded" ref="OutputValue"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="InputValue">
+    <xs:complexType>
+      <xs:attribute name="Type" use="required" />
+      <xs:attribute name="Value" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="OutputValue">
+    <xs:complexType>
+      <xs:attribute name="Type" use="required" />
+      <xs:attribute name="Value" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="FunctionNodes">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="FunctionNode"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="FunctionNode">
+    <xs:complexType>
+      <xs:attribute name="HasMultipleChildren" use="required" type="xs:integer"/>
+      <xs:attribute name="Name" use="required"/>
+      <xs:attribute name="NodeId" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="ConstantNodes">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="ConstantNode"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="ConstantNode">
+    <xs:complexType>
+      <xs:attribute name="HasMultipleChildren" use="required" type="xs:integer"/>
+      <xs:attribute name="NodeId" use="required" type="xs:integer"/>
+      <xs:attribute name="Type" use="required" type="xs:integer"/>
+      <xs:attribute name="Value" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NamedNodes">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="NamedNode"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NamedNode">
+    <xs:complexType>
+      <xs:attribute name="Name" use="required" type="xs:string"/>
+      <xs:attribute name="NameLevel" use="required" type="xs:integer"/>
+      <xs:attribute name="NodeId" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NodeComments">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="Outputs">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="Output"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Output">
+    <xs:complexType>
+      <xs:attribute name="Id" use="required" type="xs:integer"/>
+      <xs:attribute name="Name" use="required"/>
+      <xs:attribute name="NodeId" use="required" type="xs:integer"/>
+      <xs:attribute name="Type" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NodeDependencies">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="NodeDependency"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="NodeDependency">
+    <xs:complexType>
+      <xs:attribute name="ChildNodeId" use="required" type="xs:integer"/>
+      <xs:attribute name="ParentNodeId" use="required" type="xs:integer"/>
+      <xs:attribute name="ParentPosition" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LangSpecs">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="LangSpec"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LangSpec">
+    <xs:complexType>
+      <xs:attribute name="Language" use="required" type="xs:integer"/>
+      <xs:attribute name="ProcessStub" type="xs:integer"/>
+      <xs:attribute name="Skip" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

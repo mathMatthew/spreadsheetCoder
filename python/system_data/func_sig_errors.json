@@ -1,0 +1,14 @@
+{
+  "signatures": {
+    "ISNA": [
+      {
+        "inputs": [
+          "Text"
+        ],
+        "outputs": [
+          "Text"
+        ]
+      }
+    ]
+  }
+}

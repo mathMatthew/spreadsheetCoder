@@ -1,0 +1,129 @@
+{
+  "signatures": {
+    "=": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Text]",
+          "Text"
+        ],
+        "outputs": [
+          "TABLE_COLUMN[Boolean]"
+        ]
+      },
+      {
+        "inputs": [
+          "TABLE_COLUMN[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "TABLE_COLUMN[Boolean]"
+        ]
+      }
+    ],
+    "AND2": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Boolean]",
+          "TABLE_COLUMN[Boolean]"
+        ],
+        "outputs": [
+          "TABLE_COLUMN[Boolean]"
+        ]
+      }
+    ],
+    "OR2": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Boolean]",
+          "TABLE_COLUMN[Boolean]"
+        ],
+        "outputs": [
+          "TABLE_COLUMN[Boolean]"
+        ]
+      }
+    ],
+    "INDEX": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Text]",
+          "Number"
+        ],
+        "outputs": [
+          "Text"
+        ]
+      },
+      {
+        "inputs": [
+          "TABLE_COLUMN[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "MATCH": [
+      {
+        "inputs": [
+          "Text",
+          "TABLE_COLUMN[Text]",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      },
+      {
+        "inputs": [
+          "Number",
+          "TABLE_COLUMN[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ],
+    "<=": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Number]",
+          "Number"
+        ],
+        "outputs": [
+          "TABLE_COLUMN[Boolean]"
+        ]
+      }
+    ],
+    "*": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Boolean]",
+          "TABLE_COLUMN[Boolean]"
+        ],
+        "outputs": [
+          "TABLE_COLUMN[Boolean]"
+        ]
+      },
+      {
+        "inputs": [
+          "TABLE_COLUMN[Boolean]",
+          "TABLE_COLUMN[Number]"
+        ],
+        "outputs": [
+          "TABLE_COLUMN[Number]"
+        ]
+      }
+    ],
+    "MAX": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      }
+    ]
+  }
+}
