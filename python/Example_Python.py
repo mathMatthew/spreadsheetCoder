@@ -1,6 +1,12 @@
 import transpile_python as tp
 import conv_tracker as ct
 import os, json
+from datetime import datetime
+
+#save the time in a variable and print the time
+print("Current Time =", datetime.now().strftime("%H:%M:%S"))
+start = datetime.now()
+
 
 example_dir = "./examples"
 output_dir = "../../../sc_output_files"
@@ -43,3 +49,5 @@ if code:
     with open(conv_tracker_file, "w") as f:
         json.dump(conversion_tracker, f, indent=2)
         print(f"Conversion tracker written to {conv_tracker_file}")
+
+print("Total Time = ", datetime.now() - start)
