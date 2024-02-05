@@ -44,7 +44,7 @@ def code_cached_node(
         conversion_tracker,
         function_name,
         function_signature["inputs"],
-        function_signature["outputs"][0],
+        function_signature["outputs"],
         "code_function_cached",
     )
 
@@ -130,7 +130,7 @@ def code_supported_function(
         conversion_tracker,
         function_name,
         function_signature["inputs"],
-        function_signature["outputs"][0],
+        function_signature["outputs"],
         "code_function_standard",
     )
 
