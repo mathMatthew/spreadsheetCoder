@@ -8,6 +8,21 @@ import convert_xml as cxml
 import validation, dags, errs
 import signatures as sigs
 
+def update_existing_keys(original_dict, updates_dict):
+    """
+    Updates the values of existing keys in original_dict based on updates_dict.
+    Keys in updates_dict that do not exist in original_dict are ignored.
+
+    Parameters:
+    original_dict (dict): The dictionary to be updated.
+    updates_dict (dict): The dictionary containing updates.
+
+    Returns:
+    dict: The original dictionary with updated values for existing keys.
+    """
+    return {k: updates_dict[k] if k in updates_dict else v for k, v in original_dict.items()}
+
+
 
 def get_standard_settings(paths_dict: Dict[str, str]) -> Dict[str, Any]:
     dag_objects_dict: Dict[str, Any] = initial_dag_objects(
@@ -109,8 +124,8 @@ def initial_dag_objects(
     )
 
     if func_sigs:
-        assert validation.is_valid_fn_sig_dict(func_sigs), "signature is not valid"
-    assert validation.is_valid_fn_sig_dict(library_func_sigs), "signature is not valid"
+        assert validation.is_valid_fn_sig_dict(func_sigs, False), "signature is not valid"
+    assert validation.is_valid_fn_sig_dict(library_func_sigs, False), "signature is not valid"
 
     dict = {
         "base_dag_xml_tree": base_dag_xml_tree,

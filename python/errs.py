@@ -7,6 +7,12 @@ code_types = {"python": {"file_extension": ".py"}, "sql": {"file_extension": ".s
 
 
 
+def save_function_signatures_and_raise(func_sigs, msg):
+    with open("errors/func_sigs_temp.json", "w") as f:
+        json.dump(func_sigs, f, indent=2)
+    raise ValueError(
+        msg + " Function signatures written to errors/func_sigs_temp.json."
+        )
 
 def save_2graphs_plusand_raise(graph_plus1, graph_plus2, message):
     g_tables.save_graph_plus(graph_plus1, ".errors/error_graph_plus1.json")

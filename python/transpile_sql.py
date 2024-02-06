@@ -36,7 +36,7 @@ def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any
     with open(supported_function_lib_file, "r") as f:
         library_sigs = json.load(f)
     assert validation.is_valid_fn_sig_dict(
-        library_sigs
+        library_sigs, False
     ), "Function library is not valid."
 
     standard_paths = setup.get_standard_paths(
@@ -545,7 +545,7 @@ def get_required_functions_code(signature_definitions, G):
     used as per the conversion tracker.
     """
     assert validation.is_valid_fn_sig_dict(
-        signature_definitions
+        signature_definitions, True
     ), "signature_definitions is not valid."
 
     current_signatures = sigs.build_current_signature_definitions(G)
@@ -636,6 +636,11 @@ def transpile_dags_to_sql_and_test(
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
     )
+
+    nodes_to_lop_off =dags.find_nodes_to_lop_off(graph=base_dag_G, treat_tables_as_dynamic=True)
+    if len(nodes_to_lop_off) > 0:
+        raise ValueError(f"Found nodes that cann be lopped off: {nodes_to_lop_off}")
+        #for now just stop and see what we have.
 
     sigs.if_missing_save_sigs_and_err(conversion_func_sigs, base_dag_G)
 

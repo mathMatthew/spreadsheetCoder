@@ -148,7 +148,8 @@ def make_table_array_node(G, node_id, table_name, table_column, data_type):
             G.remove_node(predecessor)
 
     # Set attributes for the node
-    G.nodes[node_id]["function_name"] = "TABLE_ARRAY"
+    if "function_name" in G.nodes[node_id]:
+        del G.nodes[node_id]["function_name"]
     G.nodes[node_id]["table_name"] = table_name
     G.nodes[node_id]["table_column"] = table_column
     G.nodes[node_id]["node_type"] = "table_array"

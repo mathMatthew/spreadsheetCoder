@@ -124,30 +124,33 @@ def build_nx_graph(lxml_tree) -> nx.MultiDiGraph:
         parent_position = int(dependency.attrib["parent_position"])
         G.add_edge(parent_node, child_node, parent_position=parent_position)
 
-    # add names for named nodes.
+    # Define the priority of node name types
+    name_type_priority = {
+        "alias": 1,
+        "address": 2,
+        "array_formula_parent_address": 3,
+    }
+
+    # Validate and add names for named nodes, considering the new priority
     for named_node in lxml_tree.find("NamedNodes"):
         node_attribs = G.nodes[int(named_node.attrib["node_id"])]
-        if "node_name_type" not in node_attribs:
-            node_attribs["node_name_type"] = named_node.attrib["node_name_type"]
+        current_name_type = node_attribs.get("node_name_type", None)
+        new_name_type = named_node.attrib["node_name_type"]
+
+        # Check if the new name type is recognized
+        if new_name_type not in name_type_priority:
+            raise ValueError(f"Unrecognized node_name_type: {new_name_type}")
+
+        # Check if the current node name type has a lower priority (higher number) than the new name type
+        if current_name_type is None or name_type_priority[new_name_type] < name_type_priority.get(current_name_type, float('inf')):
+            # Update with new name if new type has higher priority or if node doesn't have a name type yet
+            node_attribs["node_name_type"] = new_name_type
             node_attribs["node_name"] = named_node.attrib["node_name"]
-            continue
-        # if it already has a name of the same type, raise an error.
-        if named_node.attrib["node_name_type"] == node_attribs["node_name_type"]:
+        elif new_name_type == current_name_type:
+            # If it already has a name of the same type, raise an error.
             cxml.save_xml_and_raise(
                 lxml_tree,
-                f"Duplicate node_name_type detected. Node_id: {named_node.attrib['node_id']}, node_name_type: {node_attribs['node_name_type']}",
-            )
-        # alias names take priority. if it already has an alias name skip it.
-        if node_attribs["node_name_type"] == "alias":
-            continue
-        # if it has an address name then this is an alias name (only 2 options)
-        # so overwrite address name with alias name
-        elif node_attribs["node_name_type"] == "address":
-            node_attribs["node_name_type"] = named_node.attrib["node_name_type"]
-            node_attribs["node_name"] = named_node.attrib["node_name"]
-        else:
-            raise ValueError(
-                f"Unknown node_name_type: {node_attribs['node_name_type']}"
+                f"Duplicate node_name_type detected. Node_id: {named_node.attrib['node_id']}, node_name_type: {current_name_type}",
             )
 
     # Set max_nodeG_id and name as attributes of the graph
@@ -440,7 +443,7 @@ def update_dag_with_data_types(
     assert validation.is_valid_conversion_fn_sig_dict(
         conversion_signatures
     ), "signature is not valid"
-    assert validation.is_valid_fn_sig_dict(library_func_sigs), "signature is not valid"
+    assert validation.is_valid_fn_sig_dict(library_func_sigs, True), "signature is not valid"
 
     topo_sorted_nodes = list(nx.topological_sort(G))
 
@@ -454,7 +457,7 @@ def update_dag_with_data_types(
                 f"Node id: {node_id} does not have data_type but is not a function.",
             )
             return
-        G.nodes[node_id]["data_type"] = sigs.get_data_type(
+        data_types = sigs.get_data_types(
             G,
             node_id,
             conversion_signatures,
@@ -462,6 +465,12 @@ def update_dag_with_data_types(
             auto_add,
             conversion_tracker,
         )
+        if len(data_types) == 1:
+            G.nodes[node_id]["data_type"] = data_types[0]
+        elif len(data_types) > 1:
+            G.nodes[node_id]["data_types"] = data_types
+        else:
+            raise Exception(f"get_data_types returned an empty list for Node {node_id}")
 
 
 def mark_nodes_for_caching(
@@ -493,7 +502,7 @@ def mark_nodes_for_caching(
             memo[node_id] = 0, 0
             return memo[node_id]
 
-        if node_attribs["function_name"] == "if":
+        if node_attribs["function_name"].upper() == "IF" :
             parent_ids = get_ordered_parent_ids(G, node_id)
             condition_id, if_true_id, if_false_id = (
                 parent_ids[0],
@@ -603,7 +612,7 @@ def convert_graph(
     assert validation.is_valid_conversion_fn_sig_dict(
         conversion_signatures
     ), "signature is not valid"
-    assert validation.is_valid_fn_sig_dict(library_func_sigs), "signature is not valid"
+    assert validation.is_valid_fn_sig_dict(library_func_sigs, False), "signature is not valid"
 
     func_logic_sigs = sigs.create_signature_dictionary(function_logic_dags)
     sigs.add_signatures_to_library(
@@ -619,10 +628,11 @@ def convert_graph(
     )
     assert validation.is_valid_base_graph(dag_to_convert), "dag is not valid"
 
-    def add_to_queue(node_id):
-        if node_id not in seen:
-            stack.append(node_id)
-            seen.add(node_id)
+    def add_to_queue(node_ids):
+        for node_id in node_ids:
+            if node_id not in seen:
+                stack.append(node_id)
+                seen.add(node_id)
 
     protect_nodes_dict = {}
 
@@ -664,10 +674,10 @@ def convert_graph(
         )
         if function_name in commutative_functions_to_convert_to_binomial:
             comm_func_dict = commutative_functions_to_convert_to_binomial[function_name]
-            new_id = convert_to_binomial(
+            new_ids: List[int] = convert_to_binomial(
                 dag_to_convert, node_id, comm_func_dict, conversion_tracker
             )
-            add_to_queue(new_id)
+            add_to_queue(new_ids)
             continue
 
         # Check if the node is safe from a transform
@@ -704,14 +714,14 @@ def convert_graph(
                         base_node_id=node_id,
                     )
                     if match_mapping:
-                        new_id: int = transform_from_to(
+                        new_ids = transform_from_to(
                             base_dag=dag_to_convert,
                             transform_from_to_dag=transform_logic_dag,
                             node_id_to_replace=node_id,
                             match_mapping=match_mapping,
                             conversion_tracker=conversion_tracker,
                         )
-                        add_to_queue(new_id)
+                        add_to_queue(new_ids)
                         continue_to_while = True
                         break
 
@@ -735,13 +745,12 @@ def convert_graph(
                 function_logic_dags_with_types_added.add(
                     function_logic_dag.graph["name"]
                 )
-            new_id = expand_node(node_id, function_logic_dag, dag_to_convert)
-            add_to_queue(new_id)
+            new_ids = expand_node(node_id, function_logic_dag, dag_to_convert)
+            add_to_queue(new_ids)
             continue
 
         # Add parent nodes
-        for parent_id in dag_to_convert.predecessors(node_id):
-            add_to_queue(parent_id)
+        add_to_queue(dag_to_convert.predecessors(node_id))
 
     # because we don't insist that transforms have data types, we need to run one more time.
     update_dag_with_data_types(
@@ -835,8 +844,10 @@ def generate_binomial_dag(function, n, data_type):
 def xml_to_graph(
     base_dag_xml_file, working_directory, conversion_tracker, override_defaults
 ) -> nx.MultiDiGraph:
-    data_dict = setup.get_standard_settings(base_dag_xml_file, working_directory)
-    data_dict.update(override_defaults)
+    paths_dict = setup.get_standard_paths(base_dag_xml_file, working_directory)
+    setup.update_existing_keys(paths_dict, override_defaults)
+    data_dict = setup.get_standard_settings(paths_dict)
+    setup.update_existing_keys(data_dict, override_defaults)
     # convert graph is the core logic. ...
     convert_graph(
         dag_to_convert=data_dict["base_dag_graph"],
@@ -852,7 +863,13 @@ def xml_to_graph(
     return data_dict["base_dag_graph"]
 
 
-def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> int:
+def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
+    """
+    The function_logic_dag is the 'definition' of the function represented 
+    by node_id_to_expand in the base_dag. This function 'expands' the 
+    node_id_to_expand by replacing it with its calculations, as defined
+    by function_logic_dag. It returns a list of the new output node ids.
+    """
     def mimic_output_attribs(node_id_to_expand, new_output_node_id, base_dag):
         node_to_expand_attributes = base_dag.nodes[node_id_to_expand]
         new_output_node_attributes = base_dag.nodes[new_output_node_id]
@@ -909,8 +926,6 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> int:
         # Step 2: Add function nodes and constant nodes from function_logic DAG to Base DAG with ID Adjustments
         if data["node_type"] in ["function", "constant"]:
             new_id: int = node_id + id_offset
-            if new_id == 81:
-                print("")
             filtered_data = {
                 key: value
                 for key, value in data.items()
@@ -946,39 +961,97 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> int:
 
     # Step 4: Rewire Output Dependencies
     output_node_ids = function_logic_dag.graph["output_node_ids"]
-    if len(output_node_ids) > 1:
-        errs.save_dag_and_raise_message(
-            function_logic_dag,
-            f"function_logic DAG {function_logic_dag.graph['name']} has multiple output nodes. Add support for multiple output nodes to use this function_logic",
-        )
-    output_node_id: int = output_node_ids[0]  # Get the ID of the only output node
-    new_output_node_id: int = output_node_id + id_offset  # New ID for the output node
+    if len(output_node_ids) == 1:
+        output_node_id: int = output_node_ids[0]  # Get the ID of the only output node
+        new_output_node_id: int = output_node_id + id_offset  # New ID for the output node
 
-    # for each edge of the original node to expand...
-    out_edges_to_modify = list(base_dag.out_edges(node_id_to_expand, data=True))
-    for _, child, edge_data in out_edges_to_modify:
-        # Add new edge from new output node to the original child
-        base_dag.add_edge(new_output_node_id, child, **edge_data)
+        # for each edge of the original node to expand...
+        out_edges_to_modify = list(base_dag.out_edges(node_id_to_expand, data=True))
+        for _, child, edge_data in out_edges_to_modify:
+            # Add new edge from new output node to the original child
+            #xxx check that this **edge_data handles multiDags correctly.
+            base_dag.add_edge(new_output_node_id, child, **edge_data)
 
-        # Remove the original edge from the node being expanded to the child
-        base_dag.remove_edge(node_id_to_expand, child)
+            # Remove the original edge from the node being expanded to the child
+            base_dag.remove_edge(node_id_to_expand, child)
 
-    mimic_output_attribs(node_id_to_expand, new_output_node_id, base_dag)
+        mimic_output_attribs(node_id_to_expand, new_output_node_id, base_dag)
+        new_output_node_ids = [new_output_node_id]
+    elif len(output_node_ids) > 1:
+        #New code begins here.
+        new_output_node_ids = [] 
+        nodes_to_remove = []
+        edges_to_remove = []
+        edges_to_add = []
+        for idx, output_node_id in enumerate(function_logic_dag.graph["output_node_ids"]):
+            new_ouput_is_used  = False
+            new_output_node_id = output_node_id + id_offset
 
-    if node_id_to_expand in base_dag.graph["output_node_ids"]:
-        base_dag.graph["output_node_ids"].remove(node_id_to_expand)
-        base_dag.graph["output_node_ids"].append(new_output_node_id)
+            # Now process each FUNCTION_ARRAY node depending on its position
+            for fan_node_id in base_dag.successors(node_id_to_expand):
+                fan_node = base_dag.nodes[fan_node_id]
+                if fan_node['function_name'] != 'FUNCTION_ARRAY':
+                    raise ValueError(f"Node {fan_node} is not a FUNCTION_ARRAY node")
+                
+                _, position = sigs.get_parent_function_and_position_for_function_array_node(base_dag, fan_node_id)
+                
+                # Check if the position matches the current output node being processed
+                if position - 1 == idx:  # Adjusting position to 0-based index
+                    new_ouput_is_used = True
+                    grandkids = list(base_dag.successors(fan_node_id))
+                    for grandkid in grandkids:
+                        # Retrieve all edges between fan_node_id and grandkid
+                        for edge_key, edge_data in base_dag.get_edge_data(fan_node_id, grandkid).items():
+                            edges_to_remove.append((fan_node_id, grandkid, edge_key))
+                            # When copying, no need to call .copy() on edge_data if you're going to modify it anyway
+                            edges_to_add.append((new_output_node_id, grandkid, edge_data, edge_key))
+                    nodes_to_remove.append(fan_node_id)
 
+            if new_ouput_is_used:
+                new_output_node_ids.append(new_output_node_id)
+                mimic_output_attribs(output_node_id, new_output_node_id, base_dag)
+
+        for edge in edges_to_remove:
+            base_dag.remove_edge(*edge)
+
+        for node in nodes_to_remove:
+            base_dag.remove_node(node)
+
+        for edge in edges_to_add:
+            source_id, target_id, edge_data , _ = edge
+            base_dag.add_edge(source_id, target_id, **edge_data)
+        
+    else:
+        raise ValueError(f"Function logic DAG {function_logic_dag.graph['name']} has an invalid number of outputs.")
     base_dag.remove_node(node_id_to_expand)
 
-    # Final Steps: Update Graph Attributes and Check Integrity
-    base_dag.graph["max_node_id"] = id_offset + function_logic_dag.graph["max_node_id"]
+    remove_all_non_output_sink_nodes(base_dag)
 
+    base_dag.graph["max_node_id"] = max(base_dag.nodes())
+
+    # Final Steps: Update Graph Attributes and Check Integrity
     assert validation.is_valid_graph(
         base_dag, False
     ), f"base_dag {base_dag.graph['name']} is not a valid graph. Check after expanding node for {function_logic_dag.graph['name']}."
 
-    return new_output_node_id
+    #need to fix this so it returns a list of new IDs vs just the new ID in the old way of thinking where there could only be one.
+    return new_output_node_ids
+
+
+def remove_all_non_output_sink_nodes(G):
+    # Initialize a queue with initial non-output sink nodes
+    initial_sink_nodes = [node for node, out_degree in G.out_degree() if out_degree == 0 and "output_name" not in G.nodes[node]]
+    queue = deque(initial_sink_nodes)
+    
+    while queue:
+        node = queue.popleft()
+        # Before removal, get predecessors to check if they become new sinks after removal
+        predecessors = list(G.predecessors(node))
+        G.remove_node(node)
+        for pred in predecessors:
+            # If a predecessor is now a sink and does not have 'output_name', add it to the queue
+            if G.out_degree(pred) == 0 and "output_name" not in G.nodes[pred]:
+                queue.append(pred)
 
 
 def dict_of_matching_node_ids(
@@ -1085,6 +1158,93 @@ def dict_of_matching_node_ids(
         return mapping
     else:
         return {}
+
+import networkx as nx
+
+def identify_transition_points(graph: nx.MultiDiGraph) -> dict:
+    """
+    Identify transition points in a directed acyclic graph based on dynamic ancestors.
+    
+    A transition point is defined as a node whose set of dynamic ancestors is smaller than
+    that of any of its successors and is not an input, a constant, or a table.
+    
+    :param graph: A directed acyclic graph where nodes represent computations or data and edges represent dependencies.
+    :return: A dictionary mapping each transition point to its set of dynamic ancestors.
+    """
+    # Initialize a dictionary to track the dynamic ancestors of each node
+    dynamic_ancestors:Dict[int, set] = {node_id: set() for node_id in graph.nodes()}
+    
+    # Initialize the dictionary for transition points
+    transition_points: Dict[str, set] = {}
+    
+    # Perform a topological sort of the graph
+    sorted_nodes = list(nx.topological_sort(graph))
+    
+    for node_id in sorted_nodes:
+        node_type = graph.nodes[node_id]['node_type']
+        
+        # Set the dynamic ancestors for constant, input, and table nodes
+        if node_type in ['constant']:
+            dynamic_ancestors[node_id] = set()
+        elif node_type in ['input', 'table_array']:
+            dynamic_ancestors[node_id] = {node_id}
+        
+        # Accumulate dynamic ancestors for other types of nodes
+        else:
+            parents = graph.predecessors(node_id)
+            for parent in parents:
+                dynamic_ancestors[node_id].update(dynamic_ancestors[parent])
+                
+            # Check if the node is a transition point
+            for parent in parents:
+                if len(dynamic_ancestors[parent]) < len(dynamic_ancestors[node_id]) and node_type not in ['input', 'constant', 'table_array']:
+                    transition_points[parent] = dynamic_ancestors[parent]
+                
+    return transition_points
+
+
+def find_nodes_to_lop_off(graph: nx.MultiDiGraph, treat_tables_as_dynamic) -> set:
+    """
+    Identify function nodes that represent a transition from static (fixed) to dynamic computation.
+    
+    :param graph: A directed multigraph where nodes represent computations or data and edges represent dependencies.
+    :param treat_tables_as_dynamic: If True, treat table arrays as dynamic inputs; otherwise, they are considered fixed.
+    :return: A set of nodes that are function nodes marking the critical transition point from fixed to dynamic.
+    """
+    # Initialize sets for fixed, dynamic, and transition nodes
+    # all nodes will be added to either fixed or dynamic. 
+    fixed, dynamic, transition = set(), set(), set()
+    
+    # Topological sort of the graph to process nodes in linearized order
+    sorted_nodes = list(nx.topological_sort(graph))
+    
+    for node in sorted_nodes:
+        node_type = graph.nodes[node]['node_type']
+        
+        # Directly categorize constant and input nodes
+        if node_type == 'constant':
+            fixed.add(node)
+        elif node_type == 'input':
+            dynamic.add(node)
+        elif node_type == 'table_array': 
+            if treat_tables_as_dynamic:
+                dynamic.add(node)
+            else:
+                fixed.add(node)
+        
+        # Process function nodes based on the status of their immediate predecessors
+        elif node_type == 'function':
+            parents = graph.predecessors(node)
+            if all(parent in fixed for parent in parents):
+                fixed.add(node)
+            else:
+                # If any parent is dynamic, the node is dynamic and parents that are functions become transitions
+                dynamic.add(node)
+                for parent in parents:
+                    if parent in fixed and graph.nodes[parent]['node_type'] == 'function':
+                        transition.add(parent)
+    
+    return transition
 
 
 def main():

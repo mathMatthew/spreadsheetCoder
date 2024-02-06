@@ -15,6 +15,7 @@
     <xs:restriction base="xs:string">
       <xs:enumeration value="alias"/>
       <xs:enumeration value="address"/>
+      <xs:enumeration value="array_formula_parent_address"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -45,6 +46,8 @@
       <xs:attribute name="Language" use="required" type="xs:integer"/>
       <xs:attribute name="ProcessStub" type="xs:integer"/>
       <xs:attribute name="Skip" use="required" type="xs:integer"/>
+	  <xs:attribute name="PrefixStub" type="xs:string"/>
+      <xs:attribute name="DefineHelperFunction" type="xs:string"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="TestCases">

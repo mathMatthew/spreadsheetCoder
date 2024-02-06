@@ -169,6 +169,8 @@
       <xs:attribute name="Language" use="required" type="xs:integer"/>
       <xs:attribute name="ProcessStub" type="xs:integer"/>
       <xs:attribute name="Skip" use="required" type="xs:integer"/>
+	  <xs:attribute name="PrefixStub" type="xs:string"/>
+      <xs:attribute name="DefineHelperFunction" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 </xs:schema>

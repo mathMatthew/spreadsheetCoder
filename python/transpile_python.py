@@ -32,7 +32,7 @@ def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any
     with open(supported_function_lib_file, "r") as f:
         library_python_sigs = json.load(f)
     assert validation.is_valid_fn_sig_dict(
-        library_python_sigs
+        library_python_sigs, False
     ), "Function library is not valid."
 
     standard_paths = setup.get_standard_paths(

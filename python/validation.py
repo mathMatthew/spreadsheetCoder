@@ -48,7 +48,7 @@ def is_valid_graph(G, require_types: bool) -> bool:
         if "output_name" in G.nodes[node_id]:
             continue
         return False
-
+     
     # validate output_node_ids
     output_node_ids = [
         node
@@ -73,13 +73,34 @@ def is_valid_graph(G, require_types: bool) -> bool:
         return False
 
     # all nodes have node_type if node_type is required
+    # if a node has multiple outputs variable will be named node_types instead. validate that
+    # it can have multiple outputs using that function
     if require_types:
         for node in G.nodes():
             if "data_type" not in G.nodes[node]:
-                return False
+                #validate that if a node has multiple outputs than all of its successors are function array nodes
+                if "data_types" in G.nodes[node]:
+                    if not node_can_have_multiple_outputs(G, node):
+                        return False
+                else:
+                    return False
 
     return True
 
+def node_can_have_multiple_outputs(G, node_id):
+    """
+    Returns true if all dependents of a node are function arrays
+    Note if this is an output node, it will return true by design
+    as this is the other condition under which a node can have multiple outputs
+    """
+    condition_met = True
+    for successor_id in G.successors(node_id):
+        if G.nodes[successor_id]["node_type"] == "function":
+            if G.nodes[successor_id]["function_name"] == "FUNCTION_ARRAY":
+                continue
+        condition_met = False
+        break
+    return condition_met
 
 def is_valid_transform(transform_logic_dag, filename, name):
     if name != filename.split(".")[0].upper():
@@ -116,7 +137,7 @@ def is_valid_logic_function(tree, filename, name):
     return True
 
 
-def is_valid_fn_sig_dict(fn_sig_translation_dict) -> bool:
+def is_valid_fn_sig_dict(fn_sig_translation_dict, allow_multiple_outputs) -> bool:
     function_signatures = fn_sig_translation_dict["signatures"]
     for func_name, signatures in function_signatures.items():
         for signature in signatures:
@@ -128,7 +149,7 @@ def is_valid_fn_sig_dict(fn_sig_translation_dict) -> bool:
                     return False
 
             outputs = signature["outputs"]
-            if len(outputs) != 1:
+            if not allow_multiple_outputs and len(outputs) > 1:
                 print(
                     f"Function signature {func_name} has {len(outputs)} outputs. Add support for multiple outputs to use"
                 )
@@ -151,7 +172,7 @@ def is_valid_fn_sig_dict(fn_sig_translation_dict) -> bool:
 
 
 def is_valid_conversion_fn_sig_dict(fn_sig_conversion_dict) -> bool:
-    if not is_valid_fn_sig_dict(fn_sig_conversion_dict):
+    if not is_valid_fn_sig_dict(fn_sig_conversion_dict, True):
         return False
 
     for func_name, signatures in fn_sig_conversion_dict["signatures"].items():

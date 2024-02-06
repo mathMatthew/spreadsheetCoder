@@ -57,15 +57,23 @@ def get_functions_without_conversion_instructions(
 
     # Validation to check if the modified signature dictionary is valid
     assert validation.is_valid_fn_sig_dict(
-        missing_signatures
+        missing_signatures, False
     ), "Signature dictionary is not valid."
     return missing_signatures
 
 
 def build_current_signature_definitions(G):
+    """
+    This builds a list of signature that are currently used by the graph
+    """
     signatures = {"signatures": {}}
     for node_id, attributes in G.nodes(data=True):
         if attributes["node_type"] != "function":
+            continue
+        # Skip function arrays as they are a special case as a tool to 
+        # allow some function to return multiple outputs in a graph that otherwise
+        # expects a single output per function
+        if attributes["function_name"] == "FUNCTION_ARRAY":
             continue
         match_sig = match_signature(G, node_id, signatures)
         if match_sig:
@@ -81,14 +89,14 @@ def build_current_signature_definitions(G):
             signatures,
             attributes["function_name"],
             parent_data_types,
-            return_type,
+            [return_type],
             "Required signatures",
             False,
             additional_params,
         )
     assert validation.is_valid_fn_sig_dict(
-        signatures
-    ), "Signature dictionary is not valid."
+            signatures, False
+        ), "Signature dictionary is not valid." 
     return signatures
 
 
@@ -114,17 +122,15 @@ def add_function_signature(
     func_sigs,
     function_name,
     parent_data_types,
-    return_data_type,
+    return_data_types,
     source,
     no_code,
     additional_params={},
 ):
-    if isinstance(return_data_type, list):
-        raise ValueError("add support for multiple return types.")
     if not function_name in func_sigs["signatures"]:
         func_sigs["signatures"][function_name] = []
     func_sigs["signatures"][function_name].append(
-        {"inputs": parent_data_types, "outputs": [return_data_type], "source": source}
+        {"inputs": parent_data_types, "outputs": return_data_types, "source": source}
     )
     if no_code:
         func_sigs["signatures"][function_name][-1]["no_code"] = True
@@ -191,8 +197,8 @@ def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
     think of the library as the base and new_sig_dict as what is getting added
     along with the name attached in "source"
     """
-    assert validation.is_valid_fn_sig_dict(new_sig_dict), "invalid signature dictionary"
-    assert validation.is_valid_fn_sig_dict(lib_sig_dict), "invalid signature dictionary"
+    assert validation.is_valid_fn_sig_dict(new_sig_dict, True), "invalid signature dictionary"
+    assert validation.is_valid_fn_sig_dict(lib_sig_dict, False), "invalid signature dictionary"
 
     new_sigs = new_sig_dict["signatures"]
     library_func_sigs = lib_sig_dict["signatures"]
@@ -222,7 +228,7 @@ def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
                 library_func_sigs[key].append(item)
 
 
-def match_function_signature(fn_sig_translation_dict, function_name, parent_data_types):
+def match_function_signature(fn_sig_translation_dict, function_name, parent_data_types, can_have_multiple_outputs):
     """
     Matches function signatures against provided parameters and returns all matches.
 
@@ -237,29 +243,28 @@ def match_function_signature(fn_sig_translation_dict, function_name, parent_data
 
     if signatures is not None:
         for signature in signatures:
-            assert (
-                len(signature["outputs"]) == 1
-            ), "Add support for multiple outputs to use"
-
             if match_input_signature(parent_data_types, signature["inputs"], False):
-                output = signature["outputs"][0]
+                if len(signature["outputs"]) > 1 and not can_have_multiple_outputs:
+                    continue
+                outputs = signature["outputs"]
                 source = signature.get("source", None)
-                matches.append((output, signature["inputs"], source))
+                matches.append((outputs, signature["inputs"], source))
 
     return matches
 
 
-def get_data_type(
+
+def get_data_types(
     G, node_id, conversion_signatures, library_func_sigs, auto_add, conversion_tracker
-):
+) -> List[str]:
     def generate_options_message(matching_tuples):
         message_parts = []
         valid_responses = []
-        for index, (return_type, sig_inputs, source) in enumerate(
+        for index, (return_types, sig_inputs, source) in enumerate(
             matching_tuples, start=1
         ):
             message_parts.append(
-                f"{index}) {', '.join(source)} with input type {', '.join(sig_inputs)} and return type {return_type}"
+                f"{index}) {', '.join(source)} with input type {', '.join(sig_inputs)} and return type(s) {return_types}"
             )
             valid_responses.append(str(index))
         message_parts.append(f"{len(matching_tuples) + 1}) None of these, don't add")
@@ -271,53 +276,63 @@ def get_data_type(
     assert validation.is_valid_conversion_fn_sig_dict(
         conversion_signatures
     ), "signature is not valid"
-    assert validation.is_valid_fn_sig_dict(library_func_sigs), "signature is not valid"
+    assert validation.is_valid_fn_sig_dict(library_func_sigs, True), "signature dictionary is not valid"
+
+    function_name = G.nodes[node_id]["function_name"]
+    if function_name == "FUNCTION_ARRAY":
+        multiple_output_node_id, position = get_parent_function_and_position_for_function_array_node(G, node_id)
+        multiple_output_data_types = G.nodes[multiple_output_node_id]["data_types"]
+        return [multiple_output_data_types[position-1]]
 
     parent_data_types = get_parent_data_types(G, node_id)
-    function_name = G.nodes[node_id]["function_name"]
 
+    can_have_multiple_outputs = validation.node_can_have_multiple_outputs(G, node_id)
     matching_tuples = match_function_signature(
-        conversion_signatures, function_name, parent_data_types
+        conversion_signatures, function_name, parent_data_types, can_have_multiple_outputs
     )
-    if matching_tuples:
-        return_type, sig_inputs, _ = matching_tuples[0]
+    if len(matching_tuples) > 1:
+        msg = f"the conversion signature file has multiple matches for {function_name} with input signature {', '.join(parent_data_types)}"
+        errs.save_function_signatures_and_raise(conversion_signatures, msg)
+
+    if len(matching_tuples) == 1:
+        return_types, sig_inputs, _ = matching_tuples[0]
         ct.update_conversion_tracker_sig(
             conversion_tracker,
             function_name,
             sig_inputs,
-            return_type,
-            "return_type_assigned",
+            return_types,
+            "return_types_assigned",
         )
-        return return_type
+        return return_types
 
     missing_signature_info = f"function name: {function_name} with input signature {', '.join(parent_data_types)}"
 
     matching_tuples = match_function_signature(
-        library_func_sigs, function_name, parent_data_types
+        library_func_sigs, function_name, parent_data_types, can_have_multiple_outputs
     )
     if matching_tuples:
         if auto_add and len(matching_tuples) == 1:
-            return_type, sig_inputs, sources = matching_tuples[0]
+            return_types, sig_inputs, sources = matching_tuples[0]
             add_function_signature(
                 conversion_signatures,
                 function_name,
                 sig_inputs,
-                return_type,
+                return_types,
                 sources,
                 True,
-            )
+            ) 
             ct.update_conversion_tracker_sig(
                 conversion_tracker,
                 function_name,
                 sig_inputs,
-                return_type,
-                "return_type_assigned",
+                return_types,
+                "func_auto_added_and_return_types_assigned",
             )
-            return return_type
+            return return_types
         if len(matching_tuples) == 1:
-            return_type, sig_inputs, sources = matching_tuples[0]
+            return_types, sig_inputs, sources = matching_tuples[0]
             resp = ui.ask_question(
-                f"Signature for {missing_signature_info} not found in current signature dictionary. Match found in the provided library: {', '.join(sources)} with return type {return_type}. Do you want to add it?",
+                f"Signature for {missing_signature_info} not found in current signature dictionary. Match found in the provided library: {', '.join(sources)} with return type(s) {return_types}. Do you want to add it?",
                 ["y", "n"],
             )
             if resp == "y":
@@ -325,7 +340,7 @@ def get_data_type(
                     conversion_signatures,
                     function_name,
                     sig_inputs,
-                    return_type,
+                    return_types,
                     sources,
                     True,
                 )
@@ -333,24 +348,24 @@ def get_data_type(
                     conversion_tracker,
                     function_name,
                     sig_inputs,
-                    return_type,
-                    "return_type_assigned",
+                    return_types,
+                    "manual_add_from_library_and_return_types_assigned",
                 )
-                return return_type
-        else:
+                return return_types
+        else: 
             options_message, valid_responses = generate_options_message(matching_tuples)
             resp = ui.ask_question(
                 f"Signature for {missing_signature_info} not found in current signature dictionary. Match found in {len(matching_tuples)} provided libraries:\n{options_message}",
                 valid_responses,
             )
-            if resp != str(len(matching_tuples) + 1):
+            if resp != str(len(matching_tuples) + 1): #if not the option to add manually
                 selected_tuple = matching_tuples[int(resp) - 1]
-                return_type, sig_inputs, sources = selected_tuple
+                return_types, sig_inputs, sources = selected_tuple
                 add_function_signature(
                     conversion_signatures,
                     function_name,
                     sig_inputs,
-                    return_type,
+                    return_types,
                     sources,
                     True,
                 )
@@ -358,10 +373,10 @@ def get_data_type(
                     conversion_tracker,
                     function_name,
                     sig_inputs,
-                    return_type,
-                    "return_type_assigned",
+                    return_types,
+                    "manual_add_from_library_and_return_types_assigned",
                 )
-                return return_type
+                return return_types
 
     resp = ui.ask_question(
         f"Signature for {missing_signature_info} not found. Dag: {G.graph['name']}. Do you want to add it manually (m) or abort (a)?",
@@ -369,7 +384,7 @@ def get_data_type(
     )
     if resp == "m":
         return_type = ui.ask_question_validation_function(
-            f"Signature for {missing_signature_info}, what should the return data type be? Examples: Text, Number, Boolean, Date, ARRAY[Text], Multiple[Number], Multiple[ARRAY[Number]]",
+            f"Signature for {missing_signature_info}, what should the return data type be. Note: multiple outputs not supported for manual adds? Examples: Text, Number, Boolean, Date, ARRAY[Text], TABLE_COLUMN[Number]",
             validation.valid_data_type_strict,
         )
         if return_type is not None:
@@ -377,7 +392,7 @@ def get_data_type(
                 conversion_signatures,
                 function_name,
                 parent_data_types,
-                return_type,
+                [return_type],
                 "manual",
                 True,
             )
@@ -385,21 +400,24 @@ def get_data_type(
                 conversion_tracker,
                 function_name,
                 parent_data_types,
-                return_type,
-                "return_type_assigned",
+                [return_type],
+                "return_type_manually_added_and_return_type_assigned",
             )
-            return return_type
+            return [return_type]
 
     errs.save_dag_and_raise_node(
         G,
         node_id,
         f"Signature for {missing_signature_info} not found. Node {node_id} in tree: {G.graph['name']}. Aborting",
     )
+    return ["won't get here"]
 
-
-def save_function_signatures(func_sigs):
-    with open("errors/func_sigs_temp.json", "w") as f:
-        json.dump(func_sigs, f, indent=2)
+def get_parent_function_and_position_for_function_array_node(G, node_id):
+    parents = dags.get_ordered_parent_ids(G, node_id)
+    multiple_output_function_node_id = parents[0]
+    position_node_id = parents[1]
+    position = int(G.nodes[position_node_id]["value"])
+    return multiple_output_function_node_id, position
 
 
 def create_signature_dictionary(function_logic_dags):

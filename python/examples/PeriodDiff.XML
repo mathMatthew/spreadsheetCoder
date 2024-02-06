@@ -1,0 +1,199 @@
+<CodeCalculation Name="PeriodDiff" Version="4" AppliesTo="All except skip" HasMultipleOutputs="0">
+	<Inputs>
+		<Input InputId="1" Name="Length" Type="1"/>
+		<Input InputId="2" Name="Rate" Type="1"/>
+		<Input InputId="3" Name="Balance" Type="1"/>
+		<Input InputId="4" Name="Multiplier" Type="1"/>
+	</Inputs>
+	<InputDependencies>
+		<InputDependency InputId="1" NodeId="1"/>
+		<InputDependency InputId="2" NodeId="2"/>
+		<InputDependency InputId="4" NodeId="4"/>
+		<InputDependency InputId="3" NodeId="9"/>
+		<InputDependency InputId="1" NodeId="13"/>
+		<InputDependency InputId="2" NodeId="14"/>
+		<InputDependency InputId="4" NodeId="16"/>
+		<InputDependency InputId="3" NodeId="21"/>
+	</InputDependencies>
+	<TestCases>
+		<TestCase>
+			<InputValue Type="1" Value="1"/>
+			<InputValue Type="1" Value="0.0012"/>
+			<InputValue Type="1" Value="1000000"/>
+			<InputValue Type="1" Value="1"/>
+			<OutputValue Type="1" Value="23.9425035178429"/>
+			<OutputValue Type="1" Value="0"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="6"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="3"/>
+			<OutputValue Type="1" Value="19916.8251066469"/>
+			<OutputValue Type="1" Value="4296.15365103912"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="6"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="5"/>
+			<OutputValue Type="1" Value="33194.7395422086"/>
+			<OutputValue Type="1" Value="7160.26129815541"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="6"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="3"/>
+			<OutputValue Type="1" Value="120375.482431562"/>
+			<OutputValue Type="1" Value="27250.1824433953"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="6"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="5"/>
+			<OutputValue Type="1" Value="200638.161292156"/>
+			<OutputValue Type="1" Value="45419.1740337014"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="12"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="3"/>
+			<OutputValue Type="1" Value="35556.3682028409"/>
+			<OutputValue Type="1" Value="18170.627098972"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="12"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="5"/>
+			<OutputValue Type="1" Value="59260.7739445567"/>
+			<OutputValue Type="1" Value="30284.4495795844"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="12"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="3"/>
+			<OutputValue Type="1" Value="162344.215544996"/>
+			<OutputValue Type="1" Value="86836.3740645736"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="12"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="5"/>
+			<OutputValue Type="1" Value="270618.557896637"/>
+			<OutputValue Type="1" Value="144748.379653954"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="30"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="3"/>
+			<OutputValue Type="1" Value="75408.439288456"/>
+			<OutputValue Type="1" Value="106501.368179088"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="30"/>
+			<InputValue Type="1" Value="0.01"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="5"/>
+			<OutputValue Type="1" Value="125682.399295341"/>
+			<OutputValue Type="1" Value="177504.495278107"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="30"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="3"/>
+			<OutputValue Type="1" Value="164042.102909208"/>
+			<OutputValue Type="1" Value="240456.496106707"/>
+		</TestCase>
+		<TestCase>
+			<InputValue Type="1" Value="30"/>
+			<InputValue Type="1" Value="0.09"/>
+			<InputValue Type="1" Value="10000000"/>
+			<InputValue Type="1" Value="5"/>
+			<OutputValue Type="1" Value="273574.625452849"/>
+			<OutputValue Type="1" Value="401000.650394653"/>
+		</TestCase>
+	</TestCases>
+	<LangSpecs/>
+	<FunctionNodes>
+		<FunctionNode NodeId="6" Name="/" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="7" Name="-" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="8" Name="*" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="10" Name="CmplxPeriod" HasMultipleChildren="-1"/>
+		<FunctionNode NodeId="12" Name="FUNCTION_ARRAY" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="18" Name="/" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="19" Name="+" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="20" Name="*" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="22" Name="CmplxPeriod" HasMultipleChildren="-1"/>
+		<FunctionNode NodeId="24" Name="FUNCTION_ARRAY" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="25" Name="-" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="27" Name="FUNCTION_ARRAY" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="29" Name="FUNCTION_ARRAY" HasMultipleChildren="0"/>
+		<FunctionNode NodeId="30" Name="-" HasMultipleChildren="0"/>
+	</FunctionNodes>
+	<ConstantNodes>
+		<ConstantNode NodeId="3" Type="1" Value="1" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="5" Type="1" Value="100" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="11" Type="1" Value="1" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="15" Type="1" Value="1" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="17" Type="1" Value="100" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="23" Type="1" Value="1" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="26" Type="1" Value="3" HasMultipleChildren="0"/>
+		<ConstantNode NodeId="28" Type="1" Value="3" HasMultipleChildren="0"/>
+	</ConstantNodes>
+	<NamedNodes>
+		<NamedNode NodeId="8" Name="F8" NameLevel="10"/>
+		<NamedNode NodeId="10" Name="G12" NameLevel="15"/>
+		<NamedNode NodeId="12" Name="G12" NameLevel="10"/>
+		<NamedNode NodeId="20" Name="H8" NameLevel="10"/>
+		<NamedNode NodeId="22" Name="G13" NameLevel="15"/>
+		<NamedNode NodeId="24" Name="G13" NameLevel="10"/>
+		<NamedNode NodeId="27" Name="I12" NameLevel="10"/>
+		<NamedNode NodeId="29" Name="I13" NameLevel="10"/>
+	</NamedNodes>
+	<NodeComments/>
+	<Outputs>
+		<Output Id="1" Name="BalDiff" Type="1" NodeId="25"/>
+		<Output Id="2" Name="IntDiff" Type="1" NodeId="30"/>
+	</Outputs>
+	<NodeDependencies>
+		<NodeDependency ParentNodeId="4" ChildNodeId="6" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="5" ChildNodeId="6" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="3" ChildNodeId="7" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="6" ChildNodeId="7" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="2" ChildNodeId="8" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="7" ChildNodeId="8" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="1" ChildNodeId="10" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="8" ChildNodeId="10" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="9" ChildNodeId="10" ParentPosition="3"/>
+		<NodeDependency ParentNodeId="10" ChildNodeId="12" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="11" ChildNodeId="12" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="16" ChildNodeId="18" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="17" ChildNodeId="18" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="15" ChildNodeId="19" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="18" ChildNodeId="19" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="14" ChildNodeId="20" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="19" ChildNodeId="20" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="13" ChildNodeId="22" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="20" ChildNodeId="22" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="21" ChildNodeId="22" ParentPosition="3"/>
+		<NodeDependency ParentNodeId="22" ChildNodeId="24" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="23" ChildNodeId="24" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="12" ChildNodeId="25" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="24" ChildNodeId="25" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="10" ChildNodeId="27" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="26" ChildNodeId="27" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="22" ChildNodeId="29" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="28" ChildNodeId="29" ParentPosition="2"/>
+		<NodeDependency ParentNodeId="27" ChildNodeId="30" ParentPosition="1"/>
+		<NodeDependency ParentNodeId="29" ChildNodeId="30" ParentPosition="2"/>
+	</NodeDependencies>
+</CodeCalculation>
+
