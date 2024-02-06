@@ -13,7 +13,9 @@ output_dir = "../../../sc_output_files"
 #xml_file = "test_power.XML"
 #xml_file = "CmplxPeriod.XML"
 #xml_file = "myPandL.XML"
-xml_file = "ranch.XML"
+#xml_file = "ranch.XML"
+xml_file = 'PeriodDiff.XML'
+
 
 conversion_tracker = ct.empty_conversion_tracker()
 overrides = {}
