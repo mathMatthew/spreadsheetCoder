@@ -457,6 +457,7 @@ def update_dag_with_data_types(
                 f"Node id: {node_id} does not have data_type but is not a function.",
             )
             return
+            
         data_types = sigs.get_data_types(
             G,
             node_id,

@@ -1,3 +1,4 @@
+from asyncore import loop
 import json
 from typing import Any, Dict, Tuple, List, Optional
 
@@ -8,6 +9,8 @@ import conv_tracker as ct
 def empty_func_sigs() -> Dict[str, Any]:
     return {
         "signatures": {},
+        "templates": {},
+        "commutative_functions_to_convert_to_binomial": {},
     }
 
 
@@ -35,8 +38,6 @@ def get_functions_without_conversion_instructions(
     missing_signatures = {"signatures": {}}
 
     for func_name, func_required_signatures in required_signatures["signatures"].items():
-        if func_name == "INDEX":
-            print("checking index")
 
         for required_signature in func_required_signatures:
             # Check if the current signature matches any in the signature_definitions
@@ -167,21 +168,21 @@ def match_input_signature(parent_data_types, input_signature, strict):
     j = 0
     while i < len(parent_data_types) and j < len(input_signature):
         input_type = input_signature[j]
+        parent_type = parent_data_types[i]
+        if match_type(input_type, parent_type, strict):
+            i = i + 1
+            j = j + 1
+            continue
         # once input_signature has given us a remaining data type, we can't have any more data types from the input signature.
         if input_type.startswith("Multiple["):
             remaining_data_type = input_type[9:-1]
-        parent_type = parent_data_types[i]
         if remaining_data_type:
             if not match_type(parent_type, remaining_data_type, strict):
                 return False
             else:
                 i = i + 1
         else:
-            if not match_type(parent_type, input_type, strict):
-                return False
-            else:
-                i = i + 1
-                j = j + 1
+            return False
     #they both need to complete the above together.
     if not(
         (i == len(parent_data_types) and j == len(input_signature) and not remaining_data_type)
@@ -439,3 +440,52 @@ def create_signature_dictionary(function_logic_dags):
         new_sigs[func_name] = [new_signature]
 
     return new_sig_dict
+
+def filter_func_sigs_by_conv_tracker(conversion_func_sigs, conversion_tracker):
+    assert validation.is_valid_conversion_tracker(
+        conversion_tracker
+    )
+    assert validation.is_valid_conversion_fn_sig_dict(
+        conversion_func_sigs
+    )
+
+    filtered_func_sigs = empty_func_sigs()
+
+    #1. Add conversion_func_sigs signatures that were used as recorded in the conversion tracker
+    used_signatures = conversion_tracker["func_sigs"]
+    sig_to_build = filtered_func_sigs["signatures"]
+    sig_library = conversion_func_sigs["signatures"]
+
+    for func_name, sig_list in used_signatures.items():
+        for sig in sig_list:
+            match_found = False
+            lib_sigs = sig_library[func_name]
+            for lib_sig in lib_sigs:
+                if match_input_signature(lib_sig["inputs"], sig["inputs"], True):
+                    if not func_name in sig_to_build:
+                        sig_to_build[func_name] = []
+                    sig_to_build[func_name].append(lib_sig)
+                    match_found= True
+                    break
+            if not match_found:
+                raise ValueError(f"Signature {sig} is conversion_tracker but not found in library for function {func_name}. Doesn't make sense")
+    
+    #2. add templates that were used
+    used_templates = conversion_tracker["templates_used"]
+    templates_to_build = filtered_func_sigs["templates"]
+    template_library = conversion_func_sigs.get("templates", {})
+
+    for template_name, _ in used_templates.items():
+        templates_to_build[template_name] = template_library[template_name]
+    
+    #3. add binomial expansions
+    used_binomial_expansions = conversion_tracker["binomial_expansions"]
+    binomial_expansions_to_build = filtered_func_sigs["commutative_functions_to_convert_to_binomial"]
+    binomial_expansions_library = conversion_func_sigs.get("commutative_functions_to_convert_to_binomial", {})
+
+    for func_name, _ in used_binomial_expansions.items():
+        binomial_expansions_to_build[func_name] = binomial_expansions_library[func_name]
+    
+    return filtered_func_sigs
+    #xxx add later the transfroms and code logic functions into this file so everything needed is on one place.
+

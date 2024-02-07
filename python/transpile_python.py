@@ -377,6 +377,10 @@ def transpile_dags_to_py(
         base_dag_G, conversion_func_sigs, use_tables, conversion_tracker
     )
 
+    conversion_func_sigs = sigs.filter_func_sigs_by_conv_tracker(
+        conversion_func_sigs, conversion_tracker
+    )
+
     test_results_df = test_code(code, base_dag_tree, base_dag_G)
 
     true_count = test_results_df["Result"].sum()
@@ -385,7 +389,7 @@ def transpile_dags_to_py(
     # Evaluating the test results
     if true_count == len(test_results_df):
         print(f"All {true_count} tests passed.")
-        return code
+        return code, conversion_func_sigs
     elif false_count == len(test_results_df):
         print(f"All {false_count} tests failed.")
         return ""
@@ -429,7 +433,7 @@ def transpile(
     else:
         dag_to_send = data_dict["base_dag_graph"]
 
-    python_code = transpile_dags_to_py(
+    python_code, conversion_func_sig = transpile_dags_to_py(
         base_dag_G=dag_to_send,
         base_dag_tree=data_dict["base_dag_xml_tree"],
         function_logic_dags=data_dict["function_logic_dags"],
@@ -441,7 +445,7 @@ def transpile(
         use_tables=data_dict["use_tables"],
         conversion_tracker=conversion_tracker,
     )
-    return python_code, data_dict["conversion_func_sigs"]
+    return python_code, conversion_func_sig
 
 
 ##################################

@@ -24,7 +24,6 @@ import signatures as sigs
 supported_function_lib_file = "./system_data/sql_supported_functions.json"
 used_tables = set()
 NUMERIC_TOLERANCE = "0.01"
-db_path = "data/temp_test_DB.db"
 sql_reserved_words_file = "./system_data/sql_reserved_words.txt"
 
 
@@ -58,7 +57,8 @@ def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any
 
 ##################################
 # Section 2: Utilities and functions returning sql
-# from closer to the sql/more detailed to further from it
+# items in this section are ordered from roughly by
+# closer to the sql/more detailed to further from it
 ##################################
 
 
@@ -152,7 +152,6 @@ def _create_reference_table_sql(table_name, table_definition):
 
     create_table_sql = _create_table(table_name, col_defs)
 
-    # Initialize an empty list to store all SQL statements
     sql_statements = [create_table_sql]
 
     # Retrieve the column names and data
@@ -639,7 +638,7 @@ def transpile_dags_to_sql_and_test(
 
     nodes_to_lop_off =dags.find_nodes_to_lop_off(graph=base_dag_G, treat_tables_as_dynamic=True)
     if len(nodes_to_lop_off) > 0:
-        raise ValueError(f"Found nodes that cann be lopped off: {nodes_to_lop_off}")
+        raise ValueError(f"Found nodes that can be lopped off: {nodes_to_lop_off}")
         #for now just stop and see what we have. will work on implementation next.
 
     sigs.if_missing_save_sigs_and_err(conversion_func_sigs, base_dag_G)
@@ -647,6 +646,11 @@ def transpile_dags_to_sql_and_test(
     code = convert_to_sql(
         base_dag_G, base_dag_tree, tables_dict, conversion_func_sigs, conversion_tracker
     )
+
+    conversion_func_sigs = sigs.filter_func_sigs_by_conv_tracker(
+        conversion_func_sigs, conversion_tracker
+    )
+
     conn = sqlite3.connect(":memory:")
 
     required_function_codes = get_required_functions_code(
@@ -677,7 +681,7 @@ def transpile_dags_to_sql_and_test(
     conn.close()
     code += testing_footer(base_dag_G)
 
-    return code
+    return code, conversion_func_sigs
 
 
 def transpile(
@@ -693,7 +697,7 @@ def transpile(
         data_dict["base_dag_graph"]
     )
 
-    sql_code = transpile_dags_to_sql_and_test(
+    sql_code, conv_fn_sigs = transpile_dags_to_sql_and_test(
         base_dag_G=dag_to_send,
         base_dag_tree=data_dict["base_dag_xml_tree"],
         tables_dict=tables_dict,
@@ -705,7 +709,7 @@ def transpile(
         auto_add_signatures=data_dict["auto_add_signatures"],
         conversion_tracker=conversion_tracker,
     )
-    return sql_code, data_dict["conversion_func_sigs"]
+    return sql_code, conv_fn_sigs
 
 
 #################################
