@@ -640,7 +640,7 @@ def transpile_dags_to_sql_and_test(
     nodes_to_lop_off =dags.find_nodes_to_lop_off(graph=base_dag_G, treat_tables_as_dynamic=True)
     if len(nodes_to_lop_off) > 0:
         raise ValueError(f"Found nodes that cann be lopped off: {nodes_to_lop_off}")
-        #for now just stop and see what we have.
+        #for now just stop and see what we have. will work on implementation next.
 
     sigs.if_missing_save_sigs_and_err(conversion_func_sigs, base_dag_G)
 

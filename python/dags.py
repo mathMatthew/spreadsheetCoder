@@ -1159,48 +1159,6 @@ def dict_of_matching_node_ids(
     else:
         return {}
 
-import networkx as nx
-
-def identify_transition_points(graph: nx.MultiDiGraph) -> dict:
-    """
-    Identify transition points in a directed acyclic graph based on dynamic ancestors.
-    
-    A transition point is defined as a node whose set of dynamic ancestors is smaller than
-    that of any of its successors and is not an input, a constant, or a table.
-    
-    :param graph: A directed acyclic graph where nodes represent computations or data and edges represent dependencies.
-    :return: A dictionary mapping each transition point to its set of dynamic ancestors.
-    """
-    # Initialize a dictionary to track the dynamic ancestors of each node
-    dynamic_ancestors:Dict[int, set] = {node_id: set() for node_id in graph.nodes()}
-    
-    # Initialize the dictionary for transition points
-    transition_points: Dict[str, set] = {}
-    
-    # Perform a topological sort of the graph
-    sorted_nodes = list(nx.topological_sort(graph))
-    
-    for node_id in sorted_nodes:
-        node_type = graph.nodes[node_id]['node_type']
-        
-        # Set the dynamic ancestors for constant, input, and table nodes
-        if node_type in ['constant']:
-            dynamic_ancestors[node_id] = set()
-        elif node_type in ['input', 'table_array']:
-            dynamic_ancestors[node_id] = {node_id}
-        
-        # Accumulate dynamic ancestors for other types of nodes
-        else:
-            parents = graph.predecessors(node_id)
-            for parent in parents:
-                dynamic_ancestors[node_id].update(dynamic_ancestors[parent])
-                
-            # Check if the node is a transition point
-            for parent in parents:
-                if len(dynamic_ancestors[parent]) < len(dynamic_ancestors[node_id]) and node_type not in ['input', 'constant', 'table_array']:
-                    transition_points[parent] = dynamic_ancestors[parent]
-                
-    return transition_points
 
 
 def find_nodes_to_lop_off(graph: nx.MultiDiGraph, treat_tables_as_dynamic) -> set:
