@@ -7,6 +7,7 @@ import validation, errs, setup
 import conv_tracker as ct
 import convert_xml as cxml
 import signatures as sigs
+from coding_centralized import convert_to_type
 
 array1_functions = [
     "AND",
@@ -761,8 +762,17 @@ def convert_graph(
         auto_add_signatures,
         conversion_tracker,
     )
+
+    nodes_to_lop_off = find_nodes_to_lop_off(graph=dag_to_convert, treat_tables_as_dynamic=True)
+    if len(nodes_to_lop_off) > 0:
+        raise ValueError(f"Found nodes that can be lopped off: {nodes_to_lop_off}")
+        #for now just stop and see what we have. will work on implementation next.
+    #lop them off. Still to do.
+    remove_ifs_with_first_node_as_constant(G=dag_to_convert, conversion_tracker=conversion_tracker)
+
     if renum_nodes:
         renumber_nodes(dag_to_convert)
+
     assert validation.is_valid_base_graph(dag_to_convert), "converted dag is not valid"
 
 
@@ -1160,7 +1170,97 @@ def dict_of_matching_node_ids(
     else:
         return {}
 
+def remove_edge(G, node_id, parent_node_id, parent_position):
+    """
+    Remove an edge between two nodes based on the parent_position attribute.
 
+    Parameters:
+    - G: The graph (nx.MultiDiGraph)
+    - node_id: The ID of the node
+    - parent_node_id: The ID second node--must be a predecessor of the first node
+    - parent_position: The parent_position attribute value to match for removal
+    """
+    # Iterate over all edges between the specified nodes
+    for u, _, key, attr in G.in_edges(node_id, data=True, keys=True):
+        if u == parent_node_id and attr.get('parent_position') == parent_position:
+            G.remove_edge(u, node_id, key)
+            break  
+
+def remove_ifs_with_first_node_as_constant(G: nx.MultiDiGraph, conversion_tracker):
+    if not nx.is_weakly_connected(G):
+        raise ValueError("Graph is not weakly connected")
+    
+    # Step 1: Gather information
+    node_modifications = []
+    for node_id, attrs in G.nodes(data=True):
+        if attrs.get('function_name') == 'IF':
+            parents = get_ordered_parent_ids(G, node_id)
+            if len(parents) != 3:
+                raise ValueError(f"Expected 3 parents for IF node {node_id}, got {len(parents)}")
+            if G.nodes[parents[0]]['node_type'] == 'constant':
+                first_parent = parents[0]
+                is_true = bool(convert_to_type(G.nodes[first_parent]['value'], G.nodes[first_parent]['data_type']))
+                parent_id_to_use = parents[1] if is_true else parents[2]
+                parent_id_not_used = parents[2] if is_true else parents[1]
+                node_modifications.append((node_id, first_parent, parent_id_to_use, parent_id_not_used))
+
+    # Step 2: Modify the graph based on the gathered information. This avoids looping over the graph 
+                # while we remove nodes and edges
+    for node_id, first_parent, parent_id_to_use, parent_id_not_used in node_modifications:
+        remove_edge(G, node_id, first_parent, 0)
+        if G.out_degree(first_parent) == 0:
+            G.remove_node(first_parent)
+        remove_node_rewire_children_to_parent(G, node_id, parent_id_to_use)        
+        
+        #Record change in conversion tracker
+        ct.update_conversion_tracker_event(conversion_tracker, 'remove_if_with_first_node_as_constant')
+
+
+
+def remove_node_and_ancestors_safe(G, start_node):
+    # Initialize a queue with the start node
+    queue = [start_node]
+    # Initialize a set to track all nodes to potentially remove
+    subtree_nodes = set([start_node])
+
+    while queue:
+        current_node = queue.pop(0)  # Dequeue the next node
+        # Check if current_node has successors outside subtree_nodes
+        if any(successor not in subtree_nodes for successor in G.successors(current_node)):
+            continue  # Skip removal if there are external successors
+
+        # For nodes with no external successors, check their predecessors
+        for pred in G.predecessors(current_node):
+            if pred not in subtree_nodes:
+                subtree_nodes.add(pred)
+                queue.append(pred)  # Enqueue predecessor for further checks
+
+    # Remove all identified nodes from the graph
+    for node in subtree_nodes:
+        G.remove_node(node)
+
+
+
+def remove_node_rewire_children_to_parent(G, node_id, parent_node_id):
+    """
+    Remove node_id from the graph, connecting parent_node_id directly to node_id's
+    successors (parent node_id's grandkids through node_id). Preserve the parent_position 
+    attributes of the edges from node_id to its successors.
+    
+    Parameters:
+    - G: A directed graph (nx.MultiDiGraph).
+    - node_id: The ID of the node to be removed, whose outgoing edges are to be transferred.
+    - parent_node_id: The ID of the node to receive the transferred edges, and a parent of node_id
+    """
+    # Correctly collect all outgoing edges from node_id with their parent_position
+    outgoing_edges = [(node_id, succ, attr['parent_position']) for succ, attr in G[node_id].items() for _, attr in G[node_id][succ].items()]
+
+    # Remove the node_id, which will also eliminate all its connections
+    G.remove_node(node_id)
+    
+    # Add new edges from node_id_new to the successors of the original node_id
+    for _, successor, parent_position in outgoing_edges:
+        G.add_edge(parent_node_id, successor, parent_position=parent_position)
 
 def find_nodes_to_lop_off(graph: nx.MultiDiGraph, treat_tables_as_dynamic) -> set:
     """

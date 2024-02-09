@@ -198,22 +198,6 @@ def _create_table(unformatted_table_name, col_defs) -> str:
     return code
 
 
-def _convert_to_type(value, data_type):
-    # Add conversion logic based on the data_type
-    if data_type == "Text":
-        return value
-    elif data_type == "Number":
-        return float(value)
-    elif data_type == "Boolean":
-        return value.lower() == "true"  # or bool(value)?
-    elif data_type == "Date":
-        try:
-            return datetime.strptime(value, "%m/%d/%Y")
-        except ValueError:
-            return datetime.strptime(value, "%m/%d/%Y %I:%M:%S %p")
-
-    # Add other data types as needed
-    return value
 
 
 def convert_col_defs(col_types):
@@ -278,7 +262,7 @@ def _insert_into_primary_table_sql(G, tree) -> str:
         # Extract input values
         input_values = []
         for input_value in test_case.findall("input_value"):
-            input_value_converted = _convert_to_type(
+            input_value_converted = cc.convert_to_type(
                 input_value.attrib["Value"], input_value.attrib["data_type"]
             )
             input_values.append(input_value_converted)
@@ -286,7 +270,7 @@ def _insert_into_primary_table_sql(G, tree) -> str:
         # Extract expected (predicted) output values
         expected_outputs = []
         for output_value in test_case.findall("output_value"):
-            output_value_converted = _convert_to_type(
+            output_value_converted = cc.convert_to_type(
                 output_value.attrib["Value"], output_value.attrib["data_type"]
             )
             expected_outputs.append(output_value_converted)
@@ -608,6 +592,15 @@ def convert_to_sql(
 
     return code
 
+# def execute_closed_dag(
+#     G: nx.MultiDiGraph,
+#     tables_dict,
+#     conversion_func_sigs: Dict[str, List[Dict]],
+#     ) -> str:
+#     """
+#     a 'closed' dag is one with no inputs. only constants. 
+#     """
+
 
 def transpile_dags_to_sql_and_test(
     base_dag_G: nx.MultiDiGraph,
@@ -620,7 +613,7 @@ def transpile_dags_to_sql_and_test(
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
     conversion_tracker: Dict[str, Any],
-) -> str:
+) -> Tuple[str, Dict]:
     """
     Transpiles DAG to SQL code.
     """
@@ -635,11 +628,6 @@ def transpile_dags_to_sql_and_test(
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
     )
-
-    nodes_to_lop_off =dags.find_nodes_to_lop_off(graph=base_dag_G, treat_tables_as_dynamic=True)
-    if len(nodes_to_lop_off) > 0:
-        raise ValueError(f"Found nodes that can be lopped off: {nodes_to_lop_off}")
-        #for now just stop and see what we have. will work on implementation next.
 
     sigs.if_missing_save_sigs_and_err(conversion_func_sigs, base_dag_G)
 
@@ -676,7 +664,7 @@ def transpile_dags_to_sql_and_test(
         conn.close()
 
         errs.save_code_and_results_and_raise_msg(code, df, msg, "sql")
-        return ""
+        return "", conversion_func_sigs
 
     conn.close()
     code += testing_footer(base_dag_G)

@@ -1,9 +1,27 @@
 from typing import Any, Dict, Tuple, List, Callable, Set, Optional
 import re
+from datetime import datetime
 
 import conv_tracker as ct
 import errs, validation, dags
 import signatures as sigs
+
+def convert_to_type(value, data_type):
+    #move this to a centralized testing module at some point.
+    if data_type == "Text":
+        return value
+    elif data_type == "Number":
+        return float(value)
+    elif data_type == "Boolean":
+        return value.lower() == "true"  # or bool(value)?
+    elif data_type == "Date":
+        try:
+            return datetime.strptime(value, "%m/%d/%Y")
+        except ValueError:
+            return datetime.strptime(value, "%m/%d/%Y %I:%M:%S %p")
+
+    # Add other data types as needed
+    return value
 
 def code_cached_node(
     G, node_id, conversion_tracker, conversion_func_sigs, replace_key_fn

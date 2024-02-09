@@ -7,7 +7,6 @@ This module takes an sc graph and transpiles it to python code
 import json, os, keyword, dags
 import networkx as nx
 import pandas as pd
-from datetime import datetime
 from typing import Any, Dict, Tuple, List
 from functools import partial
 import pandas as pd
@@ -125,22 +124,6 @@ def _add_indents(text, number):
     return indented_text
 
 
-def _convert_to_type(value, data_type):
-    # Add conversion logic based on the data_type
-    if data_type == "Text":
-        return value
-    elif data_type == "Number":
-        return float(value)
-    elif data_type == "Boolean":
-        return value.lower() == "true"  # or bool(value)?
-    elif data_type == "Date":
-        try:
-            return datetime.strptime(value, "%m/%d/%Y")
-        except ValueError:
-            return datetime.strptime(value, "%m/%d/%Y %I:%M:%S %p")
-
-    # Add other data types as needed
-    return value
 
 
 def _make_header(G, use_tables) -> str:
@@ -337,7 +320,7 @@ def transpile_dags_to_py(
     auto_add_signatures: bool,
     use_tables: bool,
     conversion_tracker: Dict[str, Any],
-) -> str:
+) -> Tuple[str, Dict]:
     """
     Transpiles XML tree to Python code.
 
@@ -392,7 +375,7 @@ def transpile_dags_to_py(
         return code, conversion_func_sigs
     elif false_count == len(test_results_df):
         print(f"All {false_count} tests failed.")
-        return ""
+        return "", conversion_func_sigs
     else:
         print(f"{true_count} out of {len(test_results_df)} tests passed.")
         print("The following tests failed:")
@@ -402,7 +385,7 @@ def transpile_dags_to_py(
         errs.save_code_results_and_raise_msg(
             code, test_results_df, "Not all tests passed.", "python"
         )
-        return ""
+        return "", conversion_func_sigs
 
 
 def transpile(
@@ -501,7 +484,7 @@ def test_code(code_str, tree, G):
         ):
             input_values = []
             for i, input_value in enumerate(test_case.findall("input_value")):
-                input_value_converted = _convert_to_type(
+                input_value_converted = cc.convert_to_type(
                     input_value.attrib["Value"], input_value.attrib["data_type"]
                 )
                 input_values.append(input_value_converted)
@@ -516,7 +499,7 @@ def test_code(code_str, tree, G):
                 row_data[i] = value
 
             expected_outputs = [
-                _convert_to_type(
+                cc.convert_to_type(
                     output_value.attrib["Value"], output_value.attrib["data_type"]
                 )
                 for output_value in test_case.findall("output_value")
