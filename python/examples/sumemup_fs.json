@@ -1,0 +1,112 @@
+{
+  "signatures": {
+    "*": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "*",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "ARRAY": [
+      {
+        "inputs": [
+          "Number",
+          "Number",
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "ARRAY[Number]"
+        ],
+        "no_code": true
+      },
+      {
+        "inputs": [
+          "Number",
+          "Number",
+          "Multiple[Any]"
+        ],
+        "outputs": [
+          "ARRAY[Any]"
+        ],
+        "no_code": true
+      }
+    ],
+    "PRODUCT": [
+      {
+        "inputs": [
+          "ARRAY[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "no_code": true
+      },
+      {
+        "inputs": [
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "functools.reduce(lambda x, y: x * y, [",
+        "code_after": "], 1)",
+        "requires_imports": [
+          "import functools"
+        ]
+      }
+    ],
+    "SUM": [
+      {
+        "inputs": [
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "sum([",
+        "code_after": "])"
+      },
+      {
+        "inputs": [
+          "Multiple[Any]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "sumnum([",
+        "code_after": "])",
+        "add_functions": [
+          "SUMNUM"
+        ]
+      }
+    ],
+    "/": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "/ (",
+        "code_before": "(",
+        "code_after": " + 1e-10))"
+      }
+    ]
+  },
+  "templates": {},
+  "commutative_functions_to_convert_to_binomial": {},
+  "functions": {
+    "SUMNUM": {
+      "text": "def sumnum(lst) -> float:\n    running_total = 0\n    for item in lst:\n        if isinstance(item, (int, float)):\n            running_total += item\n    return running_total"
+    }
+  }
+}

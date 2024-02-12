@@ -48,7 +48,7 @@ def is_valid_graph(G, require_types: bool) -> bool:
         if "output_name" in G.nodes[node_id]:
             continue
         return False
-     
+
     # validate output_node_ids
     output_node_ids = [
         node
@@ -78,7 +78,7 @@ def is_valid_graph(G, require_types: bool) -> bool:
     if require_types:
         for node in G.nodes():
             if "data_type" not in G.nodes[node]:
-                #validate that if a node has multiple outputs than all of its successors are function array nodes
+                # validate that if a node has multiple outputs than all of its successors are function array nodes
                 if "data_types" in G.nodes[node]:
                     if not node_can_have_multiple_outputs(G, node):
                         return False
@@ -86,6 +86,7 @@ def is_valid_graph(G, require_types: bool) -> bool:
                     return False
 
     return True
+
 
 def node_can_have_multiple_outputs(G, node_id):
     """
@@ -101,6 +102,7 @@ def node_can_have_multiple_outputs(G, node_id):
         condition_met = False
         break
     return condition_met
+
 
 def is_valid_transform(transform_logic_dag, filename, name):
     if name != filename.split(".")[0].upper():
@@ -142,7 +144,7 @@ def is_valid_fn_sig_dict(fn_sig_translation_dict, allow_multiple_outputs) -> boo
     for func_name, signatures in function_signatures.items():
         for signature in signatures:
             for input_type in signature["inputs"]:
-                if not valid_data_type_strict(input_type):
+                if not valid_data_type(input_type, False):
                     print(
                         f"Function signature {func_name} has input with invalid data_type: {input_type}."
                     )
@@ -156,7 +158,7 @@ def is_valid_fn_sig_dict(fn_sig_translation_dict, allow_multiple_outputs) -> boo
                 return False
 
             for output_type in signature["outputs"]:
-                if not valid_data_type_strict(output_type):
+                if not valid_data_type(output_type, False):
                     print(
                         f"Function signature {func_name} has output with invalid data_type: {output_type}."
                     )
@@ -194,8 +196,19 @@ def is_valid_conversion_fn_sig_dict(fn_sig_conversion_dict) -> bool:
                         signature.get("operator")
                         or signature.get("code_before")
                         or signature.get("code_after")
+                        or signature.get("add_functions") #if a template requires a function that fact is noted in the templates section, not in the signature.
                     ):
                         return False
+                    #if a signature has a template name, make sure it matches the templates in the fn_sig_dict
+                    if not fn_sig_conversion_dict.get("templates", {}).get(
+                        signature["template"]
+                    ):
+                        return False
+                if signature.get("add_function"):
+                    for add_function in signature["add_functions"]:
+                        #for all functions to add, make sure their is a matching functions in the fn_sig_dict
+                        if not fn_sig_conversion_dict.get("functions", {}).get(add_function):
+                            return False
 
     return True
 
@@ -295,8 +308,10 @@ def is_valid_conversion_tracker(conversion_tracker):
     return True
 
 
-def valid_data_type_strict(data_type):
+def valid_data_type(data_type, is_strict):
     valid_data_types = ["Text", "Number", "Boolean", "Date"]
+    if not is_strict:
+        valid_data_types.append("Any")
     if data_type in valid_data_types:
         return True
     elif data_type.startswith("Multiple[ARRAY[") and data_type.endswith("]]"):

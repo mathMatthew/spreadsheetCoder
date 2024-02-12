@@ -22,10 +22,9 @@ import signatures as sigs
 INDENT = " " * 2
 
 supported_function_lib_file = "./system_data/python_supported_functions.json"
-add_on_module_file_name = "system_data.python_add_on_functions"
-used_modules = set()
 used_tables = set()
-
+used_functions = set()
+used_imports = set()
 
 def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any]:
     with open(supported_function_lib_file, "r") as f:
@@ -55,12 +54,13 @@ def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any
 ##################################
 # Section 2: Utilities and python helper functions
 ##################################
+def _add_functions_to_used_functions(function_names):
+    global used_functions
+    used_functions.update(function_names)
 
-
-def _add_module_to_used_modules(module):
-    global used_modules
-    used_modules.add(module)
-
+def _add_imports_to_used_imports(import_statements):
+    global used_imports
+    used_imports.update(import_statements)
 
 def _add_table_to_used_tables(table_name):
     global used_tables
@@ -123,29 +123,27 @@ def _add_indents(text, number):
 
     return indented_text
 
+def _make_header(G, use_tables, conversion_func_sigs) -> str:
+    #build function statements first so we capture additional imports.
+    function_statements = []
+    for function in used_functions:
+        function_definition = conversion_func_sigs["functions"][function]
+        function_statements.append(function_definition["text"]) 
+        if "requires_imports" in function_definition:
+            _add_imports_to_used_imports(function_definition["requires_imports"])
 
-
-
-def _make_header(G, use_tables) -> str:
-    header = ""
-    for module in used_modules:
-        if module == "add_on":
-            header += f"import {add_on_module_file_name} as add_on\n"
-        else:
-            header += f"from {module} import *\n"
     if use_tables:
-        header += f"import pandas as pd\n"
-    header += "\n"
+        _add_imports_to_used_imports(["import pandas as pd"])
 
     tables_dir = G.graph["tables_dir"]
+    table_statements = []
     for import_table in used_tables:
         import_table_file_name = os.path.join(
             tables_dir, f"{_python_safe_name(import_table)}.parquet"
         )
-        header += f"df_{import_table} = pd.read_parquet(r'{import_table_file_name}')\n"
+        table_statements.append(f"df_{import_table} = pd.read_parquet(r'{import_table_file_name}')\n")
 
-    header += "\n"
-    header += f'def {_python_safe_name(G.graph["name"])}('
+    main_function_header  = f'def {_python_safe_name(G.graph["name"])}('
     # create input names
     input_ids: list[Any] = G.graph[
         "input_node_ids"
@@ -155,8 +153,12 @@ def _make_header(G, use_tables) -> str:
     ]
     # Joining the names with a comma
     input_names_str = ", ".join(input_names)
-    header += f"{input_names_str}):\n"
-    return header
+    main_function_header += f"{input_names_str}):\n"
+
+    all_imports = "\n".join(used_imports) + "\n"
+    all_tables = "\n".join(table_statements) + "\n"
+    all_helper_functions = "\n".join(function_statements) + "\n"
+    return all_imports + all_tables + all_helper_functions + main_function_header
 
 
 ##################################
@@ -211,8 +213,11 @@ def _code_node(G, node_id, is_primary, conversion_func_sigs, conversion_tracker)
 def python_special_process_after_code_node(
     G, node_id, function_signature, conversion_tracker
 ):
-    if "module" in function_signature:
-        _add_module_to_used_modules(function_signature["module"])
+    if "add_functions" in function_signature:
+        _add_functions_to_used_functions(function_signature["add_functions"])
+        ct.update_conversion_tracker_functions(conversion_tracker, function_signature["add_functions"])  
+    if "requires_imports" in function_signature:
+        _add_imports_to_used_imports(function_signature["requires_imports"])
 
 
 def _code_array_node(G, node_id, conversion_func_sigs, conversion_tracker) -> str:
@@ -304,7 +309,7 @@ def convert_and_test(G, conversion_func_sigs, use_tables, conversion_tracker) ->
         output_id = output_node_ids[0]
         code += f"return {_code_node(G, output_id, True, conversion_func_sigs, conversion_tracker)}"
 
-    code = _make_header(G, use_tables) + _add_indents(code, 1) + "\n" + "\n"
+    code = _make_header(G, use_tables, conversion_func_sigs) + _add_indents(code, 1) + "\n" + "\n"
 
     return code
 
@@ -479,9 +484,11 @@ def test_code(code_str, tree, G):
         dtype.append(("Result", "int"))
         results = np.empty(num_rows, dtype=dtype)
 
-        for test_case_index, test_case in enumerate(
-            tree.findall("TestCases/test_case")
-        ):
+        test_cases = tree.findall("TestCases/test_case")
+        if len(test_cases) < 10:
+            raise ValueError("Must have at least 10 test cases.")
+        
+        for test_case_index, test_case in enumerate(test_cases):
             input_values = []
             for i, input_value in enumerate(test_case.findall("input_value")):
                 input_value_converted = cc.convert_to_type(

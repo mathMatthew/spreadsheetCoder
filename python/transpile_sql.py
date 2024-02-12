@@ -256,9 +256,13 @@ def _insert_into_primary_table_sql(G, tree) -> str:
         ["scenario_id"] + input_names + output_names
     )  # Include 'scenario_id' in the column names
 
-    scenario_id = 1  # Initialize scenario_id counter
 
-    for test_case in tree.findall("TestCases/test_case"):
+    test_cases = tree.findall("TestCases/test_case")
+    if len(test_cases) < 10:
+        raise ValueError("Must have at least 10 test cases.")
+    
+    scenario_id = 1  # Initialize scenario_id counter
+    for test_case in test_cases:
         # Extract input values
         input_values = []
         for input_value in test_case.findall("input_value"):

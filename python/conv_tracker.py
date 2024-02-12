@@ -11,6 +11,7 @@ def empty_conversion_tracker() -> Dict[str, Any]:
         "expanded_functions": {},
         "binomial_expansions": {},
         "templates_used": {},
+        "used_functions": {},
     } 
 
 def update_conversion_tracker_record_binomial_expansion(
@@ -90,4 +91,17 @@ def update_conversion_tracker_event(conversion_tracker, event_name):
     else:
         event = conversion_tracker["events"][event_name]
         event["usage_count"] = event.get("usage_count", 0) + 1
+
+def update_conversion_tracker_functions(
+    conversion_tracker, add_functions: List[str]
+):
+    assert validation.is_valid_conversion_tracker(
+        conversion_tracker
+    )
+    for add_function in add_functions:
+        if add_function not in conversion_tracker["used_functions"]:
+            conversion_tracker["used_functions"][add_function] = {"usage_count": 1}
+        else:
+            conversion_tracker["used_functions"][add_function]["usage_count"] += 1
+
 

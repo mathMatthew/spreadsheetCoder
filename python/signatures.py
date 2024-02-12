@@ -1,6 +1,7 @@
 from asyncore import loop
 import json
 from typing import Any, Dict, Tuple, List, Optional
+from functools import partial
 
 import validation, dags, ui, errs
 import conv_tracker as ct
@@ -11,6 +12,7 @@ def empty_func_sigs() -> Dict[str, Any]:
         "signatures": {},
         "templates": {},
         "commutative_functions_to_convert_to_binomial": {},
+        "functions": {},
     }
 
 
@@ -27,7 +29,7 @@ def match_signature(G, node_id, supported_functions) -> Optional[Dict]:
     if not matching_signatures:
         return None
     for signature in matching_signatures:
-        if match_input_signature(parent_data_types, signature["inputs"], True):
+        if match_input_signature(parent_data_types, signature["inputs"], False):
             return signature
     return None
 
@@ -43,7 +45,7 @@ def get_functions_without_conversion_instructions(
             # Check if the current signature matches any in the signature_definitions
             match_found = False
             for signature in signature_definitions["signatures"].get(func_name, []):
-                if match_input_signature(required_signature["inputs"], signature["inputs"], True):
+                if match_input_signature(required_signature["inputs"], signature["inputs"], False):
                     if "no_code" not in signature:
                         match_found = True 
                         break
@@ -292,8 +294,8 @@ def get_data_types(
         conversion_signatures, function_name, parent_data_types, can_have_multiple_outputs
     )
     if len(matching_tuples) > 1:
-        msg = f"the conversion signature file has multiple matches for {function_name} with input signature {', '.join(parent_data_types)}"
-        errs.save_function_signatures_and_raise(conversion_signatures, msg)
+        #conversion file should have signatures ordered so that when there are multiple matches we use the first one (which typically is the most specific one)
+        matching_tuples = matching_tuples[:1]
 
     if len(matching_tuples) == 1:
         return_types, sig_inputs, _ = matching_tuples[0]
@@ -384,9 +386,10 @@ def get_data_types(
         ["m", "a"],
     )
     if resp == "m":
+        valid_data_type_part = partial(validation.valid_data_type, is_strict=False)
         return_type = ui.ask_question_validation_function(
             f"Signature for {missing_signature_info}, what should the return data type be. Note: multiple outputs not supported for manual adds? Examples: Text, Number, Boolean, Date, ARRAY[Text], TABLE_COLUMN[Number]",
-            validation.valid_data_type_strict,
+            valid_data_type_part,
         )
         if return_type is not None:
             add_function_signature(
@@ -486,6 +489,14 @@ def filter_func_sigs_by_conv_tracker(conversion_func_sigs, conversion_tracker):
     for func_name, _ in used_binomial_expansions.items():
         binomial_expansions_to_build[func_name] = binomial_expansions_library[func_name]
     
+    #4. add functions
+    used_functions = conversion_tracker["used_functions"]
+    functions_to_build = filtered_func_sigs["functions"]
+    functions_library = conversion_func_sigs.get("functions", {})
+
+    for func_name, _ in used_functions.items():
+        functions_to_build[func_name] = functions_library[func_name]
+
     return filtered_func_sigs
     #xxx add later the transfroms and code logic functions into this file so everything needed is on one place.
 
