@@ -1,0 +1,16 @@
+{
+  "signatures": {
+    "ARRAY": [
+      {
+        "inputs": [
+          "Number",
+          "Number",
+          "Multiple[Any]"
+        ],
+        "outputs": [
+          "ARRAY[Any]"
+        ]
+      }
+    ]
+  }
+}

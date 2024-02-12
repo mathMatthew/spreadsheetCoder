@@ -75,6 +75,16 @@
       },
       {
         "inputs": [
+          "Date",
+          "TABLE_COLUMN[Date]",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ]
+      },
+      {
+        "inputs": [
           "Number",
           "TABLE_COLUMN[Number]",
           "Number"
