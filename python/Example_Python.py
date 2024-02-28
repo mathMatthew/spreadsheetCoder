@@ -1,5 +1,6 @@
 from re import A
 import transpile_python as tp
+import signatures as sigs
 import conv_tracker as ct
 import os, json
 from datetime import datetime
@@ -11,26 +12,27 @@ start = datetime.now()
 
 example_dir = "./examples"
 output_dir = "../../../sc_output_files"
-xml_file = "endDateDays.XML"
-# xml_file = "av_bal.XML"
+#xml_file = "endDateDays.XML"
+#xml_file = "av_bal.XML"
 # xml_file = "test_power.XML"
 #xml_file = "CmplxPeriod.XML"
 #xml_file = "myPandL.XML"
-#xml_file = "ranch.XML" #super slow to run this. 
+xml_file = "ranch.XML" #super slow to run this. 
 #xml_file = "sumemup.XML" #this is a nice example becaues it shows how we can have a _fs.json file for a specific file that contains just the signature file it needs for this conversion.
 
 conversion_tracker = ct.empty_conversion_tracker()
 overrides = {}
+mode = "build" #'options:  'build' 'complete' 'supplement'
 # overrides = {"auto_add_signatures": False}
 
-code, fn_sig_translation_dict = tp.transpile(
-    xml_file, example_dir, conversion_tracker, overrides
+code, conversion_rules = tp.transpile(
+    xml_file, example_dir, mode, conversion_tracker, overrides
 )
 
 if code:
     base_file_name = os.path.splitext(xml_file)[0]
     output_file = os.path.join(output_dir, base_file_name + ".py")
-    fn_sig_trans_file = os.path.join(output_dir, base_file_name + "_func_sigs.json")
+    conversion_rules_file = os.path.join(output_dir, base_file_name + "_conversion_rules.json")
     conv_tracker_file = os.path.join(
         output_dir, base_file_name + "_conversion_tracker.json"
     )
@@ -43,9 +45,8 @@ if code:
         print(f"Code written to {output_file}")
 
     # write function signatures
-    with open(fn_sig_trans_file, "w") as f:
-        json.dump(fn_sig_translation_dict, f, indent=2)
-        print(f"Function signatures written to {fn_sig_trans_file}")
+    sigs.serialize_and_save_rules(conversion_rules, conversion_rules_file)
+    print(f"Conversion rules file written to {conversion_rules_file}")
 
     # write conversion tracker
     with open(conv_tracker_file, "w") as f:

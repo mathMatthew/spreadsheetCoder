@@ -1,5 +1,5 @@
-from asyncore import loop
-import json
+import json, os
+import networkx as nx
 from typing import Any, Dict, Tuple, List, Optional
 from functools import partial
 
@@ -7,12 +7,15 @@ import validation, dags, ui, errs
 import conv_tracker as ct
 
 
-def empty_func_sigs() -> Dict[str, Any]:
+def empty_conversion_rules() -> Dict[str, Any]:
     return {
         "signatures": {},
         "templates": {},
         "commutative_functions_to_convert_to_binomial": {},
         "functions": {},
+        "transforms_protect" : {},
+        "transforms_from_to" : {},
+        "function_logic_dags" : {},
     }
 
 
@@ -59,7 +62,7 @@ def get_functions_without_conversion_instructions(
                 missing_signatures["signatures"][func_name].append(required_signature)
 
     # Validation to check if the modified signature dictionary is valid
-    assert validation.is_valid_fn_sig_dict(
+    assert validation.is_valid_signature_definition_dict(
         missing_signatures, False
     ), "Signature dictionary is not valid."
     return missing_signatures
@@ -97,7 +100,7 @@ def build_current_signature_definitions(G):
             False,
             additional_params,
         )
-    assert validation.is_valid_fn_sig_dict(
+    assert validation.is_valid_signature_definition_dict(
             signatures, False
         ), "Signature dictionary is not valid." 
     return signatures
@@ -122,7 +125,7 @@ def if_missing_save_sigs_and_err(signature_definitions, G):
 
 
 def add_function_signature(
-    func_sigs,
+    signature_definition_dict,
     function_name,
     parent_data_types,
     return_data_types,
@@ -130,15 +133,15 @@ def add_function_signature(
     no_code,
     additional_params={},
 ):
-    if not function_name in func_sigs["signatures"]:
-        func_sigs["signatures"][function_name] = []
-    func_sigs["signatures"][function_name].append(
+    if not function_name in signature_definition_dict["signatures"]:
+        signature_definition_dict["signatures"][function_name] = []
+    signature_definition_dict["signatures"][function_name].append(
         {"inputs": parent_data_types, "outputs": return_data_types, "source": source}
     )
     if no_code:
-        func_sigs["signatures"][function_name][-1]["no_code"] = True
+        signature_definition_dict["signatures"][function_name][-1]["no_code"] = True
     for k, v in additional_params.items():
-        func_sigs["signatures"][function_name][-1][k] = v
+        signature_definition_dict["signatures"][function_name][-1][k] = v
 
 
 def match_type(type1, type2, strict):
@@ -200,19 +203,19 @@ def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
     think of the library as the base and new_sig_dict as what is getting added
     along with the name attached in "source"
     """
-    assert validation.is_valid_fn_sig_dict(new_sig_dict, True), "invalid signature dictionary"
-    assert validation.is_valid_fn_sig_dict(lib_sig_dict, False), "invalid signature dictionary"
+    assert validation.is_valid_signature_definition_dict(new_sig_dict, True), "invalid signature dictionary"
+    assert validation.is_valid_signature_definition_dict(lib_sig_dict, False), "invalid signature dictionary"
 
     new_sigs = new_sig_dict["signatures"]
-    library_func_sigs = lib_sig_dict["signatures"]
+    signature_definition_library = lib_sig_dict["signatures"]
 
     for key, value in new_sigs.items():
-        if key not in library_func_sigs:
-            library_func_sigs[key] = []
+        if key not in signature_definition_library:
+            signature_definition_library[key] = []
 
         for item in value:
             found = False
-            for existing_item in library_func_sigs[key]:
+            for existing_item in signature_definition_library[key]:
                 if (
                     item["inputs"] == existing_item["inputs"]
                     and item["outputs"] == existing_item["outputs"]
@@ -228,21 +231,21 @@ def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
 
             if not found:
                 item["source"] = [source]
-                library_func_sigs[key].append(item)
+                signature_definition_library[key].append(item)
 
 
-def match_function_signature(fn_sig_translation_dict, function_name, parent_data_types, can_have_multiple_outputs):
+def match_function_signature(conversion_rules, function_name, parent_data_types, can_have_multiple_outputs):
     """
     Matches function signatures against provided parameters and returns all matches.
 
-    :param fn_sig_translation_dict: Dictionary of function signaturesa, may also include the info needed for translating them.
+    :param conversion_rules: Dictionary of function signaturesa, may also include the info needed for translating them.
     :param function_name: Name of the function to match signatures for.
     :param parent_data_types: signature inputs to match on.
     :return: A list of tuples. Each tuple has (1) the return type function signature and (2) the list of sources for that signature.
              Returns an empty list if no match is found.
     """
     matches = []
-    signatures = fn_sig_translation_dict["signatures"].get(function_name)
+    signatures = conversion_rules["signatures"].get(function_name)
 
     if signatures is not None:
         for signature in signatures:
@@ -258,7 +261,7 @@ def match_function_signature(fn_sig_translation_dict, function_name, parent_data
 
 
 def get_data_types(
-    G, node_id, conversion_signatures, library_func_sigs, auto_add, conversion_tracker
+    G, node_id, conversion_rules, signature_definition_library, auto_add, conversion_tracker
 ) -> List[str]:
     def generate_options_message(matching_tuples):
         message_parts = []
@@ -276,10 +279,10 @@ def get_data_types(
         message = "\n".join(message_parts)
         return message, valid_responses
 
-    assert validation.is_valid_conversion_fn_sig_dict(
-        conversion_signatures
+    assert validation.is_valid_conversion_rules_dict(
+        conversion_rules
     ), "signature is not valid"
-    assert validation.is_valid_fn_sig_dict(library_func_sigs, True), "signature dictionary is not valid"
+    assert validation.is_valid_signature_definition_dict(signature_definition_library, True), "signature dictionary is not valid"
 
     function_name = G.nodes[node_id]["function_name"]
     if function_name == "FUNCTION_ARRAY":
@@ -291,7 +294,7 @@ def get_data_types(
 
     can_have_multiple_outputs = validation.node_can_have_multiple_outputs(G, node_id)
     matching_tuples = match_function_signature(
-        conversion_signatures, function_name, parent_data_types, can_have_multiple_outputs
+        conversion_rules, function_name, parent_data_types, can_have_multiple_outputs
     )
     if len(matching_tuples) > 1:
         #conversion file should have signatures ordered so that when there are multiple matches we use the first one (which typically is the most specific one)
@@ -311,13 +314,13 @@ def get_data_types(
     missing_signature_info = f"function name: {function_name} with input signature {', '.join(parent_data_types)}"
 
     matching_tuples = match_function_signature(
-        library_func_sigs, function_name, parent_data_types, can_have_multiple_outputs
+        signature_definition_library, function_name, parent_data_types, can_have_multiple_outputs
     )
     if matching_tuples:
         if auto_add and len(matching_tuples) == 1:
             return_types, sig_inputs, sources = matching_tuples[0]
             add_function_signature(
-                conversion_signatures,
+                conversion_rules,
                 function_name,
                 sig_inputs,
                 return_types,
@@ -340,7 +343,7 @@ def get_data_types(
             )
             if resp == "y":
                 add_function_signature(
-                    conversion_signatures,
+                    conversion_rules,
                     function_name,
                     sig_inputs,
                     return_types,
@@ -365,7 +368,7 @@ def get_data_types(
                 selected_tuple = matching_tuples[int(resp) - 1]
                 return_types, sig_inputs, sources = selected_tuple
                 add_function_signature(
-                    conversion_signatures,
+                    conversion_rules,
                     function_name,
                     sig_inputs,
                     return_types,
@@ -393,7 +396,7 @@ def get_data_types(
         )
         if return_type is not None:
             add_function_signature(
-                conversion_signatures,
+                conversion_rules,
                 function_name,
                 parent_data_types,
                 [return_type],
@@ -425,7 +428,7 @@ def get_parent_function_and_position_for_function_array_node(G, node_id):
 
 
 def create_signature_dictionary(function_logic_dags):
-    new_sig_dict = empty_func_sigs()
+    new_sig_dict = empty_conversion_rules()
     new_sigs = new_sig_dict["signatures"]
 
     for func_name, dag in function_logic_dags.items():
@@ -444,20 +447,75 @@ def create_signature_dictionary(function_logic_dags):
 
     return new_sig_dict
 
-def filter_func_sigs_by_conv_tracker(conversion_func_sigs, conversion_tracker):
+def load_and_deserialize_rules(file_name: str) -> Dict[str, Any]:
+    if not os.path.exists(file_name):
+        raise FileNotFoundError(f"{file_name} not found.")
+
+    with open(file_name, 'r') as file:
+        loaded_dict = json.load(file)
+
+    deserialized_rules = deserialize_dict_with_dags(loaded_dict)
+    if not validation.is_valid_conversion_rules_dict(deserialized_rules):
+        raise ValueError(f"Conversion rules in {file_name} are not valid.")
+
+    return deserialized_rules
+
+def serialize_and_save_rules(conversion_rules: Dict[str, Any], conversion_rules_file: str) -> None:
+    serialized_conversion_rules = serialize_dict_with_dags(conversion_rules)
+    with open(conversion_rules_file, "w") as f:
+        json.dump(serialized_conversion_rules, f, indent=2)
+
+def serialize_dict_with_dags(data):
+    """
+    Serialize a dictionary that may contain NetworkX MultiDiGraphs to a JSON-compatible format.
+    """
+    def serialize_helper(item):
+        if isinstance(item, nx.MultiDiGraph):
+            return {'_is_graph': True, 'graph_data': nx.node_link_data(item)}
+        elif isinstance(item, dict):
+            return {key: serialize_helper(value) for key, value in item.items()}
+        elif isinstance(item, list):
+            return [serialize_helper(element) for element in item]
+        else:
+            return item
+    
+    return serialize_helper(data)
+
+def deserialize_dict_with_dags(data):
+    """
+    Deserialize a JSON-compatible structure into a dictionary, converting serialized graph structures back to NetworkX MultiDiGraphs.
+    """
+    def deserialize_helper(item):
+        if isinstance(item, dict):
+            if item.get('_is_graph'):
+                return nx.node_link_graph(item['graph_data'])
+            else:
+                return {key: deserialize_helper(value) for key, value in item.items()}
+        elif isinstance(item, list):
+            return [deserialize_helper(element) for element in item]
+        else:
+            return item
+    
+    return deserialize_helper(data)
+
+def filter_conversion_rules_by_conv_tracker(conversion_rules, conversion_tracker):
     assert validation.is_valid_conversion_tracker(
         conversion_tracker
     )
-    assert validation.is_valid_conversion_fn_sig_dict(
-        conversion_func_sigs
+    assert validation.is_valid_conversion_rules_dict(
+        conversion_rules
     )
+    transforms_from_to = conversion_rules["transforms_from_to"]
+    transforms_protect = conversion_rules["transforms_protect"]
+    function_logic_dags = conversion_rules["function_logic_dags"]
 
-    filtered_func_sigs = empty_func_sigs()
 
-    #1. Add conversion_func_sigs signatures that were used as recorded in the conversion tracker
-    used_signatures = conversion_tracker["func_sigs"]
-    sig_to_build = filtered_func_sigs["signatures"]
-    sig_library = conversion_func_sigs["signatures"]
+    filtered_conversion_rules = empty_conversion_rules()
+
+    #1. Add conversion_rules signatures that were used as recorded in the conversion tracker
+    used_signatures = conversion_tracker["signatures"]
+    sig_to_build = filtered_conversion_rules["signatures"]
+    sig_library = conversion_rules["signatures"]
 
     for func_name, sig_list in used_signatures.items():
         for sig in sig_list:
@@ -475,28 +533,64 @@ def filter_func_sigs_by_conv_tracker(conversion_func_sigs, conversion_tracker):
     
     #2. add templates that were used
     used_templates = conversion_tracker["templates_used"]
-    templates_to_build = filtered_func_sigs["templates"]
-    template_library = conversion_func_sigs.get("templates", {})
+    templates_to_build = filtered_conversion_rules["templates"]
+    template_library = conversion_rules.get("templates", {})
 
     for template_name, _ in used_templates.items():
         templates_to_build[template_name] = template_library[template_name]
     
     #3. add binomial expansions
     used_binomial_expansions = conversion_tracker["binomial_expansions"]
-    binomial_expansions_to_build = filtered_func_sigs["commutative_functions_to_convert_to_binomial"]
-    binomial_expansions_library = conversion_func_sigs.get("commutative_functions_to_convert_to_binomial", {})
+    binomial_expansions_to_build = filtered_conversion_rules["commutative_functions_to_convert_to_binomial"]
+    binomial_expansions_library = conversion_rules.get("commutative_functions_to_convert_to_binomial", {})
 
     for func_name, _ in used_binomial_expansions.items():
         binomial_expansions_to_build[func_name] = binomial_expansions_library[func_name]
     
     #4. add functions
     used_functions = conversion_tracker["used_functions"]
-    functions_to_build = filtered_func_sigs["functions"]
-    functions_library = conversion_func_sigs.get("functions", {})
+    functions_to_build = filtered_conversion_rules["functions"]
+    functions_library = conversion_rules.get("functions", {})
 
     for func_name, _ in used_functions.items():
         functions_to_build[func_name] = functions_library[func_name]
 
-    return filtered_func_sigs
+    #5. add transforms xxxxxxxxxxxx
+    used_transforms = conversion_tracker["transforms"]
+    transforms_protect_to_build = filtered_conversion_rules["transforms_protect"]
+    transforms_from_to_to_build = filtered_conversion_rules["transforms_from_to"]
+    transforms_protect_library = transforms_protect
+    transforms_from_to_library = transforms_from_to
+
+    for transform_name, _ in used_transforms.items():
+        # Iterate through the library of protected transforms
+        for func_name, transform_list in transforms_protect_library.items():
+            for protect_dag in transform_list:
+                if protect_dag.graph["name"] == transform_name:
+                    # Ensure the func_name entry is initialized in the build dictionary
+                    if func_name not in transforms_protect_to_build:
+                        transforms_protect_to_build[func_name] = []
+                    # Append the transform_name to the build list if not already present
+                    transforms_protect_to_build[func_name].append(protect_dag)
+
+        for func_name, transform_list in transforms_from_to_library.items():
+            for from_to_dag in transform_list:
+                if from_to_dag.graph["name"] == transform_name:
+                    # Ensure the func_name entry is initialized in the build dictionary
+                    if func_name not in transforms_from_to_to_build:
+                        transforms_from_to_to_build[func_name] = []
+                    # Append the transform_name to the build list if not already present
+                    transforms_from_to_to_build[func_name].append(from_to_dag)
+
+
+    #6. add function_logic_dags
+    used_function_logic_dags = conversion_tracker["expanded_functions"]
+    function_logic_dags_to_build = filtered_conversion_rules["function_logic_dags"]
+    function_logic_dags_library = function_logic_dags
+
+    for func_name, _ in used_function_logic_dags.items():
+        function_logic_dags_to_build[func_name] = function_logic_dags_library[func_name]
+
+    return filtered_conversion_rules
     #xxx add later the transfroms and code logic functions into this file so everything needed is on one place.
 

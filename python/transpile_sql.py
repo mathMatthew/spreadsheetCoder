@@ -1,6 +1,7 @@
 """
 This module takes an sc graph and transpiles it to sql code
 """
+
 ##################################
 # Section 1: Imports, constants, global, setup
 ##################################
@@ -21,7 +22,7 @@ import conv_tracker as ct
 import signatures as sigs
 
 
-supported_function_lib_file = "./system_data/sql_supported_functions.json"
+language_conversion_rules = "./system_data/sql_supported_functions.json"
 used_tables = set()
 NUMERIC_TOLERANCE = "0.01"
 sql_reserved_words_file = "./system_data/sql_reserved_words.txt"
@@ -31,26 +32,15 @@ with open(sql_reserved_words_file, "r") as file:
     sql_reserved_keywords = {line.strip() for line in file}
 
 
-def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any]:
-    with open(supported_function_lib_file, "r") as f:
-        library_sigs = json.load(f)
-    assert validation.is_valid_fn_sig_dict(
-        library_sigs, False
-    ), "Function library is not valid."
+def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
-    standard_paths = setup.get_standard_paths(
-        base_dag_xml_file, working_directory
-    )
-    #override with SQL specific function_logic_dir & transform_dir
+    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory)
+
+    # override with SQL specific function_logic_dir & transform_dir
     standard_paths["function_logic_dir"] = "./system_data/sql_function_logic/"
     standard_paths["transform_logic_dir"] = "./system_data/sql_transform_logic/"
 
-    standard_settings = setup.get_standard_settings(standard_paths)
-
-    # unless the file system has already defined a conversion function dictionary for this file, use the standard library
-    if standard_settings["conversion_func_sigs"] is None:
-        standard_settings["conversion_func_sigs"] = library_sigs
-
+    standard_settings = setup.get_standard_settings(standard_paths, mode, language_conversion_rules)
 
     return standard_settings
 
@@ -100,6 +90,7 @@ def _var_code(G, node_id, include_prefix):
     if include_prefix:
         var = f"{primary_table_name(G)}.{var}"
     return var
+
 
 def _sql_table_name(unformatted_name):
     # wrap table names with this
@@ -198,8 +189,6 @@ def _create_table(unformatted_table_name, col_defs) -> str:
     return code
 
 
-
-
 def convert_col_defs(col_types):
     col_defs = [
         (col_name, convert_to_sql_data_type(col_type), True)
@@ -256,11 +245,10 @@ def _insert_into_primary_table_sql(G, tree) -> str:
         ["scenario_id"] + input_names + output_names
     )  # Include 'scenario_id' in the column names
 
-
     test_cases = tree.findall("TestCases/test_case")
     if len(test_cases) < 10:
         raise ValueError("Must have at least 10 test cases.")
-    
+
     scenario_id = 1  # Initialize scenario_id counter
     for test_case in test_cases:
         # Extract input values
@@ -345,7 +333,11 @@ def _create_primary_table_sql(G) -> str:
         for node_id in output_ids
     ]
     all_columns = (
-        scenario_col + input_columns + var_columns + output_columns + predicted_output_columns
+        scenario_col
+        + input_columns
+        + var_columns
+        + output_columns
+        + predicted_output_columns
     )
     code = _create_table(_unformatted_primary_table_name(G), all_columns)
     return code
@@ -372,6 +364,7 @@ def generate_act_vs_predicted_query(G):
 
     return sql_query
 
+
 def generate_input_ouptut_query(G):
     table_name = primary_table_name(G)
     input_columns = [
@@ -383,7 +376,7 @@ def generate_input_ouptut_query(G):
         for node_id in G.graph["output_node_ids"]
     ]
     predicted_output_columns = [
-        f'{_safe_name(G.nodes[node_id]["output_name"])}_predicted' 
+        f'{_safe_name(G.nodes[node_id]["output_name"])}_predicted'
         for node_id in G.graph["output_node_ids"]
     ]
     column_names = input_columns + output_columns + predicted_output_columns
@@ -433,14 +426,14 @@ def primary_table_sql(G):
 
 
 def get_placeholder_val(
-    placeholder_key, G, node_id, conversion_func_sigs, conversion_tracker
+    placeholder_key, G, node_id, conversion_rules, conversion_tracker
 ):
     if placeholder_key == "var":
         return _var_code(G, node_id, False)
     if placeholder_key == "prefixed_var":
         return _var_code(G, node_id, True)
     if placeholder_key == "value":
-        return _code_node(G, node_id, True, conversion_func_sigs, conversion_tracker)
+        return _code_node(G, node_id, True, conversion_rules, conversion_tracker)
     if placeholder_key == "primary_table":
         return primary_table_name(G)
     if placeholder_key.startswith("input"):
@@ -457,7 +450,7 @@ def get_placeholder_val(
         parent_node_id = dags.get_ordered_parent_ids(G, node_id)[input_number - 1]
         if not detail:
             return _code_node(
-                G, parent_node_id, False, conversion_func_sigs, conversion_tracker
+                G, parent_node_id, False, conversion_rules, conversion_tracker
             )
         if detail == "table_name":
             return _table_name_code(G, parent_node_id)
@@ -472,7 +465,7 @@ def _special_process_after_code_node(
     pass
 
 
-def _code_node(G, node_id, is_primary, conversion_func_sigs, conversion_tracker) -> str:
+def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> str:
     """
     first entry point to generates code for the node.
     """
@@ -497,21 +490,21 @@ def _code_node(G, node_id, is_primary, conversion_func_sigs, conversion_tracker)
                 _code_node,
                 G=G,
                 is_primary=False,
-                conversion_func_sigs=conversion_func_sigs,
+                conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
             )
             partial_repl_placeholder_fn = partial(
                 get_placeholder_val,
                 G=G,
                 node_id=node_id,
-                conversion_func_sigs=conversion_func_sigs,
+                conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
             )
             return cc.code_std_function_node(
                 G,
                 node_id,
                 conversion_tracker,
-                conversion_func_sigs,
+                conversion_rules,
                 partial_code_node,
                 partial_repl_placeholder_fn,
                 _special_process_after_code_node,
@@ -531,7 +524,7 @@ def get_required_functions_code(signature_definitions, G):
     This returns the code that needs to be registered. It only gets the code that is actually
     used as per the conversion tracker.
     """
-    assert validation.is_valid_fn_sig_dict(
+    assert validation.is_valid_signature_definition_dict(
         signature_definitions, True
     ), "signature_definitions is not valid."
 
@@ -554,7 +547,7 @@ def get_required_functions_code(signature_definitions, G):
 
 
 def convert_to_sql(
-    G, base_dag_tree, tables_dict, conversion_func_sigs, conversion_tracker
+    G, base_dag_tree, tables_dict, conversion_rules, conversion_tracker
 ) -> str:
     """
     Core logic.
@@ -570,7 +563,7 @@ def convert_to_sql(
         branching_threshold=10,
         all_array_nodes=True,
         all_outputs=True,  # SQL created below doesn't have a separate step for writing the output variables. This is instead achieved by marking them for caching.
-        conversion_func_sigs=conversion_func_sigs,
+        conversion_rules=conversion_rules,
     )
 
     sorted_nodes = list(nx.topological_sort(G))
@@ -581,14 +574,14 @@ def convert_to_sql(
                 get_placeholder_val,
                 G=G,
                 node_id=node_id,
-                conversion_func_sigs=conversion_func_sigs,
+                conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
             )
             code += cc.code_cached_node(
                 G,
                 node_id,
                 conversion_tracker,
-                conversion_func_sigs,
+                conversion_rules,
                 partial_repl_placeholder_fn,
             )
 
@@ -596,13 +589,14 @@ def convert_to_sql(
 
     return code
 
+
 # def execute_closed_dag(
 #     G: nx.MultiDiGraph,
 #     tables_dict,
-#     conversion_func_sigs: Dict[str, List[Dict]],
+#     conversion_rules: Dict[str, List[Dict]],
 #     ) -> str:
 #     """
-#     a 'closed' dag is one with no inputs. only constants. 
+#     a 'closed' dag is one with no inputs. only constants.
 #     """
 
 
@@ -610,10 +604,7 @@ def transpile_dags_to_sql_and_test(
     base_dag_G: nx.MultiDiGraph,
     base_dag_tree,
     tables_dict,
-    function_logic_dags: Dict[str, nx.MultiDiGraph],
-    transforms_from_to: Dict[str, nx.MultiDiGraph],
-    transforms_protect: Dict[str, nx.MultiDiGraph],
-    conversion_func_sigs: Dict[str, List[Dict]],
+    conversion_rules: Dict[str, List[Dict]],
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
     conversion_tracker: Dict[str, Any],
@@ -624,29 +615,26 @@ def transpile_dags_to_sql_and_test(
 
     dags.convert_graph(
         dag_to_convert=base_dag_G,
-        function_logic_dags=function_logic_dags,
-        transforms_from_to=transforms_from_to,
-        transforms_protect=transforms_protect,
-        conversion_signatures=conversion_func_sigs,
-        library_func_sigs=library_sigs,
+        conversion_rules=conversion_rules,
+        signature_definition_library=library_sigs,
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
     )
 
-    sigs.if_missing_save_sigs_and_err(conversion_func_sigs, base_dag_G)
+    sigs.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
 
     code = convert_to_sql(
-        base_dag_G, base_dag_tree, tables_dict, conversion_func_sigs, conversion_tracker
+        base_dag_G, base_dag_tree, tables_dict, conversion_rules, conversion_tracker
     )
-
-    conversion_func_sigs = sigs.filter_func_sigs_by_conv_tracker(
-        conversion_func_sigs, conversion_tracker
+    
+    conversion_rules = sigs.filter_conversion_rules_by_conv_tracker(
+        conversion_rules, conversion_tracker
     )
 
     conn = sqlite3.connect(":memory:")
 
     required_function_codes = get_required_functions_code(
-        conversion_func_sigs, base_dag_G
+        conversion_rules, base_dag_G
     )
     for func_name, num_params, code_str in required_function_codes:
         exec(code_str, globals())  # Define function in global scope
@@ -668,40 +656,37 @@ def transpile_dags_to_sql_and_test(
         conn.close()
 
         errs.save_code_and_results_and_raise_msg(code, df, msg, "sql")
-        return "", conversion_func_sigs
+        return "", conversion_rules
 
     conn.close()
     code += testing_footer(base_dag_G)
 
-    return code, conversion_func_sigs
+    return code, conversion_rules
 
 
 def transpile(
-    xml_file_name, working_directory, conversion_tracker, override_defaults: Dict
+    xml_file_name, working_directory, conversion_tracker, mode, override_defaults: Dict
 ) -> Tuple[str, Dict]:
     """
     Transpiles an XML file to SQL code.
     """
-    data_dict = get_standard_settings(xml_file_name, working_directory)
+    data_dict = get_standard_settings(xml_file_name, working_directory, mode)
     data_dict.update(override_defaults)
 
     dag_to_send, tables_dict = g_tables.separate_named_tables(
         data_dict["base_dag_graph"]
     )
 
-    sql_code, conv_fn_sigs = transpile_dags_to_sql_and_test(
+    sql_code, conversion_rules = transpile_dags_to_sql_and_test(
         base_dag_G=dag_to_send,
         base_dag_tree=data_dict["base_dag_xml_tree"],
         tables_dict=tables_dict,
-        function_logic_dags=data_dict["function_logic_dags"],
-        transforms_from_to=data_dict["transforms_from_to"],
-        transforms_protect=data_dict["transforms_protect"],
-        conversion_func_sigs=data_dict["conversion_func_sigs"],
-        library_sigs=data_dict["library_func_sigs"],
+        conversion_rules=data_dict["conversion_rules"],
+        library_sigs=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
         conversion_tracker=conversion_tracker,
     )
-    return sql_code, conv_fn_sigs
+    return sql_code, conversion_rules
 
 
 #################################
@@ -713,9 +698,13 @@ def testing_footer(G):
     statements = []
     statements.append("--Show summary of actual vs predicted values")
     statements.append(generate_accuracy_summary_query(G))
-    statements.append("--Show all records where any predicted value differs from actual")
+    statements.append(
+        "--Show all records where any predicted value differs from actual"
+    )
     statements.append(generate_act_vs_predicted_query(G))
-    statements.append("--query of input, output and predicted output fields for all records")
+    statements.append(
+        "--query of input, output and predicted output fields for all records"
+    )
     statements.append(generate_input_ouptut_query(G))
     code = "\n".join(statements)
     return code
@@ -757,29 +746,30 @@ def test_script(sql_script, test_query, conn) -> Dict[str, Any]:
 
     return row_dict
 
+
 #################################
 # Section 6: main
 #################################
 
+
 def main() -> None:
     working_directory = "../../../OneDrive/Documents/myDocs/sc_v2_data"
     # xml_file = "test_power.XML"
-    #xml_file = "CmplxPeriod.XML"
+    # xml_file = "CmplxPeriod.XML"
     # xml_file = "test_sum.XML"
-    #xml_file = "myPandL.XML"
+    # xml_file = "myPandL.XML"
     xml_file = "ranch.XML"
     conversion_tracker = ct.empty_conversion_tracker()
     overrides = {}
-    # overrides = {"auto_add_signatures": False}
-    code, fn_sig_translation_dict = transpile(
-        xml_file, working_directory, conversion_tracker, overrides
+    code, conversion_rules = transpile(
+        xml_file, working_directory, conversion_tracker, "build", overrides
     )
 
     if code:
         base_file_name = os.path.splitext(xml_file)[0]
         output_file = os.path.join(working_directory, base_file_name + ".SQL")
-        fn_sig_trans_file = os.path.join(
-            working_directory, base_file_name + "_func_sigs.json"
+        conversion_rules_file = os.path.join(
+            working_directory, base_file_name + "_conversion_rules.json"
         )
         conv_tracker_file = os.path.join(
             working_directory, base_file_name + "_conversion_tracker.json"
@@ -791,9 +781,9 @@ def main() -> None:
             print(f"Code written to {output_file}")
 
         # write function signatures
-        with open(fn_sig_trans_file, "w") as f:
-            json.dump(fn_sig_translation_dict, f, indent=2)
-            print(f"Function signatures written to {fn_sig_trans_file}")
+        with open(conversion_rules_file, "w") as f:
+            json.dump(conversion_rules, f, indent=2)
+            print(f"Function signatures written to {conversion_rules_file}")
 
         # write conversion tracker
         with open(conv_tracker_file, "w") as f:

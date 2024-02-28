@@ -435,16 +435,16 @@ def convert_to_binomial(G, node_id, comm_func_dict, conversion_tracker):
 
 def update_dag_with_data_types(
     G: nx.MultiDiGraph,
-    conversion_signatures: Dict,
-    library_func_sigs: Dict,
+    signature_definitions: Dict,
+    signature_definition_library: Dict,
     auto_add: bool,
     conversion_tracker: Dict,
 ):
     assert nx.is_directed_acyclic_graph(G), f'{G.graph["name"]} is not a DAG'
-    assert validation.is_valid_conversion_fn_sig_dict(
-        conversion_signatures
+    assert validation.is_valid_conversion_rules_dict(
+        signature_definitions
     ), "signature is not valid"
-    assert validation.is_valid_fn_sig_dict(library_func_sigs, True), "signature is not valid"
+    assert validation.is_valid_signature_definition_dict(signature_definition_library, True), "signature is not valid"
 
     topo_sorted_nodes = list(nx.topological_sort(G))
 
@@ -462,8 +462,8 @@ def update_dag_with_data_types(
         data_types = sigs.get_data_types(
             G,
             node_id,
-            conversion_signatures,
-            library_func_sigs,
+            signature_definitions,
+            signature_definition_library,
             auto_add,
             conversion_tracker,
         )
@@ -482,7 +482,7 @@ def mark_nodes_for_caching(
     complexity_threshold,
     all_array_nodes,
     all_outputs,
-    conversion_func_sigs,
+    conversion_rules,
 ):
     """
     Marks nodes for caching based on usage count and computational complexity.
@@ -562,7 +562,7 @@ def mark_nodes_for_caching(
     # mark nodes for caching for nodes which functions require caching
     for node_id in G.nodes:
         if G.nodes[node_id]["node_type"] == "function":
-            function_signature = sigs.match_signature(G, node_id, conversion_func_sigs)
+            function_signature = sigs.match_signature(G, node_id, conversion_rules)
             if function_signature and function_signature.get("requires_cache", False):
                 G.nodes[node_id]["cache"] = True
 
@@ -595,11 +595,8 @@ def mark_nodes_for_caching(
 
 def convert_graph(
     dag_to_convert: nx.MultiDiGraph,
-    function_logic_dags: Dict[str, nx.MultiDiGraph],
-    transforms_from_to: Dict[str, nx.MultiDiGraph],
-    transforms_protect: Dict[str, nx.MultiDiGraph],
-    conversion_signatures: Dict[str, Any],
-    library_func_sigs: Dict[str, Any],
+    conversion_rules: Dict[str, Any],
+    signature_definition_library: Dict[str, Any],
     auto_add_signatures: bool,
     conversion_tracker: Dict[str, Any],
     renum_nodes=True,
@@ -611,20 +608,24 @@ def convert_graph(
 
     """
     assert validation.is_valid_base_graph(dag_to_convert), "dag is not valid"
-    assert validation.is_valid_conversion_fn_sig_dict(
-        conversion_signatures
+    assert validation.is_valid_conversion_rules_dict(
+        conversion_rules
     ), "signature is not valid"
-    assert validation.is_valid_fn_sig_dict(library_func_sigs, False), "signature is not valid"
+    assert validation.is_valid_signature_definition_dict(signature_definition_library, False), "signature is not valid"
+
+    function_logic_dags: Dict[str, nx.MultiDiGraph] = conversion_rules["function_logic_dags"]
+    transforms_from_to: Dict[str, nx.MultiDiGraph] = conversion_rules["transforms_from_to"]
+    transforms_protect: Dict[str, nx.MultiDiGraph] = conversion_rules["transforms_protect"]
 
     func_logic_sigs = sigs.create_signature_dictionary(function_logic_dags)
     sigs.add_signatures_to_library(
-        func_logic_sigs, library_func_sigs, "function_logic_dag"
+        func_logic_sigs, signature_definition_library, "function_logic_dag"
     )
 
     update_dag_with_data_types(
         dag_to_convert,
-        conversion_signatures,
-        library_func_sigs,
+        conversion_rules,
+        signature_definition_library,
         auto_add_signatures,
         conversion_tracker,
     )
@@ -671,7 +672,7 @@ def convert_graph(
 
         # check if node function is in commutative_functions_to_convert_to_binomial
         # if so, convert to binomial
-        commutative_functions_to_convert_to_binomial = conversion_signatures.get(
+        commutative_functions_to_convert_to_binomial = conversion_rules.get(
             "commutative_functions_to_convert_to_binomial", {}
         )
         if function_name in commutative_functions_to_convert_to_binomial:
@@ -739,8 +740,8 @@ def convert_graph(
             ):
                 update_dag_with_data_types(
                     function_logic_dag,
-                    conversion_signatures,
-                    library_func_sigs,
+                    conversion_rules,
+                    signature_definition_library,
                     auto_add_signatures,
                     conversion_tracker,
                 )
@@ -757,8 +758,8 @@ def convert_graph(
     # because we don't insist that transforms have data types, we need to run one more time.
     update_dag_with_data_types(
         dag_to_convert,
-        conversion_signatures,
-        library_func_sigs,
+        conversion_rules,
+        signature_definition_library,
         auto_add_signatures,
         conversion_tracker,
     )
@@ -857,7 +858,7 @@ def xml_to_graph(
 ) -> nx.MultiDiGraph:
     paths_dict = setup.get_standard_paths(base_dag_xml_file, working_directory)
     setup.update_existing_keys(paths_dict, override_defaults)
-    data_dict = setup.get_standard_settings(paths_dict)
+    data_dict = setup.get_standard_settings(paths_dict, "supplement")
     setup.update_existing_keys(data_dict, override_defaults)
     # convert graph is the core logic. ...
     convert_graph(
@@ -865,8 +866,8 @@ def xml_to_graph(
         function_logic_dags=data_dict["function_logic_dags"],
         transforms_from_to=data_dict["transforms_from_to"],
         transforms_protect=data_dict["transforms_protect"],
-        conversion_signatures=data_dict["conversion_func_sigs"],
-        library_func_sigs=data_dict["library_func_sigs"],
+        conversion_rules=data_dict["conversion_rules"],
+        signature_definition_library=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
         conversion_tracker=conversion_tracker,
     )
@@ -1311,7 +1312,7 @@ def main():
     working_directory = "../../../OneDrive/Documents/myDocs/sc_v2_data"
     paths_dict = setup.get_standard_paths(base_dag_xml_file, working_directory)
 
-    conversion_tracker: Dict[str, Any] = {"func_sigs": {}, "events": {}}
+    conversion_tracker: Dict[str, Any] = {"signatures": {}, "events": {}}
 
     base_dag_graph = xml_to_graph(
         base_dag_xml_file, working_directory, conversion_tracker, {}

@@ -5,7 +5,7 @@ import validation
 
 def empty_conversion_tracker() -> Dict[str, Any]:
     return {
-        "func_sigs": {},
+        "signatures": {},
         "events": {},
         "transforms": {},
         "expanded_functions": {},
@@ -62,13 +62,13 @@ def update_conversion_tracker_sig(
         conversion_tracker
     ), "Invalid conversion tracker"
 
-    if function_name not in conversion_tracker["func_sigs"]:
+    if function_name not in conversion_tracker["signatures"]:
         # If function name isn't there, add it with record of usage.
-        conversion_tracker["func_sigs"][function_name] = [
+        conversion_tracker["signatures"][function_name] = [
             {"inputs": parent_data_types, "outputs": return_types, event_name: 1}
         ]
     else:
-        for sig in conversion_tracker["func_sigs"][function_name]:
+        for sig in conversion_tracker["signatures"][function_name]:
             if sig["inputs"] == parent_data_types and sig["outputs"] == return_types:
                 sig[event_name] = sig.get(event_name, 0) + 1
                 return
@@ -79,7 +79,7 @@ def update_conversion_tracker_sig(
             "outputs": return_types,
             event_name: 1,
         }
-        conversion_tracker["func_sigs"][function_name].append(new_signature)
+        conversion_tracker["signatures"][function_name].append(new_signature)
 
 def update_conversion_tracker_event(conversion_tracker, event_name):
     assert validation.is_valid_conversion_tracker(

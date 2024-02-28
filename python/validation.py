@@ -139,9 +139,19 @@ def is_valid_logic_function(tree, filename, name):
     return True
 
 
-def is_valid_fn_sig_dict(fn_sig_translation_dict, allow_multiple_outputs) -> bool:
-    function_signatures = fn_sig_translation_dict["signatures"]
-    for func_name, signatures in function_signatures.items():
+def is_valid_signature_definition_dict(
+    conversion_rules, allow_multiple_outputs
+) -> bool:
+    # a signature definition dictionary must have a 'signatures' key with a list of signatures
+    # each signature must have 'inputs' and 'outputs' keys
+    # each input and output must be a list of data types
+    # if any signature" refers to a template (i.e. has a 'template' key) it must also have
+    # the corresponding template key under the conversion_rules's 'templates' key
+
+    if not "signatures" in conversion_rules:
+        return False
+    conversion_rules = conversion_rules["signatures"]
+    for func_name, signatures in conversion_rules.items():
         for signature in signatures:
             for input_type in signature["inputs"]:
                 if not valid_data_type(input_type, False):
@@ -164,20 +174,16 @@ def is_valid_fn_sig_dict(fn_sig_translation_dict, allow_multiple_outputs) -> boo
                     )
                     return False
 
-            if "template" in signature:
-                if not fn_sig_translation_dict.get("templates", {}).get(
-                    signature["template"]
-                ):
-                    return False
-
     return True
 
 
-def is_valid_conversion_fn_sig_dict(fn_sig_conversion_dict) -> bool:
-    if not is_valid_fn_sig_dict(fn_sig_conversion_dict, True):
+def is_valid_conversion_rules_dict(conversion_rules_dict) -> bool:
+    # a conversion rules dictionary is a signture definition dictionary plus
+    # the other rules needed for to convert the dag to the target language
+    if not is_valid_signature_definition_dict(conversion_rules_dict, True):
         return False
 
-    for func_name, signatures in fn_sig_conversion_dict["signatures"].items():
+    for func_name, signatures in conversion_rules_dict["signatures"].items():
         for signature in signatures:
             # some signatures in the conversion dictionary don't provide any information on how to convert them
             # this can be valid if the function is only used as an intermediate step. In that case they need to be
@@ -196,19 +202,29 @@ def is_valid_conversion_fn_sig_dict(fn_sig_conversion_dict) -> bool:
                         signature.get("operator")
                         or signature.get("code_before")
                         or signature.get("code_after")
-                        or signature.get("add_functions") #if a template requires a function that fact is noted in the templates section, not in the signature.
+                        or signature.get(
+                            "add_functions"
+                        )  # if a template requires a function that fact is noted in the templates section, not in the signature.
                     ):
                         return False
-                    #if a signature has a template name, make sure it matches the templates in the fn_sig_dict
-                    if not fn_sig_conversion_dict.get("templates", {}).get(
+                    # if a signature has a template name, make sure it matches the templates in the conversion_rules_dict
+                    if not conversion_rules_dict.get("templates", {}).get(
                         signature["template"]
                     ):
                         return False
                 if signature.get("add_function"):
                     for add_function in signature["add_functions"]:
-                        #for all functions to add, make sure their is a matching functions in the fn_sig_dict
-                        if not fn_sig_conversion_dict.get("functions", {}).get(add_function):
+                        # for all functions to add, make sure their is a matching functions in the conversion_rules_dict
+                        if not conversion_rules_dict.get("functions", {}).get(
+                            add_function
+                        ):
                             return False
+
+            if "template" in signature:
+                if not conversion_rules_dict.get("templates", {}).get(
+                    signature["template"]
+                ):
+                    return False
 
     return True
 
@@ -221,7 +237,7 @@ def is_valid_conversion_tracker(conversion_tracker):
 
     required_keys = [
         "events",
-        "func_sigs",
+        "signatures",
         "transforms",
         "expanded_functions",
         "binomial_expansions",
@@ -252,28 +268,28 @@ def is_valid_conversion_tracker(conversion_tracker):
             )
             return False
 
-    # Validate 'func_sigs' sub-dictionary
-    func_sigs = conversion_tracker["func_sigs"]
-    if not isinstance(func_sigs, dict):
-        print("Conversion tracker 'func_sigs' sub-dictionary is not a dictionary")
+    # Validate 'signatures' sub-dictionary
+    signatures = conversion_tracker["signatures"]
+    if not isinstance(signatures, dict):
+        print("Conversion tracker 'signatures' sub-dictionary is not a dictionary")
         return False
-    for sig_list in func_sigs.values():
+    for sig_list in signatures.values():
         if not isinstance(sig_list, list):
             print(
-                "Conversion tracker 'func_sigs' sub-dictionary has one or more item where value is not a list"
+                "Conversion tracker 'signatures' sub-dictionary has one or more item where value is not a list"
             )
             return False
         for sig_data in sig_list:
             if "inputs" not in sig_data or "outputs" not in sig_data:
                 print(
-                    "Conversion tracker 'func_sigs' sub-dictionary has one or more item that is missing the 'inputs' or 'outputs' key"
+                    "Conversion tracker 'signatures' sub-dictionary has one or more item that is missing the 'inputs' or 'outputs' key"
                 )
                 return False
             if not isinstance(sig_data["inputs"], list) or not isinstance(
                 sig_data["outputs"], list
             ):
                 print(
-                    "Conversion tracker 'func_sigs' sub-dictionary has one or more item that has the 'inputs' or 'outputs' key that is not a list"
+                    "Conversion tracker 'signatures' sub-dictionary has one or more item that has the 'inputs' or 'outputs' key that is not a list"
                 )
                 return False
 

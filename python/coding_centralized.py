@@ -24,14 +24,14 @@ def convert_to_type(value, data_type):
     return value
 
 def code_cached_node(
-    G, node_id, conversion_tracker, conversion_func_sigs, replace_key_fn
+    G, node_id, conversion_tracker, conversion_rules, replace_key_fn
 ):
     if G.nodes[node_id]["node_type"] == "input":
         if "output_name" in G.nodes[node_id]:
             if G.nodes[node_id]["output_name"] == G.nodes[node_id]["input_name"]:
                 return ""  # maybe we should have a required template for this situation and langauges where they need nothing, define the required tmeplate as an empty string.will implement if needed.
             else:
-                template = conversion_func_sigs["templates"]["cache_default"][
+                template = conversion_rules["templates"]["cache_default"][
                     "template"
                 ]  # maybe this should be an optional template and if we don't have it then use the default. will implement if needed.
                 code = replace_placeholders(template, replace_key_fn)
@@ -43,7 +43,7 @@ def code_cached_node(
 
     parent_data_types = sigs.get_parent_data_types(G, node_id)
 
-    function_signature = sigs.match_signature(G, node_id, conversion_func_sigs)
+    function_signature = sigs.match_signature(G, node_id, conversion_rules)
     if not function_signature:
         errs.save_dag_and_raise_node(
             G,
@@ -67,7 +67,7 @@ def code_cached_node(
     )
 
     template_key = function_signature.get("template", "cache_default")
-    template = conversion_func_sigs["templates"][template_key]["template"]
+    template = conversion_rules["templates"][template_key]["template"]
     code = replace_placeholders(template, replace_key_fn)
     ct.update_conversion_tracker_template_used(conversion_tracker, template_key)
     return code

@@ -21,17 +21,12 @@ import signatures as sigs
 
 INDENT = " " * 2
 
-supported_function_lib_file = "./system_data/python_supported_functions.json"
+language_conversion_rules_files = "./system_data/python_supported_functions.json"
 used_tables = set()
 used_functions = set()
 used_imports = set()
 
-def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any]:
-    with open(supported_function_lib_file, "r") as f:
-        library_python_sigs = json.load(f)
-    assert validation.is_valid_fn_sig_dict(
-        library_python_sigs, False
-    ), "Function library is not valid."
+def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
     standard_paths = setup.get_standard_paths(
         base_dag_xml_file, working_directory
@@ -40,12 +35,12 @@ def get_standard_settings(base_dag_xml_file, working_directory) -> Dict[str, Any
     standard_paths["function_logic_dir"] = "./system_data/python_function_logic/"
     standard_paths["transform_logic_dir"] = "./system_data/python_transform_logic/"
 
-    standard_settings = setup.get_standard_settings(standard_paths)
+    standard_settings = setup.get_standard_settings(standard_paths, mode, language_conversion_rules_files)
 
     standard_settings["use_tables"] = True
+    standard_settings["tables_dir"] = os.path.join(working_directory, "tables")
+
     # unless the file system has already defined a conversion function dictionary for this file, use the standard library
-    if standard_settings["conversion_func_sigs"] is None:
-        standard_settings["conversion_func_sigs"] = library_python_sigs
 
     
     return standard_settings
@@ -123,11 +118,11 @@ def _add_indents(text, number):
 
     return indented_text
 
-def _make_header(G, use_tables, conversion_func_sigs) -> str:
+def _make_header(G, use_tables, conversion_rules) -> str:
     #build function statements first so we capture additional imports.
     function_statements = []
     for function in used_functions:
-        function_definition = conversion_func_sigs["functions"][function]
+        function_definition = conversion_rules["functions"][function]
         function_statements.append(function_definition["text"]) 
         if "requires_imports" in function_definition:
             _add_imports_to_used_imports(function_definition["requires_imports"])
@@ -164,7 +159,7 @@ def _make_header(G, use_tables, conversion_func_sigs) -> str:
 ##################################
 # Section 3: Node processing functions
 ##################################
-def _code_node(G, node_id, is_primary, conversion_func_sigs, conversion_tracker) -> str:
+def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> str:
     """
     first entry point to generates code for the node.
     """
@@ -184,21 +179,21 @@ def _code_node(G, node_id, is_primary, conversion_func_sigs, conversion_tracker)
             return _var_code(G, node_id)
         if G.nodes[node_id]["function_name"].upper() == "ARRAY":
             return _code_array_node(
-                G, node_id, conversion_func_sigs, conversion_tracker
+                G, node_id, conversion_rules, conversion_tracker
             )
         else:
             partial_code_node = partial(
                 _code_node,
                 G=G,
                 is_primary=False,
-                conversion_func_sigs=conversion_func_sigs,
+                conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
             )
             return cc.code_std_function_node(
                 G,
                 node_id,
                 conversion_tracker,
-                conversion_func_sigs,
+                conversion_rules,
                 partial_code_node,
                 lambda: None,  # for now no python singatures use templates. implement this following pattern in transpile_sql if want to use that.
                 python_special_process_after_code_node,
@@ -220,7 +215,7 @@ def python_special_process_after_code_node(
         _add_imports_to_used_imports(function_signature["requires_imports"])
 
 
-def _code_array_node(G, node_id, conversion_func_sigs, conversion_tracker) -> str:
+def _code_array_node(G, node_id, conversion_rules, conversion_tracker) -> str:
     assert validation.is_valid_conversion_tracker(
         conversion_tracker
     ), "Conversion tracker is not valid."
@@ -238,7 +233,7 @@ def _code_array_node(G, node_id, conversion_func_sigs, conversion_tracker) -> st
     for r in range(height):
         this_row_parents = parents[currentNodeIndex : currentNodeIndex + width]
         row_elements = [
-            _code_node(G, parent, False, conversion_func_sigs, conversion_tracker)
+            _code_node(G, parent, False, conversion_rules, conversion_tracker)
             for parent in this_row_parents
         ]
 
@@ -262,7 +257,7 @@ def _code_array_node(G, node_id, conversion_func_sigs, conversion_tracker) -> st
 ##################################
 
 
-def convert_and_test(G, conversion_func_sigs, use_tables, conversion_tracker) -> str:
+def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str:
     """
     Core logic.
     Transforms a prepared graph into python.
@@ -283,14 +278,14 @@ def convert_and_test(G, conversion_func_sigs, use_tables, conversion_tracker) ->
         branching_threshold=10,
         all_array_nodes=True,
         all_outputs=all_outputs_as_variables,
-        conversion_func_sigs=conversion_func_sigs,
+        conversion_rules=conversion_rules,
     )
 
     sorted_nodes = list(nx.topological_sort(G))
     code = ""
     for node_id in sorted_nodes:
         if G.nodes[node_id]["cache"]:
-            code += f"{_var_code(G, node_id)} = {_code_node(G, node_id, True, conversion_func_sigs, conversion_tracker)}\n"
+            code += f"{_var_code(G, node_id)} = {_code_node(G, node_id, True, conversion_rules, conversion_tracker)}\n"
 
     if len(output_node_ids) > 1:
         code += (
@@ -307,41 +302,24 @@ def convert_and_test(G, conversion_func_sigs, use_tables, conversion_tracker) ->
         )
     else:
         output_id = output_node_ids[0]
-        code += f"return {_code_node(G, output_id, True, conversion_func_sigs, conversion_tracker)}"
+        code += f"return {_code_node(G, output_id, True, conversion_rules, conversion_tracker)}"
 
-    code = _make_header(G, use_tables, conversion_func_sigs) + _add_indents(code, 1) + "\n" + "\n"
+    code = _make_header(G, use_tables, conversion_rules) + _add_indents(code, 1) + "\n" + "\n"
 
     return code
 
 
-def transpile_dags_to_py(
+def transpile_dags_to_py_and_test(
     base_dag_G: nx.MultiDiGraph,
     base_dag_tree,
-    function_logic_dags: Dict[str, nx.MultiDiGraph],
-    transforms_from_to: Dict[str, nx.MultiDiGraph],
-    transforms_protect: Dict[str, nx.MultiDiGraph],
-    conversion_func_sigs: Dict[str, Dict],
+    conversion_rules: Dict[str, Dict],
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
     use_tables: bool,
     conversion_tracker: Dict[str, Any],
 ) -> Tuple[str, Dict]:
     """
-    Transpiles XML tree to Python code.
-
-    Args:
-        base_dag_G (nx.MultiDiGraph): The graph of the base DAG to be transformed.
-        base_dag_tree: The XML tree of the base DAG to be transformed. Used for the test cases embedded in the XML.
-        function_logic_dags (Dict[str, nx.MultiDiGraph]): A dictionary mapping function names to their corresponding logic DAGs.
-        transforms_from_to (Dict[str, nx.MultiDiGraph]): A dictionary mapping transform function names to their corresponding transform logic DAGs.
-        transforms_protect (Dict[str, nx.MultiDiGraph]): A dictionary mapping transform function names to their corresponding protect logic DAGs.
-        conversion_func_sigs (Dict[str, Dict]): These are the signatures "allowed" for this conversion, but what that means depends on other settings. Typically in fact this is passed in with an empty dictionary and then the function logic signatures are added to it. However this makes it possible to use the updated version of this as a type of definition of what is done--sort of analagous to a schema file that then can be used going forward to say this is the type of conversions allowed.
-        library_func_sigs (Dict[str, List[Dict]]): Library of signatures.
-        auto_add_signatures (bool): True to automatically add the signatures from the library to the conversion_func_sigs. False allows user to interactively add. To never add, pass an empty dict in library_func_sigs and then it doesn't matter if this is true or false
-        use_tables (bool): True to use tables.
-        conversion_tracker (Dict[str, Any]): Tracks conversion including signature mapping dictionary for this conversion.        conversion_tracker (Dict[str, Any]): The conversion tracker for the current conversion.
-    Returns:
-        str: The transpiled Python code.
+    Transpiles XML tree to Python code then tests all test cases.
     """
     assert validation.is_valid_conversion_tracker(
         conversion_tracker
@@ -349,24 +327,21 @@ def transpile_dags_to_py(
 
     dags.convert_graph(
         dag_to_convert=base_dag_G,
-        function_logic_dags=function_logic_dags,
-        transforms_from_to=transforms_from_to,
-        transforms_protect=transforms_protect,
-        conversion_signatures=conversion_func_sigs,
-        library_func_sigs=library_sigs,
+        conversion_rules=conversion_rules,
+        signature_definition_library=library_sigs,
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
         renum_nodes=False,
     )
 
-    sigs.if_missing_save_sigs_and_err(conversion_func_sigs, base_dag_G)
+    sigs.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
 
     code = convert_and_test(
-        base_dag_G, conversion_func_sigs, use_tables, conversion_tracker
+        base_dag_G, conversion_rules, use_tables, conversion_tracker
     )
 
-    conversion_func_sigs = sigs.filter_func_sigs_by_conv_tracker(
-        conversion_func_sigs, conversion_tracker
+    conversion_rules = sigs.filter_conversion_rules_by_conv_tracker(
+        conversion_rules, conversion_tracker
     )
 
     test_results_df = test_code(code, base_dag_tree, base_dag_G)
@@ -377,10 +352,10 @@ def transpile_dags_to_py(
     # Evaluating the test results
     if true_count == len(test_results_df):
         print(f"All {true_count} tests passed.")
-        return code, conversion_func_sigs
+        return code, conversion_rules
     elif false_count == len(test_results_df):
         print(f"All {false_count} tests failed.")
-        return "", conversion_func_sigs
+        return "", conversion_rules
     else:
         print(f"{true_count} out of {len(test_results_df)} tests passed.")
         print("The following tests failed:")
@@ -390,11 +365,11 @@ def transpile_dags_to_py(
         errs.save_code_results_and_raise_msg(
             code, test_results_df, "Not all tests passed.", "python"
         )
-        return "", conversion_func_sigs
+        return "", conversion_rules
 
 
 def transpile(
-    xml_file_name, working_directory, conversion_tracker, override_defaults: Dict
+    xml_file_name, working_directory, mode, conversion_tracker, override_defaults: Dict
 ) -> Tuple[str, Dict]:
     """
     Transpiles an XML file to Python code.
@@ -411,7 +386,7 @@ def transpile(
         conversion_tracker
     ), "Conversion tracker is not valid."
 
-    data_dict = get_standard_settings(xml_file_name, working_directory)
+    data_dict = get_standard_settings(xml_file_name, working_directory, mode)
     data_dict.update(override_defaults)
 
     if data_dict["use_tables"]:
@@ -421,14 +396,11 @@ def transpile(
     else:
         dag_to_send = data_dict["base_dag_graph"]
 
-    python_code, conversion_func_sig = transpile_dags_to_py(
+    python_code, conversion_func_sig = transpile_dags_to_py_and_test(
         base_dag_G=dag_to_send,
         base_dag_tree=data_dict["base_dag_xml_tree"],
-        function_logic_dags=data_dict["function_logic_dags"],
-        transforms_from_to=data_dict["transforms_from_to"],
-        transforms_protect=data_dict["transforms_protect"],
-        conversion_func_sigs=data_dict["conversion_func_sigs"],
-        library_sigs=data_dict["library_func_sigs"],
+        conversion_rules=data_dict["conversion_rules"],
+        library_sigs=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
         use_tables=data_dict["use_tables"],
         conversion_tracker=conversion_tracker,
@@ -569,16 +541,17 @@ def main() -> None:
     conversion_tracker = ct.empty_conversion_tracker()
 
     override_defaults = {}
+    mode = "build" #'options:  'build' 'complete' 'supplement'
 
-    code, fn_sig_translation_dict = transpile(
-        xml_file, working_directory, conversion_tracker, override_defaults
+    code, conversion_rules = transpile(
+        xml_file, working_directory, mode, conversion_tracker, override_defaults
     )
 
     if code:
         base_file_name = os.path.splitext(xml_file)[0]
         output_file = os.path.join(working_directory, base_file_name + ".py")
-        fn_sig_trans_file = os.path.join(
-            working_directory, base_file_name + "_func_sigs.json"
+        conversion_rules_file = os.path.join(
+            working_directory, base_file_name + "_conversion_rules.json"
         )
         conv_tracker_file = os.path.join(
             working_directory, base_file_name + "_conversion_tracker.json"
@@ -589,8 +562,8 @@ def main() -> None:
             f.write(code)
 
         # write function signatures
-        with open(fn_sig_trans_file, "w") as f:
-            json.dump(fn_sig_translation_dict, f, indent=2)
+        with open(conversion_rules_file, "w") as f:
+            json.dump(conversion_rules, f, indent=2)
 
         # write conversion tracker
         with open(conv_tracker_file, "w") as f:

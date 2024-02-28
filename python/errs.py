@@ -6,13 +6,13 @@ import dag_tables as g_tables
 code_types = {"python": {"file_extension": ".py"}, "sql": {"file_extension": ".sql"}}
 
 
-
-def save_function_signatures_and_raise(func_sigs, msg):
-    with open("errors/func_sigs_temp.json", "w") as f:
-        json.dump(func_sigs, f, indent=2)
+def save_conversion_rules_and_raise(conversion_rules, msg):
+    with open("errors/conversion_rules_temp.json", "w") as f:
+        json.dump(conversion_rules, f, indent=2)
     raise ValueError(
-        msg + " Function signatures written to errors/func_sigs_temp.json."
-        )
+        msg + " Function signatures written to errors/conversion_rules_temp.json."
+    )
+
 
 def save_2graphs_plusand_raise(graph_plus1, graph_plus2, message):
     g_tables.save_graph_plus(graph_plus1, ".errors/error_graph_plus1.json")
@@ -20,6 +20,7 @@ def save_2graphs_plusand_raise(graph_plus1, graph_plus2, message):
     raise ValueError(
         message + " See errors/error_graph_plus1.json and errors/error_graph_plus2.json"
     )
+
 
 def save_2dags_and_raise(dag1, dag2, value_error_text):
     data1 = nx.node_link_data(dag1)
@@ -32,6 +33,7 @@ def save_2dags_and_raise(dag1, dag2, value_error_text):
     value_error_text += " Dag1 = errors/error_dag1.json; Dag2 = errors/error_dag2.json"
     raise ValueError(value_error_text)
 
+
 def save_dag_and_raise_node(G, node_id, message):
     data = nx.node_link_data(G)
     error_file_location = "./errors/error_dag.json"
@@ -41,6 +43,7 @@ def save_dag_and_raise_node(G, node_id, message):
 
     message += f" Problem at node {node_id}. Dag saved to {error_file_location}"
     raise ValueError(message)
+
 
 def save_dag_and_raise_message(G, message):
     data = nx.node_link_data(G)
@@ -61,10 +64,12 @@ def save_code_results_and_raise_msg(code_str, df_results, error_msg, code_type):
     with open(save_code_location, "w") as file:
         file.write(code_str)
 
-    #save df_results to csv
+    # save df_results to csv
     df_results.to_csv(save_results_location, index=False)
-    
-    raise ValueError(f"{error_msg}. {code_type} code saved to {save_code_location} ; results saved to {save_results_location}")
+
+    raise ValueError(
+        f"{error_msg}. {code_type} code saved to {save_code_location} ; results saved to {save_results_location}"
+    )
 
 
 def save_code_and_raise_err(code_str, error, code_type):
@@ -87,5 +92,3 @@ def save_code_and_results_and_raise_msg(code_str, df_results, error_msg, code_ty
     raise ValueError(
         f"{error_msg}. {code_type} code saved to {save_location} and results saved to errors/error_results.csv"
     )
-
-
