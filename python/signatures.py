@@ -2,10 +2,10 @@ import json, os
 import networkx as nx
 from typing import Any, Dict, Tuple, List, Optional
 from functools import partial
-
 import validation, dags, ui, errs
 import conv_tracker as ct
 
+#xxx rename this module to somthing like conversion_rules
 
 def empty_conversion_rules() -> Dict[str, Any]:
     return {
@@ -555,7 +555,7 @@ def filter_conversion_rules_by_conv_tracker(conversion_rules, conversion_tracker
     for func_name, _ in used_functions.items():
         functions_to_build[func_name] = functions_library[func_name]
 
-    #5. add transforms xxxxxxxxxxxx
+    #5. add transforms 
     used_transforms = conversion_tracker["transforms"]
     transforms_protect_to_build = filtered_conversion_rules["transforms_protect"]
     transforms_from_to_to_build = filtered_conversion_rules["transforms_from_to"]
@@ -592,5 +592,4 @@ def filter_conversion_rules_by_conv_tracker(conversion_rules, conversion_tracker
         function_logic_dags_to_build[func_name] = function_logic_dags_library[func_name]
 
     return filtered_conversion_rules
-    #xxx add later the transfroms and code logic functions into this file so everything needed is on one place.
 

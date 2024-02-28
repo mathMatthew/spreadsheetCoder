@@ -287,9 +287,6 @@ def _fix_root(root):
     # root.attrib["name"] = root.attrib["name"].upper()
 
 
-from lxml import etree
-
-
 def save_xml_and_raise(xml_root, value_error_text):
     # Convert the XML element to a string
     xml_str = prettify(xml_root)

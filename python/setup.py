@@ -91,13 +91,17 @@ def get_standard_settings(paths_dict: Dict[str, str], operation_mode: str, langu
             dag_conversion_rules_file=paths_dict["dag_conversion_rules_file"],
             lib_func_sig_dir=paths_dict["lib_func_sig_dir"],
         )
+        #xxx this should be dag_conversion_rules take precedence over langauge_conversion_rules take precedence over the directories
+        #still need to fix that.
+
         #in supplement mode, dag_conversion_rules takes precendence over language_conversion_rules
         #we do that by udpating the lang conversion rules with whatever is in the dag conversion rules
         dag_conversion_rules = dag_objects_dict["conversion_rules"]
         lang_conv_rules["function_logic_dags"] = dag_objects_dict["function_logic_dags"]
         lang_conv_rules["transforms_from_to"] = dag_objects_dict["transforms_from_to"]
         lang_conv_rules["transforms_protect"] = dag_objects_dict["transforms_protect"]
-        lang_conv_rules.update(dag_conversion_rules)
+        lang_conv_rules.update(dag_conversion_rules) #xxx wont work well. see similar comment below
+        
         dag_objects_dict["conversion_rules"] = lang_conv_rules
         standard_settings["auto_add_signatures"] = True
 
@@ -119,7 +123,8 @@ def get_standard_settings(paths_dict: Dict[str, str], operation_mode: str, langu
         dag_objects_dict["conversion_rules"] = new_conversion_rules
         standard_settings["auto_add_signatures"] = True
 
-    #to avoid confusion remove these keys since the info if applicable is now in the conversion_rules entry
+    #To avoid confusion remove these keys since the info if applicable is now in the conversion_rules entry
+    #Also, critical to ensure downstream processes have converted. 
     del dag_objects_dict["function_logic_dags"]
     del dag_objects_dict["transforms_from_to"]
     del dag_objects_dict["transforms_protect"]
