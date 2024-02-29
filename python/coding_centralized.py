@@ -4,10 +4,11 @@ from datetime import datetime
 
 import conv_tracker as ct
 import errs, validation, dags
-import signatures as sigs
+import conversion_rules as cr
+
 
 def convert_to_type(value, data_type):
-    #move this to a centralized testing module at some point.
+    # move this to a centralized testing module at some point.
     if data_type == "Text":
         return value
     elif data_type == "Number":
@@ -23,9 +24,8 @@ def convert_to_type(value, data_type):
     # Add other data types as needed
     return value
 
-def code_cached_node(
-    G, node_id, conversion_tracker, conversion_rules, replace_key_fn
-):
+
+def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_key_fn):
     if G.nodes[node_id]["node_type"] == "input":
         if "output_name" in G.nodes[node_id]:
             if G.nodes[node_id]["output_name"] == G.nodes[node_id]["input_name"]:
@@ -41,9 +41,9 @@ def code_cached_node(
 
     function_name = G.nodes[node_id]["function_name"]
 
-    parent_data_types = sigs.get_parent_data_types(G, node_id)
+    parent_data_types = cr.get_parent_data_types(G, node_id)
 
-    function_signature = sigs.match_signature(G, node_id, conversion_rules)
+    function_signature = cr.match_signature(G, node_id, conversion_rules)
     if not function_signature:
         errs.save_dag_and_raise_node(
             G,
@@ -72,6 +72,7 @@ def code_cached_node(
     ct.update_conversion_tracker_template_used(conversion_tracker, template_key)
     return code
 
+
 def code_std_function_node(
     G,
     node_id,
@@ -85,10 +86,10 @@ def code_std_function_node(
         conversion_tracker
     ), "Conversion tracker is not valid."
 
-    signature = sigs.match_signature(G, node_id, supported_functions)
+    signature = cr.match_signature(G, node_id, supported_functions)
     if not signature:
         function_name = G.nodes[node_id]["function_name"]
-        parent_data_types = sigs.get_parent_data_types(G, node_id)
+        parent_data_types = cr.get_parent_data_types(G, node_id)
         errs.save_dag_and_raise_node(
             G,
             node_id,
@@ -106,6 +107,7 @@ def code_std_function_node(
         replace_key_fn,
         special_process_fn,
     )
+
 
 def code_supported_function(
     G,
@@ -130,7 +132,7 @@ def code_supported_function(
         return ""
 
     if function_signature.get("no_code"):
-        #should really never happen now that we created the missing_signature stuff.
+        # should really never happen now that we created the missing_signature stuff.
         if "source" in function_signature:
             source = function_signature["source"]
             source = " and ".join(source) if isinstance(source, list) else source
@@ -156,9 +158,7 @@ def code_supported_function(
         template_name = function_signature["template"]
         template = supported_functions["templates"][template_name]["template"]
         code = replace_placeholders(template, replace_key_fn)
-        ct.update_conversion_tracker_template_used(
-            conversion_tracker, template_name
-        )
+        ct.update_conversion_tracker_template_used(conversion_tracker, template_name)
     else:
         code = function_signature.get("code_before", "")
         if "operator" in function_signature:
@@ -178,6 +178,7 @@ def code_supported_function(
     special_process_fn(G, node_id, function_signature, conversion_tracker)
 
     return code
+
 
 def replace_placeholders(
     template: str, get_placeholder_value: Callable[[str], str]
@@ -204,4 +205,3 @@ def replace_placeholders(
         )
     else:
         return replaced_template
-

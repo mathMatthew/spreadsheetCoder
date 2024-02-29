@@ -19,7 +19,7 @@ import dag_tables as g_tables
 import setup, validation, errs, dags
 import coding_centralized as cc
 import conv_tracker as ct
-import signatures as sigs
+import conversion_rules as cr
 
 
 language_conversion_rules = "./system_data/sql_supported_functions.json"
@@ -40,7 +40,9 @@ def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[st
     standard_paths["function_logic_dir"] = "./system_data/sql_function_logic/"
     standard_paths["transform_logic_dir"] = "./system_data/sql_transform_logic/"
 
-    standard_settings = setup.get_standard_settings(standard_paths, mode, language_conversion_rules)
+    standard_settings = setup.get_standard_settings(
+        standard_paths, mode, language_conversion_rules
+    )
 
     return standard_settings
 
@@ -528,7 +530,7 @@ def get_required_functions_code(signature_definitions, G):
         signature_definitions, True
     ), "signature_definitions is not valid."
 
-    current_signatures = sigs.build_current_signature_definitions(G)
+    current_signatures = cr.build_current_signature_definitions(G)
 
     for func_name, used_signatures in current_signatures["signatures"].items():
         for used_signature in used_signatures:
@@ -621,21 +623,19 @@ def transpile_dags_to_sql_and_test(
         conversion_tracker=conversion_tracker,
     )
 
-    sigs.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
+    cr.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
 
     code = convert_to_sql(
         base_dag_G, base_dag_tree, tables_dict, conversion_rules, conversion_tracker
     )
-    
-    conversion_rules = sigs.filter_conversion_rules_by_conv_tracker(
+
+    conversion_rules = cr.filter_conversion_rules_by_conv_tracker(
         conversion_rules, conversion_tracker
     )
 
     conn = sqlite3.connect(":memory:")
 
-    required_function_codes = get_required_functions_code(
-        conversion_rules, base_dag_G
-    )
+    required_function_codes = get_required_functions_code(conversion_rules, base_dag_G)
     for func_name, num_params, code_str in required_function_codes:
         exec(code_str, globals())  # Define function in global scope
         conn.create_function(

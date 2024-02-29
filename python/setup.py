@@ -1,4 +1,3 @@
-
 from typing import Any, Dict, Tuple, List, Optional
 import os, json
 from lxml import etree
@@ -7,7 +6,7 @@ import networkx as nx
 # internal imports
 import convert_xml as cxml
 import validation, dags, errs
-import signatures as sigs
+import conversion_rules as cr
 
 
 def update_existing_keys(original_dict, updates_dict):
@@ -27,19 +26,23 @@ def update_existing_keys(original_dict, updates_dict):
     }
 
 
-def get_standard_settings(paths_dict: Dict[str, str], operation_mode: str, language_conversion_rules_file: Optional[str])   -> Dict[str, Any]:
+def get_standard_settings(
+    paths_dict: Dict[str, str],
+    operation_mode: str,
+    language_conversion_rules_file: Optional[str],
+) -> Dict[str, Any]:
     """
     Initialize and return standard settings based on paths and operation mode.
 
     Parameters:
         paths_dict (dict): Dictionary of paths required for setup.
         operation_mode (str): Operation mode for the setup. Valid modes are:
-            - "complete": Uses the dag_conversion_rules_file from paths_dict exclusively, assuming it contains all 
+            - "complete": Uses the dag_conversion_rules_file from paths_dict exclusively, assuming it contains all
               necessary data. Requires the dag_conversion_rules_file to exist.
-            - "supplement": Uses the dag_conversion_rules_file from paths_dictalong with additional data from 
+            - "supplement": Uses the dag_conversion_rules_file from paths_dictalong with additional data from
               specified directories. Requires the dag_conversion_rules_file to exist.
-            - "build": Constructs the dag_conversion_rules_file based on the language_conversion_rules_file along 
-              with additional data from specified directories. Does not require the dag_conversion_rules_file to 
+            - "build": Constructs the dag_conversion_rules_file based on the language_conversion_rules_file along
+              with additional data from specified directories. Does not require the dag_conversion_rules_file to
               exist upfront.
 
     Returns:
@@ -52,13 +55,17 @@ def get_standard_settings(paths_dict: Dict[str, str], operation_mode: str, langu
         raise ValueError(
             f"Invalid operation mode: {operation_mode}. Valid modes are: {', '.join(valid_modes)}."
         )
-    
+
     if operation_mode in ["build", "supplement"]:
         if language_conversion_rules_file is None:
-            raise ValueError("language_conversion_rules_file is required for 'build' and 'supplement' modes.")
+            raise ValueError(
+                "language_conversion_rules_file is required for 'build' and 'supplement' modes."
+            )
         if not os.path.exists(language_conversion_rules_file):
-            raise FileNotFoundError(f"language_conversion_rules_file '{language_conversion_rules_file}' not found.")
-        lang_conv_rules = sigs.load_and_deserialize_rules(language_conversion_rules_file)
+            raise FileNotFoundError(
+                f"language_conversion_rules_file '{language_conversion_rules_file}' not found."
+            )
+        lang_conv_rules = cr.load_and_deserialize_rules(language_conversion_rules_file)
 
     # Check for the existence of the dag_conversion_rules_file in modes that require it
     if operation_mode in ["complete", "supplement"] and not os.path.exists(
@@ -82,7 +89,7 @@ def get_standard_settings(paths_dict: Dict[str, str], operation_mode: str, langu
         standard_settings["auto_add_signatures"] = False
 
     elif operation_mode == "supplement":
-        
+
         dag_objects_dict: Dict[str, Any] = initial_dag_objects(
             base_dag_xml_file=paths_dict["xml_file"],
             xsd_file=paths_dict["xsd_file"],
@@ -91,17 +98,19 @@ def get_standard_settings(paths_dict: Dict[str, str], operation_mode: str, langu
             dag_conversion_rules_file=paths_dict["dag_conversion_rules_file"],
             lib_func_sig_dir=paths_dict["lib_func_sig_dir"],
         )
-        #xxx this should be dag_conversion_rules take precedence over langauge_conversion_rules take precedence over the directories
-        #still need to fix that.
+        # xxx this should be dag_conversion_rules take precedence over langauge_conversion_rules take precedence over the directories
+        # still need to fix that.
 
-        #in supplement mode, dag_conversion_rules takes precendence over language_conversion_rules
-        #we do that by udpating the lang conversion rules with whatever is in the dag conversion rules
+        # in supplement mode, dag_conversion_rules takes precendence over language_conversion_rules
+        # we do that by udpating the lang conversion rules with whatever is in the dag conversion rules
         dag_conversion_rules = dag_objects_dict["conversion_rules"]
         lang_conv_rules["function_logic_dags"] = dag_objects_dict["function_logic_dags"]
         lang_conv_rules["transforms_from_to"] = dag_objects_dict["transforms_from_to"]
         lang_conv_rules["transforms_protect"] = dag_objects_dict["transforms_protect"]
-        lang_conv_rules.update(dag_conversion_rules) #xxx wont work well. see similar comment below
-        
+        lang_conv_rules.update(
+            dag_conversion_rules
+        )  # xxx wont work well. see similar comment below
+
         dag_objects_dict["conversion_rules"] = lang_conv_rules
         standard_settings["auto_add_signatures"] = True
 
@@ -115,16 +124,24 @@ def get_standard_settings(paths_dict: Dict[str, str], operation_mode: str, langu
             dag_conversion_rules_file="",
             lib_func_sig_dir=paths_dict["lib_func_sig_dir"],
         )
-        new_conversion_rules = sigs.empty_conversion_rules()
-        new_conversion_rules["function_logic_dags"] = dag_objects_dict["function_logic_dags"]
-        new_conversion_rules["transforms_from_to"] = dag_objects_dict["transforms_from_to"]
-        new_conversion_rules["transforms_protect"] = dag_objects_dict["transforms_protect"]
-        new_conversion_rules.update(lang_conv_rules) #xxx this own't work. we need to add stuff one at a time so when a key has a list of items if one list has 3 items and one 2 they aren't overwritten.
+        new_conversion_rules = cr.empty_conversion_rules()
+        new_conversion_rules["function_logic_dags"] = dag_objects_dict[
+            "function_logic_dags"
+        ]
+        new_conversion_rules["transforms_from_to"] = dag_objects_dict[
+            "transforms_from_to"
+        ]
+        new_conversion_rules["transforms_protect"] = dag_objects_dict[
+            "transforms_protect"
+        ]
+        new_conversion_rules.update(
+            lang_conv_rules
+        )  # xxx this own't work. we need to add stuff one at a time so when a key has a list of items if one list has 3 items and one 2 they aren't overwritten.
         dag_objects_dict["conversion_rules"] = new_conversion_rules
         standard_settings["auto_add_signatures"] = True
 
-    #To avoid confusion remove these keys since the info if applicable is now in the conversion_rules entry
-    #Also, critical to ensure downstream processes have converted. 
+    # To avoid confusion remove these keys since the info if applicable is now in the conversion_rules entry
+    # Also, critical to ensure downstream processes have converted.
     del dag_objects_dict["function_logic_dags"]
     del dag_objects_dict["transforms_from_to"]
     del dag_objects_dict["transforms_protect"]
@@ -176,25 +193,29 @@ def initial_dag_objects(
         transform_schema = etree.XMLSchema(transform_schema_root)
 
     if os.path.exists(dag_conversion_rules_file):
-        conversion_rules = sigs.load_and_deserialize_rules(dag_conversion_rules_file)
+        conversion_rules = cr.load_and_deserialize_rules(dag_conversion_rules_file)
     else:
-        conversion_rules = sigs.empty_conversion_rules()
+        conversion_rules = cr.empty_conversion_rules()
 
     if os.path.exists(lib_func_sig_dir):
         # create library of function signatures
-        signature_definition_library = sigs.empty_conversion_rules()
+        signature_definition_library = cr.empty_conversion_rules()
         for filename in os.listdir(lib_func_sig_dir):
             if filename.endswith(".json") and filename.startswith("func_sig_"):
                 filename = os.path.join(lib_func_sig_dir, filename)
                 with open(filename, "r") as file:
                     data = json.load(file)
-                sigs.add_signatures_to_library(data, signature_definition_library, filename)
+                cr.add_signatures_to_library(
+                    data, signature_definition_library, filename
+                )
         if not validation.is_valid_signature_definition_dict(
             signature_definition_library, False
-        ) :
-            raise ValueError(f"Library of function signatures created from {lib_func_sig_dir} is not valid")
+        ):
+            raise ValueError(
+                f"Library of function signatures created from {lib_func_sig_dir} is not valid"
+            )
     else:
-        signature_definition_library = sigs.empty_conversion_rules()
+        signature_definition_library = cr.empty_conversion_rules()
 
     if os.path.exists(function_logic_dir):
         function_logic_dags: Dict[str, Any] = load_function_logic_dags(

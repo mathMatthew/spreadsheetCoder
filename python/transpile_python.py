@@ -1,6 +1,7 @@
 """
 This module takes an sc graph and transpiles it to python code
 """
+
 ##################################
 # Section 1: Imports, constants, global, setup
 ##################################
@@ -17,7 +18,7 @@ import setup, validation, errs
 import conv_tracker as ct
 import coding_centralized as cc
 import dag_tables as g_tables
-import signatures as sigs
+import conversion_rules as cr
 
 INDENT = " " * 2
 
@@ -26,23 +27,23 @@ used_tables = set()
 used_functions = set()
 used_imports = set()
 
+
 def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
-    standard_paths = setup.get_standard_paths(
-        base_dag_xml_file, working_directory
-    )
-    #override with SQL specific function_logic_dir & transform_dir
+    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory)
+    # override with SQL specific function_logic_dir & transform_dir
     standard_paths["function_logic_dir"] = "./system_data/python_function_logic/"
     standard_paths["transform_logic_dir"] = "./system_data/python_transform_logic/"
 
-    standard_settings = setup.get_standard_settings(standard_paths, mode, language_conversion_rules_files)
+    standard_settings = setup.get_standard_settings(
+        standard_paths, mode, language_conversion_rules_files
+    )
 
     standard_settings["use_tables"] = True
     standard_settings["tables_dir"] = os.path.join(working_directory, "tables")
 
     # unless the file system has already defined a conversion function dictionary for this file, use the standard library
 
-    
     return standard_settings
 
 
@@ -53,9 +54,11 @@ def _add_functions_to_used_functions(function_names):
     global used_functions
     used_functions.update(function_names)
 
+
 def _add_imports_to_used_imports(import_statements):
     global used_imports
     used_imports.update(import_statements)
+
 
 def _add_table_to_used_tables(table_name):
     global used_tables
@@ -118,12 +121,13 @@ def _add_indents(text, number):
 
     return indented_text
 
+
 def _make_header(G, use_tables, conversion_rules) -> str:
-    #build function statements first so we capture additional imports.
+    # build function statements first so we capture additional imports.
     function_statements = []
     for function in used_functions:
         function_definition = conversion_rules["functions"][function]
-        function_statements.append(function_definition["text"]) 
+        function_statements.append(function_definition["text"])
         if "requires_imports" in function_definition:
             _add_imports_to_used_imports(function_definition["requires_imports"])
 
@@ -136,9 +140,11 @@ def _make_header(G, use_tables, conversion_rules) -> str:
         import_table_file_name = os.path.join(
             tables_dir, f"{_python_safe_name(import_table)}.parquet"
         )
-        table_statements.append(f"df_{import_table} = pd.read_parquet(r'{import_table_file_name}')\n")
+        table_statements.append(
+            f"df_{import_table} = pd.read_parquet(r'{import_table_file_name}')\n"
+        )
 
-    main_function_header  = f'def {_python_safe_name(G.graph["name"])}('
+    main_function_header = f'def {_python_safe_name(G.graph["name"])}('
     # create input names
     input_ids: list[Any] = G.graph[
         "input_node_ids"
@@ -178,9 +184,7 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
         if attribs["cache"] and not is_primary:
             return _var_code(G, node_id)
         if G.nodes[node_id]["function_name"].upper() == "ARRAY":
-            return _code_array_node(
-                G, node_id, conversion_rules, conversion_tracker
-            )
+            return _code_array_node(G, node_id, conversion_rules, conversion_tracker)
         else:
             partial_code_node = partial(
                 _code_node,
@@ -210,7 +214,9 @@ def python_special_process_after_code_node(
 ):
     if "add_functions" in function_signature:
         _add_functions_to_used_functions(function_signature["add_functions"])
-        ct.update_conversion_tracker_functions(conversion_tracker, function_signature["add_functions"])  
+        ct.update_conversion_tracker_functions(
+            conversion_tracker, function_signature["add_functions"]
+        )
     if "requires_imports" in function_signature:
         _add_imports_to_used_imports(function_signature["requires_imports"])
 
@@ -304,7 +310,12 @@ def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str
         output_id = output_node_ids[0]
         code += f"return {_code_node(G, output_id, True, conversion_rules, conversion_tracker)}"
 
-    code = _make_header(G, use_tables, conversion_rules) + _add_indents(code, 1) + "\n" + "\n"
+    code = (
+        _make_header(G, use_tables, conversion_rules)
+        + _add_indents(code, 1)
+        + "\n"
+        + "\n"
+    )
 
     return code
 
@@ -334,13 +345,13 @@ def transpile_dags_to_py_and_test(
         renum_nodes=False,
     )
 
-    sigs.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
+    cr.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
 
     code = convert_and_test(
         base_dag_G, conversion_rules, use_tables, conversion_tracker
     )
 
-    conversion_rules = sigs.filter_conversion_rules_by_conv_tracker(
+    conversion_rules = cr.filter_conversion_rules_by_conv_tracker(
         conversion_rules, conversion_tracker
     )
 
@@ -459,7 +470,7 @@ def test_code(code_str, tree, G):
         test_cases = tree.findall("TestCases/test_case")
         if len(test_cases) < 10:
             raise ValueError("Must have at least 10 test cases.")
-        
+
         for test_case_index, test_case in enumerate(test_cases):
             input_values = []
             for i, input_value in enumerate(test_case.findall("input_value")):
@@ -541,7 +552,7 @@ def main() -> None:
     conversion_tracker = ct.empty_conversion_tracker()
 
     override_defaults = {}
-    mode = "build" #'options:  'build' 'complete' 'supplement'
+    mode = "build"  #'options:  'build' 'complete' 'supplement'
 
     code, conversion_rules = transpile(
         xml_file, working_directory, mode, conversion_tracker, override_defaults
