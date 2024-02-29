@@ -5,8 +5,6 @@ from functools import partial
 import validation, dags, ui, errs
 import conv_tracker as ct
 
-#xxx rename this module to somthing like conversion_rules
-
 def empty_conversion_rules() -> Dict[str, Any]:
     return {
         "signatures": {},
@@ -133,6 +131,13 @@ def add_function_signature(
     no_code,
     additional_params={},
 ):
+    """
+    Adds a new function signature to the specified dictionary of function signatures. 
+    Supports the inclusion of additional metadata and flags, such as the source of the 
+    signature. The no_code input will add the "no_code" flag to the signature. The purpose
+    of this flag is to indicate that the signature intentionally has no code associated with it
+    which is important for validating the data structure. 
+    """
     if not function_name in signature_definition_dict["signatures"]:
         signature_definition_dict["signatures"][function_name] = []
     signature_definition_dict["signatures"][function_name].append(

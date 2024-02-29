@@ -19,7 +19,7 @@ xml_file = "ranch.XML"
 
 conversion_tracker = ct.empty_conversion_tracker()
 overrides = {}
-mode = "complete"  #'options:  'build' 'complete' 'supplement'
+mode ="build"   #'options:  'build' 'complete' 'supplement'
 
 code, conversion_rules = ts.transpile(
     xml_file, example_dir, conversion_tracker, mode, overrides

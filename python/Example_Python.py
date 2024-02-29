@@ -9,7 +9,6 @@ from datetime import datetime
 print("Current Time =", datetime.now().strftime("%H:%M:%S"))
 start = datetime.now()
 
-
 example_dir = "./examples"
 output_dir = "../../../sc_output_files"
 # xml_file = "endDateDays.XML"
