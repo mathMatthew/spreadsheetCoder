@@ -535,7 +535,9 @@ def get_required_functions_code(signature_definitions, G):
     for func_name, used_signatures in current_signatures["signatures"].items():
         for used_signature in used_signatures:
             for signature in signature_definitions["signatures"][func_name]:
-                if cr.match_input_signature(signature["inputs"], used_signature["inputs"], "Exact"):
+                if cr.match_input_signature(
+                    signature["inputs"], used_signature["inputs"], "exact"
+                ):
                     if signature.get("req_custom_function_name"):
                         yield signature["req_custom_function_name"], signature[
                             "custom_func_num_params"

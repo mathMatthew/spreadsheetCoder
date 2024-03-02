@@ -155,12 +155,14 @@ def is_valid_signature_definition_dict(
 
     for func_name, signatures in conversion_rules.items():
         for signature in signatures:
-            #Unless a library, don't allow dupes of function_name and input data types
-            #though this doesnt use cr.match_input_signature(... "Exact") it is doing the same thing. This comment is important for identifying cases where this function belongs.
+            # Unless a library, don't allow dupes of function_name and input data types
+            # though this doesnt use cr.match_input_signature(... "exact") it is doing the same thing. This comment is important for identifying cases where this function belongs.
             if not is_library:
                 func_input_signature = (func_name, frozenset(signature["inputs"]))
                 if func_input_signature in seen_function_inputs:
-                    print(f"Duplicate function signature detected for {func_name} with inputs {', '.join(signature['inputs'])}.")
+                    print(
+                        f"Duplicate function signature detected for {func_name} with inputs {', '.join(signature['inputs'])}."
+                    )
                     return False
                 seen_function_inputs[func_input_signature] = True
 

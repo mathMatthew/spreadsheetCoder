@@ -69,7 +69,7 @@ def update_conversion_tracker_sig(
         ]
     else:
         for sig in conversion_tracker["signatures"][function_name]:
-            if cr.match_input_signature(parent_data_types, sig["inputs"], "Strict"):
+            if cr.match_input_signature(parent_data_types, sig["inputs"], "strict"):
                 sig[event_name] = sig.get(event_name, 0) + 1
                 return
 

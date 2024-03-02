@@ -36,7 +36,7 @@ def first_signature_match(G, node_id, supported_functions) -> Optional[Dict]:
     if not matching_signatures:
         return None
     for signature in matching_signatures:
-        if match_input_signature(parent_data_types, signature["inputs"], "Permissive"):
+        if match_input_signature(parent_data_types, signature["inputs"], "permissive"):
             # if more than one signature matches, the first one will get returned.
             # note this means that the order of signatures within the same function name
             # can matter in conversion_rules files. In general more specific signature definitions
@@ -59,7 +59,7 @@ def get_functions_without_conversion_instructions(
             match_found = False
             for signature in signature_definitions["signatures"].get(func_name, []):
                 if match_input_signature(
-                    required_signature["inputs"], signature["inputs"], "Permissive"
+                    required_signature["inputs"], signature["inputs"], "permissive"
                 ):
                     if "no_code" not in signature:
                         match_found = True
@@ -163,28 +163,27 @@ def add_function_signature(
         signature_definition_dict["signatures"][function_name][-1][k] = v
 
 
-
 def match_type(type1, type2, is_ordered, is_strict):
     # Define a helper function to apply checks, so order doesn't matter for certain conditions.
     def is_match(t1, t2):
         # Any means any data type that represents a single value--not an array or table column
         any_data_types = ["Text", "Number", "Boolean", "Date"]
-        # return true if either side is None is used when matching transform patterns. 
-        return (
-            t1 is None
-            or (t1 == "Any" and t2 in any_data_types)
-        )
+        # return true if either side is None is used when matching transform patterns.
+        return t1 is None or (t1 == "Any" and t2 in any_data_types)
 
     if is_strict:
         return type1 == type2
-    
+
     # Check for Range and ARRAY/TABLE_COLUMN match regardless of the order.
-    if "Range" in [type1, type2] and (type1.startswith(("ARRAY", "TABLE_COLUMN")) or type2.startswith(("ARRAY", "TABLE_COLUMN"))):
+    if "Range" in [type1, type2] and (
+        type1.startswith(("ARRAY", "TABLE_COLUMN"))
+        or type2.startswith(("ARRAY", "TABLE_COLUMN"))
+    ):
         return True
-    
+
     if is_ordered:
         return is_match(type1, type2)
-    
+
     return is_match(type1, type2) or is_match(type2, type1)
 
 
@@ -201,9 +200,9 @@ def match_input_signature(parent_data_types, input_signature, match_mode):
     - parent_data_types (list of str): The data types of the parent inputs to be matched.
     - input_signature (list of str): The expected data types as defined in the function's input signature.
     - match_mode (str): The level of strictness for the match, which can be one of the following:
-        - "Exact": Requires the parent data types and input signature to be exactly the same.
-        - "Strict": Allows for flexibility of using "Multiple" in the input signature
-        - "Permissive": Allows further flexibility to count a match if either side is blank or "Any". Also matches ranges, arrays and table columns as the same
+        - "exact": Requires the parent data types and input signature to be exactly the same.
+        - "strict": Allows for flexibility of using "Multiple" in the input signature
+        - "permissive": Allows further flexibility to count a match if either side is blank or "Any". Also matches ranges, arrays and table columns as the same
 
     Returns:
     - bool: True if the parent data types match the input signature according to the specified match type,
@@ -214,16 +213,17 @@ def match_input_signature(parent_data_types, input_signature, match_mode):
     - The function internally handles special cases like "Multiple[..]" in the input signature, allowing for a variable
       number of inputs of a specified type.
     """
-    valid_match_mode_types= "Exact", "Strict", "Permissive"
+    valid_match_mode_types = "exact", "strict", "permissive"
     if not match_mode in valid_match_mode_types:
         raise ValueError(
-            "match_mode must be one of the following: " + ", ".join(valid_match_mode_types)
+            "match_mode must be one of the following: "
+            + ", ".join(valid_match_mode_types)
         )
 
-    if match_mode == "Exact":
+    if match_mode == "exact":
         return parent_data_types == input_signature
 
-    is_strict = match_mode == "Strict"
+    is_strict = match_mode == "strict"
 
     remaining_data_type = None
     i = 0
@@ -288,8 +288,13 @@ def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
             found = False
             for existing_item in signature_definition_library[key]:
                 if (
-                    match_input_signature(item["inputs"], existing_item["inputs"], "Exact") 
-                    and item["outputs"] == existing_item["outputs"] #a library can have different outptus for the same input signature.
+                    match_input_signature(
+                        item["inputs"], existing_item["inputs"], "exact"
+                    )
+                    and item["outputs"]
+                    == existing_item[
+                        "outputs"
+                    ]  # a library can have different outptus for the same input signature.
                 ):
                     if source is not None:
                         if "source" not in existing_item:
@@ -323,7 +328,9 @@ def _match_function_signature(
 
     if signatures is not None:
         for signature in signatures:
-            if match_input_signature(parent_data_types, signature["inputs"], "Permissive"):
+            if match_input_signature(
+                parent_data_types, signature["inputs"], "permissive"
+            ):
                 if len(signature["outputs"]) > 1 and not can_have_multiple_outputs:
                     continue
                 outputs = signature["outputs"]
@@ -620,7 +627,7 @@ def filter_conversion_rules_by_conv_tracker(conversion_rules, conversion_tracker
             match_found = False
             lib_sigs = sig_library[func_name]
             for lib_sig in lib_sigs:
-                if match_input_signature(lib_sig["inputs"], sig["inputs"], "Exact"):
+                if match_input_signature(lib_sig["inputs"], sig["inputs"], "exact"):
                     if not func_name in sig_to_build:
                         sig_to_build[func_name] = []
                     sig_to_build[func_name].append(lib_sig)
@@ -687,7 +694,7 @@ def main():
     a = ["Number", "Number", "Number"]
 
     # Run the test case
-    result = match_input_signature(a, b, "Strict")
+    result = match_input_signature(a, b, "strict")
     print(f"Result: {result}")
 
 
