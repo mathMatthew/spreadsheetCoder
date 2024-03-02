@@ -140,19 +140,30 @@ def is_valid_logic_function(tree, filename, name):
 
 
 def is_valid_signature_definition_dict(
-    conversion_rules, allow_multiple_outputs
+    conversion_rules, allow_multiple_outputs, is_library
 ) -> bool:
     # a signature definition dictionary must have a 'signatures' key with a list of signatures
     # each signature must have 'inputs' and 'outputs' keys
     # each input and output must be a list of data types
-    # if any signature" refers to a template (i.e. has a 'template' key) it must also have
-    # the corresponding template key under the conversion_rules's 'templates' key
+    # unless is_library is true, cannot have more than one signature with the same inputs.
 
     if not "signatures" in conversion_rules:
         return False
     conversion_rules = conversion_rules["signatures"]
+
+    seen_function_inputs = {}
+
     for func_name, signatures in conversion_rules.items():
         for signature in signatures:
+            #Unless a library, don't allow dupes of function_name and input data types
+            #though this doesnt use cr.match_input_signature(... "Exact") it is doing the same thing. This comment is important for identifying cases where this function belongs.
+            if not is_library:
+                func_input_signature = (func_name, frozenset(signature["inputs"]))
+                if func_input_signature in seen_function_inputs:
+                    print(f"Duplicate function signature detected for {func_name} with inputs {', '.join(signature['inputs'])}.")
+                    return False
+                seen_function_inputs[func_input_signature] = True
+
             for input_type in signature["inputs"]:
                 if not valid_data_type(input_type, False):
                     print(
@@ -180,7 +191,7 @@ def is_valid_signature_definition_dict(
 def is_valid_conversion_rules_dict(conversion_rules_dict) -> bool:
     # a conversion rules dictionary is a signture definition dictionary plus
     # the other rules needed for to convert the dag to the target language
-    if not is_valid_signature_definition_dict(conversion_rules_dict, True):
+    if not is_valid_signature_definition_dict(conversion_rules_dict, True, False):
         return False
 
     for func_name, signatures in conversion_rules_dict["signatures"].items():

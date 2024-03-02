@@ -105,8 +105,7 @@ def get_standard_settings(
         # we do that by udpating the lang conversion rules with whatever is in the dag conversion rules
         dag_conversion_rules = dag_objects_dict["conversion_rules"]
         lang_conv_rules["function_logic_dags"] = dag_objects_dict["function_logic_dags"]
-        lang_conv_rules["transforms_from_to"] = dag_objects_dict["transforms_from_to"]
-        lang_conv_rules["transforms_protect"] = dag_objects_dict["transforms_protect"]
+        lang_conv_rules["transforms"] = dag_objects_dict["transforms"]
         lang_conv_rules.update(
             dag_conversion_rules
         )  # xxx wont work well. see similar comment below
@@ -124,16 +123,11 @@ def get_standard_settings(
             dag_conversion_rules_file="",
             lib_func_sig_dir=paths_dict["lib_func_sig_dir"],
         )
-        new_conversion_rules = cr.empty_conversion_rules()
+        new_conversion_rules = cr.initialize_conversion_rules()
         new_conversion_rules["function_logic_dags"] = dag_objects_dict[
             "function_logic_dags"
         ]
-        new_conversion_rules["transforms_from_to"] = dag_objects_dict[
-            "transforms_from_to"
-        ]
-        new_conversion_rules["transforms_protect"] = dag_objects_dict[
-            "transforms_protect"
-        ]
+        new_conversion_rules["transforms"] = dag_objects_dict["transforms"]
         new_conversion_rules.update(
             lang_conv_rules
         )  # xxx this own't work. we need to add stuff one at a time so when a key has a list of items if one list has 3 items and one 2 they aren't overwritten.
@@ -143,8 +137,6 @@ def get_standard_settings(
     # To avoid confusion remove these keys since the info if applicable is now in the conversion_rules entry
     # Also, critical to ensure downstream processes have converted.
     del dag_objects_dict["function_logic_dags"]
-    del dag_objects_dict["transforms_from_to"]
-    del dag_objects_dict["transforms_protect"]
     standard_settings.update(dag_objects_dict)
 
     return standard_settings
@@ -186,20 +178,14 @@ def initial_dag_objects(
         schema_root = etree.XML(schema_file.read())  # type: ignore
         schema = etree.XMLSchema(schema_root)
 
-    with open(
-        xsd_file, "rb"
-    ) as schema_file:  # for now just use the same schema. may change this in the future.
-        transform_schema_root = etree.XML(schema_file.read())  # type: ignore
-        transform_schema = etree.XMLSchema(transform_schema_root)
-
     if os.path.exists(dag_conversion_rules_file):
         conversion_rules = cr.load_and_deserialize_rules(dag_conversion_rules_file)
     else:
-        conversion_rules = cr.empty_conversion_rules()
+        conversion_rules = cr.initialize_conversion_rules()
 
     if os.path.exists(lib_func_sig_dir):
         # create library of function signatures
-        signature_definition_library = cr.empty_conversion_rules()
+        signature_definition_library = cr.initialize_conversion_rules()
         for filename in os.listdir(lib_func_sig_dir):
             if filename.endswith(".json") and filename.startswith("func_sig_"):
                 filename = os.path.join(lib_func_sig_dir, filename)
@@ -209,13 +195,13 @@ def initial_dag_objects(
                     data, signature_definition_library, filename
                 )
         if not validation.is_valid_signature_definition_dict(
-            signature_definition_library, False
+            signature_definition_library, False, True
         ):
             raise ValueError(
                 f"Library of function signatures created from {lib_func_sig_dir} is not valid"
             )
     else:
-        signature_definition_library = cr.empty_conversion_rules()
+        signature_definition_library = cr.initialize_conversion_rules()
 
     if os.path.exists(function_logic_dir):
         function_logic_dags: Dict[str, Any] = load_function_logic_dags(
@@ -224,13 +210,14 @@ def initial_dag_objects(
     else:
         function_logic_dags = {}
 
+    transform_schema_file = xsd_file  # for now we just use the same schema file. may want to tighten this in the future with
+    # a schema file with additional transform constraints.
     if os.path.exists(transform_logic_dir):
-        transforms_from_to, transforms_protect = load_transform_logic_dags(
-            transform_logic_dir, transform_schema
+        transforms = load_transform_logic_dags(
+            transform_logic_dir, transform_schema_file
         )
     else:
-        transforms_from_to = {}
-        transforms_protect = {}
+        transforms = {}
 
     base_dag_xml_tree = cxml.load_3_or_5_tree(base_dag_xml_file)
 
@@ -251,8 +238,7 @@ def initial_dag_objects(
         "base_dag_xml_tree": base_dag_xml_tree,
         "base_dag_graph": base_dag_graph,
         "function_logic_dags": function_logic_dags,
-        "transforms_from_to": transforms_from_to,
-        "transforms_protect": transforms_protect,
+        "transforms": transforms,
         "conversion_rules": conversion_rules,
         "signature_definition_library": signature_definition_library,
     }
@@ -330,76 +316,23 @@ def load_function_logic_dags(directory, schema) -> Dict[str, Any]:
 
 
 def load_transform_logic_dags(
-    directory, schema
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    transforms_from_to: Dict[str, Any] = {}
-    transforms_protect: Dict[str, Any] = {}
-
-    def add_transform_logic_dag(
-        transforms_from_to: Dict[str, Any],
-        transforms_protect: Dict[str, Any],
-        transform_logic_dag: nx.MultiDiGraph,
-        name: str,
-    ):
-        """
-        reformats the transform_logic_dag provided and adds it to the transforms_from_to dictionary.
-        Also adds any 'protect' trees it defines to the transforms_protect dictionary.
-
-        a transform_dag is a data format that says:
-        * If you see this pattern (defined by first output)--the From node,
-        * then turn it into that pattern (second output)--the To node.
-        * unless the from pattern is part of a pattern that looks like any of the following (defined
-        by the 0 or more  additional outputs)
-
-        Both the protect dictionary and the from_to dicationary are keyed off the function name
-        of the root of the pattern they define.
-        """
-
-        def add_to_a_transforms_dict(
-            transforms_dict: Dict[str, Any],
-            transform_dag: nx.MultiDiGraph,
-            function_name: str,
-        ):
-            """works for both transforms_from_to and transforms_protect"""
-            if function_name not in transforms_dict:
-                # If this is the transform code web with From node with this functionName, create a new list
-                transforms_dict[function_name] = []
-            transforms_dict[function_name].append(transform_dag)
-
-        outputs = transform_logic_dag.graph["output_node_ids"]
-        original_output_count: int = len(outputs)
-
-        # First let's deal with the protAdd each protect output as its own protect web.
-        for i in range(2, original_output_count):
-            output_node_id_to_keep = outputs[i]
-            transform_protect: nx.MultiDiGraph = dags.subset_graph(
-                transform_logic_dag, [output_node_id_to_keep]
-            )
-            protect_function_name = transform_protect.nodes(output_node_id_to_keep)[
-                "function_name"
-            ]
-            add_to_a_transforms_dict(
-                transforms_protect, transform_protect, protect_function_name
-            )
-
-        from_to = dags.subset_graph(transform_logic_dag, outputs[:2])
-        from_function_name = from_to.nodes[outputs[0]]["function_name"]
-        add_to_a_transforms_dict(transforms_from_to, from_to, from_function_name)
+    directory, transform_schema
+) -> Dict[str, nx.MultiDiGraph]:
+    transforms_dict = {}
 
     for filename in os.listdir(directory):
         if filename.upper().endswith(".XML"):
             tree = cxml.load_3_or_5_tree(os.path.join(directory, filename))
             transform_logic_dag: nx.MultiDiGraph = dags.build_nx_graph(tree)
             name = tree.getroot().get("name").upper()
+
             if not validation.is_valid_transform(transform_logic_dag, filename, name):
                 errs.save_dag_and_raise_message(
                     transform_logic_dag,
                     f"file {filename} is not a valid transform logic dag. Graph validation failed.",
                 )
+            else:
+                dags.renumber_nodes(transform_logic_dag)
+                transforms_dict[name] = transform_logic_dag
 
-            dags.renumber_nodes(transform_logic_dag)
-            add_transform_logic_dag(
-                transforms_from_to, transforms_protect, transform_logic_dag, name
-            )
-
-    return transforms_from_to, transforms_protect
+    return transforms_dict

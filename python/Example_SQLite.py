@@ -17,9 +17,9 @@ output_dir = "../../../sc_output_files"
 xml_file = "ranch.XML"
 # xml_file = 'PeriodDiff.XML'
 
-conversion_tracker = ct.empty_conversion_tracker()
+conversion_tracker = ct.initialize_conversion_tracker()
 overrides = {}
-mode ="build"   #'options:  'build' 'complete' 'supplement'
+mode = "build"  #'options:  'build' 'complete' 'supplement'
 
 code, conversion_rules = ts.transpile(
     xml_file, example_dir, conversion_tracker, mode, overrides

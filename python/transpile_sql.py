@@ -527,7 +527,7 @@ def get_required_functions_code(signature_definitions, G):
     used as per the conversion tracker.
     """
     assert validation.is_valid_signature_definition_dict(
-        signature_definitions, True
+        signature_definitions, True, False
     ), "signature_definitions is not valid."
 
     current_signatures = cr.build_current_signature_definitions(G)
@@ -535,8 +535,7 @@ def get_required_functions_code(signature_definitions, G):
     for func_name, used_signatures in current_signatures["signatures"].items():
         for used_signature in used_signatures:
             for signature in signature_definitions["signatures"][func_name]:
-                # Compare the input types of used signature with the definition
-                if signature["inputs"] == used_signature["inputs"]:
+                if cr.match_input_signature(signature["inputs"], used_signature["inputs"], "Exact"):
                     if signature.get("req_custom_function_name"):
                         yield signature["req_custom_function_name"], signature[
                             "custom_func_num_params"
@@ -759,7 +758,7 @@ def main() -> None:
     # xml_file = "test_sum.XML"
     # xml_file = "myPandL.XML"
     xml_file = "ranch.XML"
-    conversion_tracker = ct.empty_conversion_tracker()
+    conversion_tracker = ct.initialize_conversion_tracker()
     overrides = {}
     code, conversion_rules = transpile(
         xml_file, working_directory, conversion_tracker, "build", overrides

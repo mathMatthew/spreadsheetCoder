@@ -1,9 +1,9 @@
-
 from typing import Any, Tuple, Dict, List
-
+import conversion_rules as cr
 import validation
 
-def empty_conversion_tracker() -> Dict[str, Any]:
+
+def initialize_conversion_tracker() -> Dict[str, Any]:
     return {
         "signatures": {},
         "events": {},
@@ -12,7 +12,8 @@ def empty_conversion_tracker() -> Dict[str, Any]:
         "binomial_expansions": {},
         "templates_used": {},
         "used_functions": {},
-    } 
+    }
+
 
 def update_conversion_tracker_record_binomial_expansion(
     conversion_tracker, function_name, binomial_record
@@ -26,9 +27,8 @@ def update_conversion_tracker_record_binomial_expansion(
         conversion_tracker["binomial_expansions"].get(function_name, 0) + 1
     )
 
-def update_conversion_tracker_template_used(
-    conversion_tracker, template_name
-):
+
+def update_conversion_tracker_template_used(conversion_tracker, template_name):
     assert validation.is_valid_conversion_tracker(
         conversion_tracker
     ), "Invalid conversion tracker"
@@ -69,7 +69,7 @@ def update_conversion_tracker_sig(
         ]
     else:
         for sig in conversion_tracker["signatures"][function_name]:
-            if sig["inputs"] == parent_data_types and sig["outputs"] == return_types:
+            if cr.match_input_signature(parent_data_types, sig["inputs"], "Strict"):
                 sig[event_name] = sig.get(event_name, 0) + 1
                 return
 
@@ -80,6 +80,7 @@ def update_conversion_tracker_sig(
             event_name: 1,
         }
         conversion_tracker["signatures"][function_name].append(new_signature)
+
 
 def update_conversion_tracker_event(conversion_tracker, event_name):
     assert validation.is_valid_conversion_tracker(
@@ -92,16 +93,11 @@ def update_conversion_tracker_event(conversion_tracker, event_name):
         event = conversion_tracker["events"][event_name]
         event["usage_count"] = event.get("usage_count", 0) + 1
 
-def update_conversion_tracker_functions(
-    conversion_tracker, add_functions: List[str]
-):
-    assert validation.is_valid_conversion_tracker(
-        conversion_tracker
-    )
+
+def update_conversion_tracker_functions(conversion_tracker, add_functions: List[str]):
+    assert validation.is_valid_conversion_tracker(conversion_tracker)
     for add_function in add_functions:
         if add_function not in conversion_tracker["used_functions"]:
             conversion_tracker["used_functions"][add_function] = {"usage_count": 1}
         else:
             conversion_tracker["used_functions"][add_function]["usage_count"] += 1
-
-

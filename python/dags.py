@@ -447,7 +447,7 @@ def update_dag_with_data_types(
         signature_definitions
     ), "signature is not valid"
     assert validation.is_valid_signature_definition_dict(
-        signature_definition_library, True
+        signature_definition_library, True, True
     ), "signature is not valid"
 
     topo_sorted_nodes = list(nx.topological_sort(G))
@@ -566,7 +566,7 @@ def mark_nodes_for_caching(
     # mark nodes for caching for nodes which functions require caching
     for node_id in G.nodes:
         if G.nodes[node_id]["node_type"] == "function":
-            function_signature = cr.match_signature(G, node_id, conversion_rules)
+            function_signature = cr.first_signature_match(G, node_id, conversion_rules)
             if function_signature and function_signature.get("requires_cache", False):
                 G.nodes[node_id]["cache"] = True
 
@@ -597,6 +597,40 @@ def mark_nodes_for_caching(
             G.nodes[node_id]["cache"] = True
 
 
+def generate_transforms_categories(
+    transforms_dict: Dict[str, nx.MultiDiGraph]
+) -> Tuple[Dict[str, List[nx.MultiDiGraph]], Dict[str, List[nx.MultiDiGraph]]]:
+    transforms_from_to: Dict[str, List[nx.MultiDiGraph]] = {}
+    transforms_protect: Dict[str, List[nx.MultiDiGraph]] = {}
+
+    for name, transform_logic_dag in transforms_dict.items():
+        outputs = transform_logic_dag.graph["output_node_ids"]
+        original_output_count: int = len(outputs)
+
+        # Handle protect transforms
+        for i in range(2, original_output_count):
+            output_node_id_to_keep = outputs[i]
+            transform_protect: nx.MultiDiGraph = subset_graph(
+                transform_logic_dag, [output_node_id_to_keep]
+            )
+            protect_function_name = transform_protect.nodes[output_node_id_to_keep][
+                "function_name"
+            ]
+            if protect_function_name not in transforms_protect:
+                transforms_protect[protect_function_name] = []
+            transforms_protect[protect_function_name].append(transform_protect)
+
+        # Handle from-to transforms
+        if original_output_count >= 2:
+            from_to = subset_graph(transform_logic_dag, outputs[:2])
+            from_function_name = from_to.nodes[outputs[0]]["function_name"]
+            if from_function_name not in transforms_from_to:
+                transforms_from_to[from_function_name] = []
+            transforms_from_to[from_function_name].append(from_to)
+
+    return transforms_from_to, transforms_protect
+
+
 def convert_graph(
     dag_to_convert: nx.MultiDiGraph,
     conversion_rules: Dict[str, Any],
@@ -608,26 +642,21 @@ def convert_graph(
     """
     Converts a directed acyclic graph (DAG) (the dag_to_convert) into a DAG transformed
     by applying the defined transforms and the function_logic_dags.
-
-
     """
     assert validation.is_valid_base_graph(dag_to_convert), "dag is not valid"
     assert validation.is_valid_conversion_rules_dict(
         conversion_rules
     ), "signature is not valid"
     assert validation.is_valid_signature_definition_dict(
-        signature_definition_library, False
+        signature_definition_library, False, True
     ), "signature is not valid"
 
     function_logic_dags: Dict[str, nx.MultiDiGraph] = conversion_rules[
         "function_logic_dags"
     ]
-    transforms_from_to: Dict[str, nx.MultiDiGraph] = conversion_rules[
-        "transforms_from_to"
-    ]
-    transforms_protect: Dict[str, nx.MultiDiGraph] = conversion_rules[
-        "transforms_protect"
-    ]
+    transforms_from_to, transforms_protect = generate_transforms_categories(
+        conversion_rules["transforms"]
+    )
 
     func_logic_sigs = cr.create_signature_dictionary(function_logic_dags)
     cr.add_signatures_to_library(
@@ -874,14 +903,13 @@ def xml_to_graph(
 ) -> nx.MultiDiGraph:
     paths_dict = setup.get_standard_paths(base_dag_xml_file, working_directory)
     setup.update_existing_keys(paths_dict, override_defaults)
-    data_dict = setup.get_standard_settings(paths_dict, "supplement")
+    # this function ends up mainly being for testing today. so for now forcing it to be
+    # run in complete mode. can generalize later if needed.
+    data_dict = setup.get_standard_settings(paths_dict, "complete", None)
     setup.update_existing_keys(data_dict, override_defaults)
     # convert graph is the core logic. ...
     convert_graph(
         dag_to_convert=data_dict["base_dag_graph"],
-        function_logic_dags=data_dict["function_logic_dags"],
-        transforms_from_to=data_dict["transforms_from_to"],
-        transforms_protect=data_dict["transforms_protect"],
         conversion_rules=data_dict["conversion_rules"],
         signature_definition_library=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
@@ -1108,7 +1136,7 @@ def dict_of_matching_node_ids(
         # bs = base; tr = transform
         # Check if the data types are the same. Note often tr_node will not have a data_type in which case this will return true.
         if not cr.match_type(
-            bs_node_attribs.get("data_type"), tr_node_attribs.get("data_type"), False
+            bs_node_attribs.get("data_type"), tr_node_attribs.get("data_type"), False, False
         ):
             return False
 

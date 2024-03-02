@@ -549,7 +549,7 @@ def main() -> None:
     # xml_file = "test_sum.XML"
     # xml_file = "MultipleMatchInexactNumeric.XML"
 
-    conversion_tracker = ct.empty_conversion_tracker()
+    conversion_tracker = ct.initialize_conversion_tracker()
 
     override_defaults = {}
     mode = "build"  #'options:  'build' 'complete' 'supplement'

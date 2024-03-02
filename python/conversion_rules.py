@@ -2,18 +2,19 @@ import json, os
 import networkx as nx
 from typing import Any, Dict, Tuple, List, Optional
 from functools import partial
+
 import validation, dags, ui, errs
 import conv_tracker as ct
 
-def empty_conversion_rules() -> Dict[str, Any]:
+
+def initialize_conversion_rules() -> Dict[str, Any]:
     return {
         "signatures": {},
         "templates": {},
         "commutative_functions_to_convert_to_binomial": {},
         "functions": {},
-        "transforms_protect" : {},
-        "transforms_from_to" : {},
-        "function_logic_dags" : {},
+        "transforms": {},
+        "function_logic_dags": {},
     }
 
 
@@ -23,14 +24,23 @@ def get_parent_data_types(G, node_id):
     return parent_data_types
 
 
-def match_signature(G, node_id, supported_functions) -> Optional[Dict]:
+def first_signature_match(G, node_id, supported_functions) -> Optional[Dict]:
+    """
+    Finds the first matching signature for the given node from within the
+    supported functions dicationary.
+    Returns None if no matching signature is found.
+    """
     function_name = G.nodes[node_id]["function_name"]
     matching_signatures = supported_functions["signatures"].get(function_name)
     parent_data_types = get_parent_data_types(G, node_id)
     if not matching_signatures:
         return None
     for signature in matching_signatures:
-        if match_input_signature(parent_data_types, signature["inputs"], False):
+        if match_input_signature(parent_data_types, signature["inputs"], "Permissive"):
+            # if more than one signature matches, the first one will get returned.
+            # note this means that the order of signatures within the same function name
+            # can matter in conversion_rules files. In general more specific signature definitions
+            # should be listed first.
             return signature
     return None
 
@@ -40,15 +50,19 @@ def get_functions_without_conversion_instructions(
 ):
     missing_signatures = {"signatures": {}}
 
-    for func_name, func_required_signatures in required_signatures["signatures"].items():
+    for func_name, func_required_signatures in required_signatures[
+        "signatures"
+    ].items():
 
         for required_signature in func_required_signatures:
             # Check if the current signature matches any in the signature_definitions
             match_found = False
             for signature in signature_definitions["signatures"].get(func_name, []):
-                if match_input_signature(required_signature["inputs"], signature["inputs"], False):
+                if match_input_signature(
+                    required_signature["inputs"], signature["inputs"], "Permissive"
+                ):
                     if "no_code" not in signature:
-                        match_found = True 
+                        match_found = True
                         break
 
             # If no match is found, copy the required_signature
@@ -61,7 +75,7 @@ def get_functions_without_conversion_instructions(
 
     # Validation to check if the modified signature dictionary is valid
     assert validation.is_valid_signature_definition_dict(
-        missing_signatures, False
+        missing_signatures, False, False
     ), "Signature dictionary is not valid."
     return missing_signatures
 
@@ -74,12 +88,12 @@ def build_current_signature_definitions(G):
     for node_id, attributes in G.nodes(data=True):
         if attributes["node_type"] != "function":
             continue
-        # Skip function arrays as they are a special case as a tool to 
+        # Skip function arrays as they are a special case as a tool to
         # allow some function to return multiple outputs in a graph that otherwise
         # expects a single output per function
         if attributes["function_name"] == "FUNCTION_ARRAY":
             continue
-        match_sig = match_signature(G, node_id, signatures)
+        match_sig = first_signature_match(G, node_id, signatures)
         if match_sig:
             if match_sig.get("source") == "Required signatures":
                 match_sig["locations"].append(
@@ -99,8 +113,8 @@ def build_current_signature_definitions(G):
             additional_params,
         )
     assert validation.is_valid_signature_definition_dict(
-            signatures, False
-        ), "Signature dictionary is not valid." 
+        signatures, False, False
+    ), "Signature dictionary is not valid."
     return signatures
 
 
@@ -132,11 +146,11 @@ def add_function_signature(
     additional_params={},
 ):
     """
-    Adds a new function signature to the specified dictionary of function signatures. 
-    Supports the inclusion of additional metadata and flags, such as the source of the 
+    Adds a new function signature to the specified dictionary of function signatures.
+    Supports the inclusion of additional metadata and flags, such as the source of the
     signature. The no_code input will add the "no_code" flag to the signature. The purpose
     of this flag is to indicate that the signature intentionally has no code associated with it
-    which is important for validating the data structure. 
+    which is important for validating the data structure.
     """
     if not function_name in signature_definition_dict["signatures"]:
         signature_definition_dict["signatures"][function_name] = []
@@ -149,54 +163,101 @@ def add_function_signature(
         signature_definition_dict["signatures"][function_name][-1][k] = v
 
 
-def match_type(type1, type2, strict):
-    # Define a helper function to apply checks, so order doesn't matter.
+
+def match_type(type1, type2, is_ordered, is_strict):
+    # Define a helper function to apply checks, so order doesn't matter for certain conditions.
     def is_match(t1, t2):
         # Any means any data type that represents a single value--not an array or table column
         any_data_types = ["Text", "Number", "Boolean", "Date"]
+        # return true if either side is None is used when matching transform patterns. 
         return (
             t1 is None
             or (t1 == "Any" and t2 in any_data_types)
-            or (
-                t1 == "Range"
-                and (t2.startswith("ARRAY") or t2.startswith("TABLE_COLUMN"))
-            )
         )
 
-    if not strict:
-        # Apply the checks for both (type1, type2) and (type2, type1)
-        if is_match(type1, type2) or is_match(type2, type1):
-            return True
+    if is_strict:
+        return type1 == type2
+    
+    # Check for Range and ARRAY/TABLE_COLUMN match regardless of the order.
+    if "Range" in [type1, type2] and (type1.startswith(("ARRAY", "TABLE_COLUMN")) or type2.startswith(("ARRAY", "TABLE_COLUMN"))):
+        return True
+    
+    if is_ordered:
+        return is_match(type1, type2)
+    
+    return is_match(type1, type2) or is_match(type2, type1)
 
-    # Strict comparison
-    return type1 == type2
+
+def match_input_signature(parent_data_types, input_signature, match_mode):
+    """
+    Determines if the provided parent data types match the input signature based on the
+    specified match mode. An exact match is jsut parent_data_types == input_signature;
+    however use of this functions is preferred over that.
+    Note that except in the case of an exact match, parent_data_types and input_signature
+    are NOT interchangeable. Specifically, input_signature can have "Mutliple" to match to
+    multiple parameters in parent data types.
+
+    Parameters:
+    - parent_data_types (list of str): The data types of the parent inputs to be matched.
+    - input_signature (list of str): The expected data types as defined in the function's input signature.
+    - match_mode (str): The level of strictness for the match, which can be one of the following:
+        - "Exact": Requires the parent data types and input signature to be exactly the same.
+        - "Strict": Allows for flexibility of using "Multiple" in the input signature
+        - "Permissive": Allows further flexibility to count a match if either side is blank or "Any". Also matches ranges, arrays and table columns as the same
+
+    Returns:
+    - bool: True if the parent data types match the input signature according to the specified match type,
+            False otherwise.
 
 
-def match_input_signature(parent_data_types, input_signature, strict):
+    Note:
+    - The function internally handles special cases like "Multiple[..]" in the input signature, allowing for a variable
+      number of inputs of a specified type.
+    """
+    valid_match_mode_types= "Exact", "Strict", "Permissive"
+    if not match_mode in valid_match_mode_types:
+        raise ValueError(
+            "match_mode must be one of the following: " + ", ".join(valid_match_mode_types)
+        )
+
+    if match_mode == "Exact":
+        return parent_data_types == input_signature
+
+    is_strict = match_mode == "Strict"
+
     remaining_data_type = None
     i = 0
     j = 0
     while i < len(parent_data_types) and j < len(input_signature):
         input_type = input_signature[j]
         parent_type = parent_data_types[i]
-        if match_type(input_type, parent_type, strict):
-            i = i + 1
-            j = j + 1
+        if match_type(parent_type, input_type, True, is_strict):
+            i += 1
+            j += 1
             continue
         # once input_signature has given us a remaining data type, we can't have any more data types from the input signature.
+        # it has to be last.
         if input_type.startswith("Multiple["):
             remaining_data_type = input_type[9:-1]
         if remaining_data_type:
-            if not match_type(parent_type, remaining_data_type, strict):
+            if not match_type(parent_type, remaining_data_type, True, is_strict):
                 return False
             else:
-                i = i + 1
+                i += 1
         else:
             return False
-    #they both need to complete the above together.
-    if not(
-        (i == len(parent_data_types) and j == len(input_signature) and not remaining_data_type)
-        or (i == len(parent_data_types) and j+1 == len(input_signature) and remaining_data_type)
+    # they both need to complete the above together.
+    if not (
+        (
+            i == len(parent_data_types)
+            and j == len(input_signature)
+            and not remaining_data_type
+        )
+        or (
+            i == len(parent_data_types)
+            and j + 1 == len(input_signature)
+            and remaining_data_type
+        )
     ):
         return False
 
@@ -205,11 +266,16 @@ def match_input_signature(parent_data_types, input_signature, strict):
 
 def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
     """
-    think of the library as the base and new_sig_dict as what is getting added
+    Note the plural: signatures. This adds a one set of signatures to a 'library'
+    of signatures. lib_sig_digt is the base and new_sig_dict is what s getting added
     along with the name attached in "source"
     """
-    assert validation.is_valid_signature_definition_dict(new_sig_dict, True), "invalid signature dictionary"
-    assert validation.is_valid_signature_definition_dict(lib_sig_dict, False), "invalid signature dictionary"
+    assert validation.is_valid_signature_definition_dict(
+        new_sig_dict, False, False
+    ), "invalid signature dictionary"
+    assert validation.is_valid_signature_definition_dict(
+        lib_sig_dict, False, False
+    ), "invalid signature dictionary"
 
     new_sigs = new_sig_dict["signatures"]
     signature_definition_library = lib_sig_dict["signatures"]
@@ -222,8 +288,8 @@ def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
             found = False
             for existing_item in signature_definition_library[key]:
                 if (
-                    item["inputs"] == existing_item["inputs"]
-                    and item["outputs"] == existing_item["outputs"]
+                    match_input_signature(item["inputs"], existing_item["inputs"], "Exact") 
+                    and item["outputs"] == existing_item["outputs"] #a library can have different outptus for the same input signature.
                 ):
                     if source is not None:
                         if "source" not in existing_item:
@@ -239,8 +305,11 @@ def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
                 signature_definition_library[key].append(item)
 
 
-def match_function_signature(conversion_rules, function_name, parent_data_types, can_have_multiple_outputs):
+def _match_function_signature(
+    conversion_rules, function_name, parent_data_types, can_have_multiple_outputs
+):
     """
+    used by get_data_types today.
     Matches function signatures against provided parameters and returns all matches.
 
     :param conversion_rules: Dictionary of function signaturesa, may also include the info needed for translating them.
@@ -254,7 +323,7 @@ def match_function_signature(conversion_rules, function_name, parent_data_types,
 
     if signatures is not None:
         for signature in signatures:
-            if match_input_signature(parent_data_types, signature["inputs"], False):
+            if match_input_signature(parent_data_types, signature["inputs"], "Permissive"):
                 if len(signature["outputs"]) > 1 and not can_have_multiple_outputs:
                     continue
                 outputs = signature["outputs"]
@@ -264,10 +333,22 @@ def match_function_signature(conversion_rules, function_name, parent_data_types,
     return matches
 
 
-
 def get_data_types(
-    G, node_id, conversion_rules, signature_definition_library, auto_add, conversion_tracker
+    G,
+    node_id,
+    conversion_rules,
+    signature_definition_library,
+    auto_add,
+    conversion_tracker,
 ) -> List[str]:
+    """
+    This is an important step for graph. We need to set the data type for each node where it isn't present.
+    This function defines the data_types for the given node based on the function name and parent data types
+    using the conversion_rules and signature definition library. If missing from the conversion_rules,
+    the signature definition library can be used to add it to conversion rules. If not match is found
+    the user is asked to supply
+    """
+
     def generate_options_message(matching_tuples):
         message_parts = []
         valid_responses = []
@@ -287,22 +368,26 @@ def get_data_types(
     assert validation.is_valid_conversion_rules_dict(
         conversion_rules
     ), "signature is not valid"
-    assert validation.is_valid_signature_definition_dict(signature_definition_library, True), "signature dictionary is not valid"
+    assert validation.is_valid_signature_definition_dict(
+        signature_definition_library, True, True
+    ), "signature dictionary is not valid"
 
     function_name = G.nodes[node_id]["function_name"]
     if function_name == "FUNCTION_ARRAY":
-        multiple_output_node_id, position = get_parent_function_and_position_for_function_array_node(G, node_id)
+        multiple_output_node_id, position = (
+            get_parent_function_and_position_for_function_array_node(G, node_id)
+        )
         multiple_output_data_types = G.nodes[multiple_output_node_id]["data_types"]
-        return [multiple_output_data_types[position-1]]
+        return [multiple_output_data_types[position - 1]]
 
     parent_data_types = get_parent_data_types(G, node_id)
 
     can_have_multiple_outputs = validation.node_can_have_multiple_outputs(G, node_id)
-    matching_tuples = match_function_signature(
+    matching_tuples = _match_function_signature(
         conversion_rules, function_name, parent_data_types, can_have_multiple_outputs
     )
     if len(matching_tuples) > 1:
-        #conversion file should have signatures ordered so that when there are multiple matches we use the first one (which typically is the most specific one)
+        # conversion file should have signatures ordered so that when there are multiple matches we use the first one (which typically is the most specific one)
         matching_tuples = matching_tuples[:1]
 
     if len(matching_tuples) == 1:
@@ -318,8 +403,11 @@ def get_data_types(
 
     missing_signature_info = f"function name: {function_name} with input signature {', '.join(parent_data_types)}"
 
-    matching_tuples = match_function_signature(
-        signature_definition_library, function_name, parent_data_types, can_have_multiple_outputs
+    matching_tuples = _match_function_signature(
+        signature_definition_library,
+        function_name,
+        parent_data_types,
+        can_have_multiple_outputs,
     )
     if matching_tuples:
         if auto_add and len(matching_tuples) == 1:
@@ -331,7 +419,7 @@ def get_data_types(
                 return_types,
                 sources,
                 True,
-            ) 
+            )
             ct.update_conversion_tracker_sig(
                 conversion_tracker,
                 function_name,
@@ -363,13 +451,15 @@ def get_data_types(
                     "manual_add_from_library_and_return_types_assigned",
                 )
                 return return_types
-        else: 
+        else:
             options_message, valid_responses = generate_options_message(matching_tuples)
             resp = ui.ask_question(
                 f"Signature for {missing_signature_info} not found in current signature dictionary. Match found in {len(matching_tuples)} provided libraries:\n{options_message}",
                 valid_responses,
             )
-            if resp != str(len(matching_tuples) + 1): #if not the option to add manually
+            if resp != str(
+                len(matching_tuples) + 1
+            ):  # if not the option to add manually
                 selected_tuple = matching_tuples[int(resp) - 1]
                 return_types, sig_inputs, sources = selected_tuple
                 add_function_signature(
@@ -424,6 +514,7 @@ def get_data_types(
     )
     return ["won't get here"]
 
+
 def get_parent_function_and_position_for_function_array_node(G, node_id):
     parents = dags.get_ordered_parent_ids(G, node_id)
     multiple_output_function_node_id = parents[0]
@@ -433,12 +524,10 @@ def get_parent_function_and_position_for_function_array_node(G, node_id):
 
 
 def create_signature_dictionary(function_logic_dags):
-    new_sig_dict = empty_conversion_rules()
+    new_sig_dict = initialize_conversion_rules()
     new_sigs = new_sig_dict["signatures"]
 
     for func_name, dag in function_logic_dags.items():
-        # Initialize the signature list for the function if it doesn't exist
-
         # Extract input and output node IDs
         input_node_ids = dag.graph["input_node_ids"]
         output_node_ids = dag.graph["output_node_ids"]
@@ -452,11 +541,12 @@ def create_signature_dictionary(function_logic_dags):
 
     return new_sig_dict
 
+
 def load_and_deserialize_rules(file_name: str) -> Dict[str, Any]:
     if not os.path.exists(file_name):
         raise FileNotFoundError(f"{file_name} not found.")
 
-    with open(file_name, 'r') as file:
+    with open(file_name, "r") as file:
         loaded_dict = json.load(file)
 
     deserialized_rules = deserialize_dict_with_dags(loaded_dict)
@@ -465,59 +555,62 @@ def load_and_deserialize_rules(file_name: str) -> Dict[str, Any]:
 
     return deserialized_rules
 
-def serialize_and_save_rules(conversion_rules: Dict[str, Any], conversion_rules_file: str) -> None:
+
+def serialize_and_save_rules(
+    conversion_rules: Dict[str, Any], conversion_rules_file: str
+) -> None:
     serialized_conversion_rules = serialize_dict_with_dags(conversion_rules)
     with open(conversion_rules_file, "w") as f:
         json.dump(serialized_conversion_rules, f, indent=2)
+
 
 def serialize_dict_with_dags(data):
     """
     Serialize a dictionary that may contain NetworkX MultiDiGraphs to a JSON-compatible format.
     """
+
     def serialize_helper(item):
         if isinstance(item, nx.MultiDiGraph):
-            return {'_is_graph': True, 'graph_data': nx.node_link_data(item)}
+            return {"_is_graph": True, "graph_data": nx.node_link_data(item)}
         elif isinstance(item, dict):
             return {key: serialize_helper(value) for key, value in item.items()}
         elif isinstance(item, list):
             return [serialize_helper(element) for element in item]
         else:
             return item
-    
+
     return serialize_helper(data)
 
-def deserialize_dict_with_dags(data):
+
+def deserialize_dict_with_dags(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Deserialize a JSON-compatible structure into a dictionary, converting serialized graph structures back to NetworkX MultiDiGraphs.
     """
+
     def deserialize_helper(item):
         if isinstance(item, dict):
-            if item.get('_is_graph'):
-                return nx.node_link_graph(item['graph_data'])
+            if item.get("_is_graph"):
+                return nx.node_link_graph(item["graph_data"])
             else:
                 return {key: deserialize_helper(value) for key, value in item.items()}
         elif isinstance(item, list):
             return [deserialize_helper(element) for element in item]
         else:
             return item
-    
-    return deserialize_helper(data)
+
+    result = deserialize_helper(data)
+    if not isinstance(result, dict):
+        raise ValueError("Deserialized data is not a dictionary as expected.")
+    return result
+
 
 def filter_conversion_rules_by_conv_tracker(conversion_rules, conversion_tracker):
-    assert validation.is_valid_conversion_tracker(
-        conversion_tracker
-    )
-    assert validation.is_valid_conversion_rules_dict(
-        conversion_rules
-    )
-    transforms_from_to = conversion_rules["transforms_from_to"]
-    transforms_protect = conversion_rules["transforms_protect"]
-    function_logic_dags = conversion_rules["function_logic_dags"]
+    assert validation.is_valid_conversion_tracker(conversion_tracker)
+    assert validation.is_valid_conversion_rules_dict(conversion_rules)
 
+    filtered_conversion_rules = initialize_conversion_rules()
 
-    filtered_conversion_rules = empty_conversion_rules()
-
-    #1. Add conversion_rules signatures that were used as recorded in the conversion tracker
+    # 1. Add conversion_rules signatures that were used as recorded in the conversion tracker
     used_signatures = conversion_tracker["signatures"]
     sig_to_build = filtered_conversion_rules["signatures"]
     sig_library = conversion_rules["signatures"]
@@ -527,32 +620,38 @@ def filter_conversion_rules_by_conv_tracker(conversion_rules, conversion_tracker
             match_found = False
             lib_sigs = sig_library[func_name]
             for lib_sig in lib_sigs:
-                if match_input_signature(lib_sig["inputs"], sig["inputs"], True):
+                if match_input_signature(lib_sig["inputs"], sig["inputs"], "Exact"):
                     if not func_name in sig_to_build:
                         sig_to_build[func_name] = []
                     sig_to_build[func_name].append(lib_sig)
-                    match_found= True
+                    match_found = True
                     break
             if not match_found:
-                raise ValueError(f"Signature {sig} is conversion_tracker but not found in library for function {func_name}. Doesn't make sense")
-    
-    #2. add templates that were used
+                raise ValueError(
+                    f"Signature {sig} is conversion_tracker but not found in library for function {func_name}. Doesn't make sense"
+                )
+
+    # 2. add templates that were used
     used_templates = conversion_tracker["templates_used"]
     templates_to_build = filtered_conversion_rules["templates"]
     template_library = conversion_rules.get("templates", {})
 
     for template_name, _ in used_templates.items():
         templates_to_build[template_name] = template_library[template_name]
-    
-    #3. add binomial expansions
+
+    # 3. add binomial expansions
     used_binomial_expansions = conversion_tracker["binomial_expansions"]
-    binomial_expansions_to_build = filtered_conversion_rules["commutative_functions_to_convert_to_binomial"]
-    binomial_expansions_library = conversion_rules.get("commutative_functions_to_convert_to_binomial", {})
+    binomial_expansions_to_build = filtered_conversion_rules[
+        "commutative_functions_to_convert_to_binomial"
+    ]
+    binomial_expansions_library = conversion_rules.get(
+        "commutative_functions_to_convert_to_binomial", {}
+    )
 
     for func_name, _ in used_binomial_expansions.items():
         binomial_expansions_to_build[func_name] = binomial_expansions_library[func_name]
-    
-    #4. add functions
+
+    # 4. add functions
     used_functions = conversion_tracker["used_functions"]
     functions_to_build = filtered_conversion_rules["functions"]
     functions_library = conversion_rules.get("functions", {})
@@ -560,41 +659,37 @@ def filter_conversion_rules_by_conv_tracker(conversion_rules, conversion_tracker
     for func_name, _ in used_functions.items():
         functions_to_build[func_name] = functions_library[func_name]
 
-    #5. add transforms 
+    # 5. add transforms
     used_transforms = conversion_tracker["transforms"]
-    transforms_protect_to_build = filtered_conversion_rules["transforms_protect"]
-    transforms_from_to_to_build = filtered_conversion_rules["transforms_from_to"]
-    transforms_protect_library = transforms_protect
-    transforms_from_to_library = transforms_from_to
+    transforms_to_build = filtered_conversion_rules["transforms"]
+    transforms_library = conversion_rules["transforms"]
 
     for transform_name, _ in used_transforms.items():
-        # Iterate through the library of protected transforms
-        for func_name, transform_list in transforms_protect_library.items():
-            for protect_dag in transform_list:
-                if protect_dag.graph["name"] == transform_name:
-                    # Ensure the func_name entry is initialized in the build dictionary
-                    if func_name not in transforms_protect_to_build:
-                        transforms_protect_to_build[func_name] = []
-                    # Append the transform_name to the build list if not already present
-                    transforms_protect_to_build[func_name].append(protect_dag)
+        transform_name = (
+            transform_name.upper()
+        )  # transforms in conversion_rules are always upper case, but conversion_tracker uses whatever case there is from the name property.
+        transforms_to_build[transform_name] = transforms_library[transform_name]
 
-        for func_name, transform_list in transforms_from_to_library.items():
-            for from_to_dag in transform_list:
-                if from_to_dag.graph["name"] == transform_name:
-                    # Ensure the func_name entry is initialized in the build dictionary
-                    if func_name not in transforms_from_to_to_build:
-                        transforms_from_to_to_build[func_name] = []
-                    # Append the transform_name to the build list if not already present
-                    transforms_from_to_to_build[func_name].append(from_to_dag)
-
-
-    #6. add function_logic_dags
+    # 6. add function_logic_dags
     used_function_logic_dags = conversion_tracker["expanded_functions"]
     function_logic_dags_to_build = filtered_conversion_rules["function_logic_dags"]
-    function_logic_dags_library = function_logic_dags
+    function_logic_dags_library = conversion_rules["function_logic_dags"]
 
     for func_name, _ in used_function_logic_dags.items():
         function_logic_dags_to_build[func_name] = function_logic_dags_library[func_name]
 
     return filtered_conversion_rules
 
+
+def main():
+    # Test case as described
+    b = ["Multiple[Number]"]
+    a = ["Number", "Number", "Number"]
+
+    # Run the test case
+    result = match_input_signature(a, b, "Strict")
+    print(f"Result: {result}")
+
+
+if __name__ == "__main__":
+    main()

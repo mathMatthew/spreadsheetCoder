@@ -43,7 +43,7 @@ def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_k
 
     parent_data_types = cr.get_parent_data_types(G, node_id)
 
-    function_signature = cr.match_signature(G, node_id, conversion_rules)
+    function_signature = cr.first_signature_match(G, node_id, conversion_rules)
     if not function_signature:
         errs.save_dag_and_raise_node(
             G,
@@ -86,7 +86,7 @@ def code_std_function_node(
         conversion_tracker
     ), "Conversion tracker is not valid."
 
-    signature = cr.match_signature(G, node_id, supported_functions)
+    signature = cr.first_signature_match(G, node_id, supported_functions)
     if not signature:
         function_name = G.nodes[node_id]["function_name"]
         parent_data_types = cr.get_parent_data_types(G, node_id)
