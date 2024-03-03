@@ -30,10 +30,7 @@ used_imports = set()
 
 def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
-    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory)
-    # override with SQL specific function_logic_dir & transform_dir
-    standard_paths["function_logic_dir"] = "./system_data/python_function_logic/"
-    standard_paths["transform_logic_dir"] = "./system_data/python_transform_logic/"
+    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory, "_py")
 
     standard_settings = setup.get_standard_settings(
         standard_paths, mode, language_conversion_rules_files
@@ -41,8 +38,6 @@ def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[st
 
     standard_settings["use_tables"] = True
     standard_settings["tables_dir"] = os.path.join(working_directory, "tables")
-
-    # unless the file system has already defined a conversion function dictionary for this file, use the standard library
 
     return standard_settings
 
@@ -406,6 +401,7 @@ def transpile(
         )
     else:
         dag_to_send = data_dict["base_dag_graph"]
+
 
     python_code, conversion_func_sig = transpile_dags_to_py_and_test(
         base_dag_G=dag_to_send,

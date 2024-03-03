@@ -1,7 +1,7 @@
 import os, json
 from datetime import datetime
 
-#internal
+# internal
 import transpile_python as tp
 import conversion_rules as cr
 import conv_tracker as ct
@@ -13,16 +13,17 @@ start = datetime.now()
 example_dir = "./examples"
 output_dir = "../../../sc_output_files"
 # xml_file = "endDateDays.XML"
+# xml_file = "endDateMonths.XML"
+# xml_file = "ageAtDate.XML"
 # xml_file = "av_bal.XML"
-# xml_file = "test_power.XML"
-# xml_file = "CmplxPeriod.XML"
+xml_file = "CmplxPeriod.XML"
 # xml_file = "myPandL.XML"
-xml_file = "ranch.XML"  # super slow to run this.
+# xml_file = "ranch.XML"  # super slow to run this.
 # xml_file = "sumemup.XML" #this is a nice example becaues it shows how we can have a _fs.json file for a specific file that contains just the signature file it needs for this conversion.
 
 conversion_tracker = ct.initialize_conversion_tracker()
 overrides = {}
-mode = "build"  #'options:  'build' 'complete' 'supplement'
+mode = "complete"  #'options:  'build' 'complete' 'supplement'
 # overrides = {"auto_add_signatures": False}
 
 code, conversion_rules = tp.transpile(

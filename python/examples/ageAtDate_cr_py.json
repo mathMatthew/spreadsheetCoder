@@ -1,0 +1,33 @@
+{
+  "signatures": {
+    "LOOKUP": [
+      {
+        "inputs": [
+          "Date",
+          "TABLE_COLUMN[Date]",
+          "TABLE_COLUMN[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "sc_lookup(",
+        "code_after": ")",
+        "add_functions": [
+          "SC_LOOKUP"
+        ]
+      }
+    ]
+  },
+  "templates": {},
+  "commutative_functions_to_convert_to_binomial": {},
+  "functions": {
+    "SC_LOOKUP": {
+      "text": "def sc_lookup(value, lookup_column, result_column):  \n    exact_match = result_column[lookup_column == value]\n    if not exact_match.empty:\n        return exact_match.iloc[0]\n\n    if lookup_column.is_monotonic_increasing :\n        # Find the largest value that is less than 'value'\n        less_than_value = lookup_column[lookup_column < value]\n        if not less_than_value.empty:\n            # Return the corresponding value from result_column\n            index_of_nearest_value = less_than_value.idxmax()\n            return result_column[index_of_nearest_value]\n\n    # If value not found return fist item from results column\n    return result_column.iloc[0]\n",
+      "requires_imports": [
+        "import pandas as pd"
+      ]
+    }
+  },
+  "transforms": {},
+  "function_logic_dags": {}
+}

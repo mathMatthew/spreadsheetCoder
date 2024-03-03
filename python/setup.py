@@ -98,19 +98,19 @@ def get_standard_settings(
             dag_conversion_rules_file=paths_dict["dag_conversion_rules_file"],
             lib_func_sig_dir=paths_dict["lib_func_sig_dir"],
         )
-        # xxx this should be dag_conversion_rules take precedence over langauge_conversion_rules take precedence over the directories
-        # still need to fix that.
-
         # in supplement mode, dag_conversion_rules takes precendence over language_conversion_rules
-        # we do that by udpating the lang conversion rules with whatever is in the dag conversion rules
+        # and language_conversion_rules take precedence over the directory conversion rules. 
+        # We do this by putting lowest priority first and updating with higher priority. 
+        conversion_rules = cr.initialize_conversion_rules()
+        conversion_rules["function_logic_dags"] = dag_objects_dict[
+            "function_logic_dags"
+        ]
+        conversion_rules["transforms"] = dag_objects_dict["transforms"]
         dag_conversion_rules = dag_objects_dict["conversion_rules"]
-        lang_conv_rules["function_logic_dags"] = dag_objects_dict["function_logic_dags"]
-        lang_conv_rules["transforms"] = dag_objects_dict["transforms"]
-        lang_conv_rules.update(
-            dag_conversion_rules
-        )  # xxx wont work well. see similar comment below
+        cr.update_conversion_rules(conversion_rules, lang_conv_rules)
+        cr.update_conversion_rules(conversion_rules, dag_conversion_rules)
 
-        dag_objects_dict["conversion_rules"] = lang_conv_rules
+        dag_objects_dict["conversion_rules"] = conversion_rules
         standard_settings["auto_add_signatures"] = True
 
     elif operation_mode == "build":
@@ -123,15 +123,13 @@ def get_standard_settings(
             dag_conversion_rules_file="",
             lib_func_sig_dir=paths_dict["lib_func_sig_dir"],
         )
-        new_conversion_rules = cr.initialize_conversion_rules()
-        new_conversion_rules["function_logic_dags"] = dag_objects_dict[
+        conversion_rules = cr.initialize_conversion_rules()
+        conversion_rules["function_logic_dags"] = dag_objects_dict[
             "function_logic_dags"
         ]
-        new_conversion_rules["transforms"] = dag_objects_dict["transforms"]
-        new_conversion_rules.update(
-            lang_conv_rules
-        )  # xxx this own't work. we need to add stuff one at a time so when a key has a list of items if one list has 3 items and one 2 they aren't overwritten.
-        dag_objects_dict["conversion_rules"] = new_conversion_rules
+        conversion_rules["transforms"] = dag_objects_dict["transforms"]
+        cr.update_conversion_rules(conversion_rules, lang_conv_rules)
+        dag_objects_dict["conversion_rules"] = conversion_rules
         standard_settings["auto_add_signatures"] = True
 
     # To avoid confusion remove these keys since the info if applicable is now in the conversion_rules entry
@@ -141,21 +139,25 @@ def get_standard_settings(
 
     return standard_settings
 
-
 def add_work_dir(filename, working_directory) -> str:
     return os.path.join(working_directory, filename)
 
-
-def get_standard_paths(xml_file, working_directory):
+def get_standard_paths(xml_file, working_directory, lang_suffix):
+    #lang_suffix examples, '_py', '_sql'
     file_base = os.path.splitext(xml_file)[0]
-    dag_conversion_rules_file = file_base + "_fs.json"
+    conversion_suffix = "_cr"
+    dag_conversion_rules_file = f"{file_base}{conversion_suffix}{lang_suffix}.json"
 
     paths = {
         "work_dir": working_directory,
         "xml_file": add_work_dir(xml_file, working_directory),
         "xsd_file": "./system_data/sc_5_schema.xsd",
-        "function_logic_dir": add_work_dir("xml_functions", working_directory),
-        "transform_logic_dir": add_work_dir("xml_transforms", working_directory),
+        "function_logic_dir": add_work_dir(
+            f"function_logic{lang_suffix}", working_directory
+        ),
+        "transform_logic_dir": add_work_dir(
+            f"transform_logic{lang_suffix}", working_directory
+        ),
         "dag_conversion_rules_file": add_work_dir(
             dag_conversion_rules_file, working_directory
         ),
@@ -192,7 +194,7 @@ def initial_dag_objects(
                 with open(filename, "r") as file:
                     data = json.load(file)
                 cr.add_signatures_to_library(
-                    data, signature_definition_library, filename
+                    data, signature_definition_library, filename, False
                 )
         if not validation.is_valid_signature_definition_dict(
             signature_definition_library, False, True

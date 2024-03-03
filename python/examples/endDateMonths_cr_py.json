@@ -1,0 +1,33 @@
+{
+  "signatures": {
+    "EOMONTH": [
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "code_before": "sc_eomonth(",
+        "code_after": ")",
+        "add_functions": [
+          "SC_EOMONTH"
+        ]
+      }
+    ]
+  },
+  "templates": {},
+  "commutative_functions_to_convert_to_binomial": {},
+  "functions": {
+    "SC_EOMONTH": {
+      "text": "def sc_eomonth(start_date, months):\n    new_date = start_date + relativedelta(months=months)\n    # Set the day to the last day of the new month\n    end_of_month = new_date.replace(day=1) + relativedelta(months=1) - relativedelta(days=1)\n    return end_of_month",
+      "requires_imports": [
+        "from datetime import datetime",
+        "from dateutil.relativedelta import relativedelta"
+      ]
+    }
+  },
+  "transforms": {},
+  "function_logic_dags": {}
+}

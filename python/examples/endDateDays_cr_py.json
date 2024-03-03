@@ -1,0 +1,33 @@
+{
+  "signatures": {
+    "+": [
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "code_before": "add_days_to_datetime(",
+        "code_after": ")",
+        "add_functions": [
+          "ADD_DAYS_TO_DATETIME"
+        ]
+      }
+    ]
+  },
+  "templates": {},
+  "commutative_functions_to_convert_to_binomial": {},
+  "functions": {
+    "ADD_DAYS_TO_DATETIME": {
+      "text": "def add_days_to_datetime(date_obj, days):\n    # convert to seconds to capture fractionaly days\n    seconds_to_add = days * 24 * 60 * 60\n    return date_obj + timedelta(seconds=seconds_to_add)",
+      "requires_imports": [
+        "from datetime import datetime",
+        "from datetime import timedelta"
+      ]
+    }
+  },
+  "transforms": {},
+  "function_logic_dags": {}
+}

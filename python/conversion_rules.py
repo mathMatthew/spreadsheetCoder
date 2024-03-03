@@ -17,6 +17,30 @@ def initialize_conversion_rules() -> Dict[str, Any]:
         "function_logic_dags": {},
     }
 
+def update_conversion_rules(lower_priority_rules, higher_priority_rules):
+    # Update the signatures with more specific logic for matching and updating
+    for func_name, higher_signatures in higher_priority_rules['signatures'].items():
+        if func_name not in lower_priority_rules['signatures']:
+            lower_priority_rules['signatures'][func_name] = higher_signatures
+        else:
+            for higher_signature in higher_signatures:
+                matched = False
+                for idx, lower_signature in enumerate(lower_priority_rules['signatures'][func_name]):
+                    if match_input_signature(higher_signature['inputs'], lower_signature['inputs'], "exact"):
+                        # If there's an exact match, update the entry with the higher priority rule
+                        lower_priority_rules['signatures'][func_name][idx] = higher_signature
+                        matched = True
+                        break
+                if not matched:
+                    # If there's no match, add the new signature
+                    lower_priority_rules['signatures'][func_name].append(higher_signature)
+
+    # For other sections, use dictionary update to overwrite or add new entries
+    sections = ['templates', 'commutative_functions_to_convert_to_binomial', 'functions', 'transforms', 'function_logic_dags']
+    for section in sections:
+        if section in higher_priority_rules:
+            lower_priority_rules[section].update(higher_priority_rules[section])
+
 
 def get_parent_data_types(G, node_id):
     parents: List[int] = dags.get_ordered_parent_ids(G, node_id)
@@ -169,7 +193,7 @@ def match_type(type1, type2, is_ordered, is_strict):
         # Any means any data type that represents a single value--not an array or table column
         any_data_types = ["Text", "Number", "Boolean", "Date"]
         # return true if either side is None is used when matching transform patterns.
-        return t1 is None or (t1 == "Any" and t2 in any_data_types)
+        return t1 is None or (t1 == "Any" and t2 in any_data_types) or t1 == t2
 
     if is_strict:
         return type1 == type2
@@ -264,17 +288,17 @@ def match_input_signature(parent_data_types, input_signature, match_mode):
     return True
 
 
-def add_signatures_to_library(new_sig_dict, lib_sig_dict, source):
+def add_signatures_to_library(new_sig_dict, lib_sig_dict, source, allow_multiple_outputs):
     """
     Note the plural: signatures. This adds a one set of signatures to a 'library'
-    of signatures. lib_sig_digt is the base and new_sig_dict is what s getting added
+    of signatures. lib_sig_digt is the base and new_sig_dict is what is getting added
     along with the name attached in "source"
     """
     assert validation.is_valid_signature_definition_dict(
-        new_sig_dict, False, False
+        new_sig_dict, allow_multiple_outputs, False
     ), "invalid signature dictionary"
     assert validation.is_valid_signature_definition_dict(
-        lib_sig_dict, False, False
+        lib_sig_dict, allow_multiple_outputs, False
     ), "invalid signature dictionary"
 
     new_sigs = new_sig_dict["signatures"]
@@ -569,7 +593,7 @@ def serialize_and_save_rules(
     serialized_conversion_rules = serialize_dict_with_dags(conversion_rules)
     with open(conversion_rules_file, "w") as f:
         json.dump(serialized_conversion_rules, f, indent=2)
-
+        return True
 
 def serialize_dict_with_dags(data):
     """

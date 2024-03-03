@@ -1,0 +1,140 @@
+{
+  "signatures": {
+    ">": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Boolean"
+        ],
+        "operator": ">",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "+": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "+",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "^": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "**",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "/": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "/ (",
+        "code_before": "(",
+        "code_after": " + 1e-10))"
+      }
+    ],
+    "*": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "*",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "IF": [
+      {
+        "inputs": [
+          "Boolean",
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "sc_if(",
+        "code_after": ")",
+        "add_functions": [
+          "SC_IF"
+        ]
+      }
+    ],
+    "ARRAY": [
+      {
+        "inputs": [
+          "Number",
+          "Number",
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "ARRAY[Number]"
+        ],
+        "source": [
+          "./system_data/func_sig_basic_arrays.json"
+        ],
+        "no_code": true
+      }
+    ],
+    "SUM": [
+      {
+        "inputs": [
+          "Multiple[ARRAY[Number]]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "source": [
+          "./system_data/func_sig_basic_arrays.json"
+        ],
+        "no_code": true
+      },
+      {
+        "inputs": [
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "sum([",
+        "code_after": "])"
+      }
+    ]
+  },
+  "templates": {},
+  "commutative_functions_to_convert_to_binomial": {},
+  "functions": {
+    "SC_IF": {
+      "text": "def sc_if(condition, if_true, if_false):\n    if condition:\n        return if_true\n    else:\n        return if_false"
+    }
+  },
+  "transforms": {},
+  "function_logic_dags": {}
+}

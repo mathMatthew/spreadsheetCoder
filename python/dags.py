@@ -660,7 +660,7 @@ def convert_graph(
 
     func_logic_sigs = cr.create_signature_dictionary(function_logic_dags)
     cr.add_signatures_to_library(
-        func_logic_sigs, signature_definition_library, "function_logic_dag"
+        func_logic_sigs, signature_definition_library, "function_logic_dag", True
     )
 
     update_dag_with_data_types(
