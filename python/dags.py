@@ -456,7 +456,7 @@ def update_dag_with_data_types(
         if "data_type" in G.nodes[node_id]:
             continue
         if "function_name" not in G.nodes[node_id]:
-            errs.save_dag_and_raise_node(
+            errs.save_dag_and_raise__node(
                 G,
                 node_id,
                 f"Node id: {node_id} does not have data_type but is not a function.",
@@ -646,7 +646,7 @@ def convert_graph(
     assert validation.is_valid_base_graph(dag_to_convert), "dag is not valid"
     assert validation.is_valid_conversion_rules_dict(
         conversion_rules
-    ), "signature is not valid"
+    ), "conversion rules dictionary is not valid"
     assert validation.is_valid_signature_definition_dict(
         signature_definition_library, False, True
     ), "signature is not valid"
@@ -820,6 +820,9 @@ def convert_graph(
         renumber_nodes(dag_to_convert)
 
     assert validation.is_valid_base_graph(dag_to_convert), "converted dag is not valid"
+    assert validation.is_valid_conversion_rules_dict(
+        conversion_rules
+    ), "Conversion rules dictioanry is not valid"
 
 
 def get_ordered_parent_ids(graph, node_id) -> List[int]:
@@ -944,7 +947,7 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
                         "data_type"
                     ]
                 else:
-                    errs.save_dag_and_raise_node(
+                    errs.save_dag_and_raise__node(
                         base_dag,
                         node_id_to_expand,
                         f"Add support for type conversion on function expansion. Node {node_id_to_expand} in tree: {base_dag.graph['name']}.",
@@ -1000,7 +1003,7 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
         elif data["node_type"] == "input":
             input_order = int(data["input_order"])
             if input_order > len(parents) - 1:
-                errs.save_dag_and_raise_node(
+                errs.save_dag_and_raise__node(
                     function_logic_dag,
                     node_id,
                     f"function_logic DAG {function_logic_dag.graph['name']} has an input node with an invalid input order.",
@@ -1136,7 +1139,10 @@ def dict_of_matching_node_ids(
         # bs = base; tr = transform
         # Check if the data types are the same. Note often tr_node will not have a data_type in which case this will return true.
         if not cr.match_type(
-            bs_node_attribs.get("data_type"), tr_node_attribs.get("data_type"), False, False
+            bs_node_attribs.get("data_type"),
+            tr_node_attribs.get("data_type"),
+            False,
+            False,
         ):
             return False
 

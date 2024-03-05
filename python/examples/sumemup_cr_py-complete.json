@@ -1,28 +1,31 @@
 {
   "signatures": {
-    "SUM": [
+    "*": [
       {
         "inputs": [
-          "Multiple[Number]"
+          "Number",
+          "Number"
         ],
         "outputs": [
           "Number"
         ],
-        "code_before": "sum([",
-        "code_after": "])"
-      },
+        "operator": "*",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "/": [
       {
         "inputs": [
-          "Multiple[Any]"
+          "Number",
+          "Number"
         ],
         "outputs": [
           "Number"
         ],
-        "code_before": "sumnum([",
-        "code_after": "])",
-        "add_functions": [
-          "SUMNUM"
-        ]
+        "operator": "/ (",
+        "code_before": "(",
+        "code_after": " + 1e-10))"
       }
     ],
     "ARRAY": [
@@ -58,6 +61,44 @@
           "Number"
         ],
         "no_code": true
+      },
+      {
+        "inputs": [
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "functools.reduce(lambda x, y: x * y, [",
+        "code_after": "], 1)",
+        "requires_imports": [
+          "import functools"
+        ]
+      }
+    ],
+    "SUM": [
+      {
+        "inputs": [
+          "Multiple[Number]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "sum([",
+        "code_after": "])"
+      },
+      {
+        "inputs": [
+          "Multiple[Any]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "sumnum([",
+        "code_after": "])",
+        "add_functions": [
+          "SUMNUM"
+        ]
       }
     ]
   },

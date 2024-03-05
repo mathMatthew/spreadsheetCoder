@@ -16,14 +16,18 @@ output_dir = "../../../sc_output_files"
 # xml_file = "endDateMonths.XML"
 # xml_file = "ageAtDate.XML"
 # xml_file = "av_bal.XML"
-xml_file = "CmplxPeriod.XML"
+# xml_file = "CmplxPeriod.XML"
 # xml_file = "myPandL.XML"
 # xml_file = "ranch.XML"  # super slow to run this.
-# xml_file = "sumemup.XML" #this is a nice example becaues it shows how we can have a _fs.json file for a specific file that contains just the signature file it needs for this conversion.
+xml_file = "sumemup.XML" #this is a nice example becaues it shows how we might want to introduce a custom rule 
+    #just for a specific situation that we may not want to introduce into the language conversion rules file. 
+    #This uses a 'sumnum' function--which allows non numbers inputs to get added as parameters and get ignored. 
+    #It's a hack. I would never allow this sumnum function in something i wanted to run in production. Just clean up the excel file to say what you actually want it to do.
+    #But it shows how we introduce a custom rule.
 
 conversion_tracker = ct.initialize_conversion_tracker()
 overrides = {}
-mode = "complete"  #'options:  'build' 'complete' 'supplement'
+mode = "supplement"  #'options:  'build' 'complete' 'supplement'
 # overrides = {"auto_add_signatures": False}
 
 code, conversion_rules = tp.transpile(
@@ -57,3 +61,4 @@ if code:
         print(f"Conversion tracker written to {conv_tracker_file}")
 
 print("Total Time = ", datetime.now() - start)
+

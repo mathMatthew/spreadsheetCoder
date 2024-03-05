@@ -331,6 +331,9 @@ def transpile_dags_to_py_and_test(
         conversion_tracker
     ), "Conversion tracker is not valid."
 
+    assert validation.is_valid_conversion_rules_dict(conversion_rules), "Conversion rules is not valid."
+    assert validation.is_valid_signature_definition_dict(library_sigs, False, True)
+
     dags.convert_graph(
         dag_to_convert=base_dag_G,
         conversion_rules=conversion_rules,

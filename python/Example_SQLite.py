@@ -14,7 +14,8 @@ output_dir = "../../../sc_output_files"
 # xml_file = "test_power.XML"
 # xml_file = "CmplxPeriod.XML"
 # xml_file = "myPandL.XML"
-xml_file = "ranch.XML"
+# xml_file = "ranch.XML"
+xml_file = "endDateDays.XML"
 # xml_file = 'PeriodDiff.XML'
 
 conversion_tracker = ct.initialize_conversion_tracker()
@@ -22,14 +23,14 @@ overrides = {}
 mode = "build"  #'options:  'build' 'complete' 'supplement'
 
 code, conversion_rules = ts.transpile(
-    xml_file, example_dir, conversion_tracker, mode, overrides
+    xml_file, example_dir, mode, conversion_tracker, overrides
 )
 
 if code:
     base_file_name = os.path.splitext(xml_file)[0]
     output_file = os.path.join(output_dir, base_file_name + ".SQL")
     conversion_rules_file = os.path.join(
-        output_dir, base_file_name + "_conversion_rules.json"
+        output_dir, base_file_name + "_cr_sql.json"
     )
     conv_tracker_file = os.path.join(
         output_dir, base_file_name + "_conversion_tracker.json"

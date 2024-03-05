@@ -45,7 +45,7 @@ def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_k
 
     function_signature = cr.first_signature_match(G, node_id, conversion_rules)
     if not function_signature:
-        errs.save_dag_and_raise_node(
+        errs.save_dag_and_raise__node(
             G,
             node_id,
             f"Unsupported function: {function_name} with input data types {', '.join(parent_data_types)} at node id: {node_id}",
@@ -90,7 +90,7 @@ def code_std_function_node(
     if not signature:
         function_name = G.nodes[node_id]["function_name"]
         parent_data_types = cr.get_parent_data_types(G, node_id)
-        errs.save_dag_and_raise_node(
+        errs.save_dag_and_raise__node(
             G,
             node_id,
             f"Unsupported function: {function_name} with input data types {', '.join(parent_data_types)} at node id: {node_id}",
@@ -163,7 +163,7 @@ def code_supported_function(
         code = function_signature.get("code_before", "")
         if "operator" in function_signature:
             if len(parents) > 2:
-                errs.save_dag_and_raise_node(
+                errs.save_dag_and_raise__node(
                     G, node_id, f"Operator functions allowed 2 inputs only."
                 )
                 return ""

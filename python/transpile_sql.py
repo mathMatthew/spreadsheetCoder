@@ -34,11 +34,7 @@ with open(sql_reserved_words_file, "r") as file:
 
 def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
-    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory)
-
-    # override with SQL specific function_logic_dir & transform_dir
-    standard_paths["function_logic_dir"] = "./system_data/sql_function_logic/"
-    standard_paths["transform_logic_dir"] = "./system_data/sql_transform_logic/"
+    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory, "_sql")
 
     standard_settings = setup.get_standard_settings(
         standard_paths, mode, language_conversion_rules
@@ -486,7 +482,7 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
         if attribs["cache"] and not is_primary:
             return _var_code(G, node_id, True)
         if G.nodes[node_id]["function_name"].upper() == "ARRAY":
-            errs.save_dag_and_raise_node(G, node_id, "Add support for ARRAY")
+            errs.save_dag_and_raise__node(G, node_id, "Add support for ARRAY")
         else:
             partial_code_node = partial(
                 _code_node,
@@ -666,7 +662,7 @@ def transpile_dags_to_sql_and_test(
 
 
 def transpile(
-    xml_file_name, working_directory, conversion_tracker, mode, override_defaults: Dict
+    xml_file_name, working_directory, mode, conversion_tracker, override_defaults: Dict
 ) -> Tuple[str, Dict]:
     """
     Transpiles an XML file to SQL code.

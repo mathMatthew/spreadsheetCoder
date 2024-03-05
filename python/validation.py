@@ -158,7 +158,7 @@ def is_valid_signature_definition_dict(
             # Unless a library, don't allow dupes of function_name and input data types
             # though this doesnt use cr.match_input_signature(... "exact") it is doing the same thing. This comment is important for identifying cases where this function belongs.
             if not is_library:
-                func_input_signature = (func_name, frozenset(signature["inputs"]))
+                func_input_signature = (func_name, tuple(signature["inputs"]))
                 if func_input_signature in seen_function_inputs:
                     print(
                         f"Duplicate function signature detected for {func_name} with inputs {', '.join(signature['inputs'])}."

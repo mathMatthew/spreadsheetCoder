@@ -2,7 +2,7 @@ import networkx as nx
 import json
 
 import dag_tables as g_tables
-
+from conversion_rules import serialize_and_save_rules 
 code_types = {"python": {"file_extension": ".py"}, "sql": {"file_extension": ".sql"}}
 
 
@@ -34,7 +34,7 @@ def save_2dags_and_raise(dag1, dag2, value_error_text):
     raise ValueError(value_error_text)
 
 
-def save_dag_and_raise_node(G, node_id, message):
+def save_dag_and_raise__node(G, node_id, message):
     data = nx.node_link_data(G)
     error_file_location = "./errors/error_dag.json"
 
@@ -42,6 +42,20 @@ def save_dag_and_raise_node(G, node_id, message):
         json.dump(data, file, indent=2)
 
     message += f" Problem at node {node_id}. Dag saved to {error_file_location}"
+    raise ValueError(message)
+
+
+def save_dag_and_conversion_rules_and_raise__node(G, node_id, conversion_rules, message):
+    dag_error_file_location = "./errors/error_dag.json"
+    conversion_rules_error_file_location = "./errors/error_conversion_rules.json"
+
+    data = nx.node_link_data(G)
+    with open(dag_error_file_location, "w") as file:
+        json.dump(data, file, indent=2)
+    
+    serialize_and_save_rules(conversion_rules, conversion_rules_error_file_location) 
+
+    message += f" Problem at node {node_id}. Dag saved to {dag_error_file_location}. Conversion rules saved to {conversion_rules_error_file_location}"
     raise ValueError(message)
 
 

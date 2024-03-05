@@ -99,8 +99,8 @@ def get_standard_settings(
             lib_func_sig_dir=paths_dict["lib_func_sig_dir"],
         )
         # in supplement mode, dag_conversion_rules takes precendence over language_conversion_rules
-        # and language_conversion_rules take precedence over the directory conversion rules. 
-        # We do this by putting lowest priority first and updating with higher priority. 
+        # and language_conversion_rules take precedence over the directory conversion rules.
+        # We do this by putting lowest priority first and updating with higher priority.
         conversion_rules = cr.initialize_conversion_rules()
         conversion_rules["function_logic_dags"] = dag_objects_dict[
             "function_logic_dags"
@@ -139,29 +139,32 @@ def get_standard_settings(
 
     return standard_settings
 
-def add_work_dir(filename, working_directory) -> str:
-    return os.path.join(working_directory, filename)
+
+def add_dir(filename, directory) -> str:
+    return os.path.join(directory, filename)
+
 
 def get_standard_paths(xml_file, working_directory, lang_suffix):
-    #lang_suffix examples, '_py', '_sql'
+    # lang_suffix examples, '_py', '_sql'
     file_base = os.path.splitext(xml_file)[0]
     conversion_suffix = "_cr"
     dag_conversion_rules_file = f"{file_base}{conversion_suffix}{lang_suffix}.json"
+    system_data_dir = "./system_data/"
 
     paths = {
         "work_dir": working_directory,
-        "xml_file": add_work_dir(xml_file, working_directory),
-        "xsd_file": "./system_data/sc_5_schema.xsd",
-        "function_logic_dir": add_work_dir(
-            f"function_logic{lang_suffix}", working_directory
+        "xml_file": add_dir(xml_file, working_directory),
+        "xsd_file": add_dir("sc_5_schema.xsd", system_data_dir),
+        "function_logic_dir": add_dir(
+            f"function_logic{lang_suffix}", system_data_dir
         ),
-        "transform_logic_dir": add_work_dir(
-            f"transform_logic{lang_suffix}", working_directory
+        "transform_logic_dir": add_dir(
+            f"transform_logic{lang_suffix}", system_data_dir
         ),
-        "dag_conversion_rules_file": add_work_dir(
+        "dag_conversion_rules_file": add_dir(
             dag_conversion_rules_file, working_directory
         ),
-        "lib_func_sig_dir": "./system_data/",
+        "lib_func_sig_dir": system_data_dir,
     }
 
     return paths

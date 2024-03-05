@@ -17,26 +17,41 @@ def initialize_conversion_rules() -> Dict[str, Any]:
         "function_logic_dags": {},
     }
 
+
 def update_conversion_rules(lower_priority_rules, higher_priority_rules):
     # Update the signatures with more specific logic for matching and updating
-    for func_name, higher_signatures in higher_priority_rules['signatures'].items():
-        if func_name not in lower_priority_rules['signatures']:
-            lower_priority_rules['signatures'][func_name] = higher_signatures
+    for func_name, higher_signatures in higher_priority_rules["signatures"].items():
+        if func_name not in lower_priority_rules["signatures"]:
+            lower_priority_rules["signatures"][func_name] = higher_signatures
         else:
             for higher_signature in higher_signatures:
                 matched = False
-                for idx, lower_signature in enumerate(lower_priority_rules['signatures'][func_name]):
-                    if match_input_signature(higher_signature['inputs'], lower_signature['inputs'], "exact"):
+                for idx, lower_signature in enumerate(
+                    lower_priority_rules["signatures"][func_name]
+                ):
+                    if match_input_signature(
+                        higher_signature["inputs"], lower_signature["inputs"], "exact"
+                    ):
                         # If there's an exact match, update the entry with the higher priority rule
-                        lower_priority_rules['signatures'][func_name][idx] = higher_signature
+                        lower_priority_rules["signatures"][func_name][
+                            idx
+                        ] = higher_signature
                         matched = True
                         break
                 if not matched:
                     # If there's no match, add the new signature
-                    lower_priority_rules['signatures'][func_name].append(higher_signature)
+                    lower_priority_rules["signatures"][func_name].append(
+                        higher_signature
+                    )
 
     # For other sections, use dictionary update to overwrite or add new entries
-    sections = ['templates', 'commutative_functions_to_convert_to_binomial', 'functions', 'transforms', 'function_logic_dags']
+    sections = [
+        "templates",
+        "commutative_functions_to_convert_to_binomial",
+        "functions",
+        "transforms",
+        "function_logic_dags",
+    ]
     for section in sections:
         if section in higher_priority_rules:
             lower_priority_rules[section].update(higher_priority_rules[section])
@@ -193,7 +208,7 @@ def match_type(type1, type2, is_ordered, is_strict):
         # Any means any data type that represents a single value--not an array or table column
         any_data_types = ["Text", "Number", "Boolean", "Date"]
         # return true if either side is None is used when matching transform patterns.
-        return t1 is None or (t1 == "Any" and t2 in any_data_types) or t1 == t2
+        return t1 is None or (t1 in any_data_types and t2 == "Any") or t1 == t2
 
     if is_strict:
         return type1 == type2
@@ -243,7 +258,7 @@ def match_input_signature(parent_data_types, input_signature, match_mode):
             "match_mode must be one of the following: "
             + ", ".join(valid_match_mode_types)
         )
-
+    
     if match_mode == "exact":
         return parent_data_types == input_signature
 
@@ -288,7 +303,9 @@ def match_input_signature(parent_data_types, input_signature, match_mode):
     return True
 
 
-def add_signatures_to_library(new_sig_dict, lib_sig_dict, source, allow_multiple_outputs):
+def add_signatures_to_library(
+    new_sig_dict, lib_sig_dict, source, allow_multiple_outputs
+):
     """
     Note the plural: signatures. This adds a one set of signatures to a 'library'
     of signatures. lib_sig_digt is the base and new_sig_dict is what is getting added
@@ -404,6 +421,7 @@ def get_data_types(
     ), "signature dictionary is not valid"
 
     function_name = G.nodes[node_id]["function_name"]
+
     if function_name == "FUNCTION_ARRAY":
         multiple_output_node_id, position = (
             get_parent_function_and_position_for_function_array_node(G, node_id)
@@ -538,12 +556,17 @@ def get_data_types(
             )
             return [return_type]
 
-    errs.save_dag_and_raise_node(
+    errs.save_dag_and_conversion_rules_and_raise__node(
         G,
         node_id,
+        conversion_rules,
         f"Signature for {missing_signature_info} not found. Node {node_id} in tree: {G.graph['name']}. Aborting",
     )
     return ["won't get here"]
+
+def sort_signatures(conversion_rules):
+    sorted_dict = {k: conversion_rules["signatures"][k] for k in sorted(conversion_rules["signatures"].keys())}
+    conversion_rules["signatures"] = sorted_dict
 
 
 def get_parent_function_and_position_for_function_array_node(G, node_id):
@@ -589,11 +612,13 @@ def load_and_deserialize_rules(file_name: str) -> Dict[str, Any]:
 
 def serialize_and_save_rules(
     conversion_rules: Dict[str, Any], conversion_rules_file: str
-) -> None:
+) -> bool:
+    sort_signatures(conversion_rules)
     serialized_conversion_rules = serialize_dict_with_dags(conversion_rules)
     with open(conversion_rules_file, "w") as f:
         json.dump(serialized_conversion_rules, f, indent=2)
         return True
+
 
 def serialize_dict_with_dags(data):
     """

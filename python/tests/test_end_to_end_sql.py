@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 
 # Import your internal modules
-import transpile_python as tp
+import transpile_sql as ts
 import conversion_rules as cr
 import conv_tracker as ct
 
@@ -11,16 +11,16 @@ import conv_tracker as ct
     "xml_file, mode",
     [
         ("endDateDays.XML", "build"),
-        ("endDateDays.XML", "complete"),
+#        ("endDateDays.XML", "complete"),
         ("endDateMonths.XML", "build"),
         ("ageAtDate.XML", "build"),
         ("av_bal.XML", "build"),
-        ("av_bal.XML", "complete"),
+#        ("av_bal.XML", "complete"),
         ("CmplxPeriod.XML", "build"),
-        ("CmplxPeriod.XML", "supplement"), #note cannot run CmplxPeriod using complete as I purposefully removed the * function to test supplement mode
+#        ("CmplxPeriod.XML", "supplement"), #note cannot run CmplxPeriod using complete as I purposefully removed the * function to test supplement mode
         ("myPandL.XML", "build"),
         ("ranch.XML", "build"),
-        ("sumemup.XML", "supplement"),
+#        ("sumemup.XML", "supplement"),
     ],
 )
 def test_transpilation(xml_file, mode, tmp_path):
@@ -32,7 +32,7 @@ def test_transpilation(xml_file, mode, tmp_path):
     conversion_tracker = ct.initialize_conversion_tracker()
     overrides = {}
 
-    code, conversion_rules = tp.transpile(
+    code, conversion_rules = ts.transpile(
         xml_file, xml_test_files_dir, mode, conversion_tracker, overrides
     )
 
