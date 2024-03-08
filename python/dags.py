@@ -566,7 +566,9 @@ def mark_nodes_for_caching(
     # mark nodes for caching for nodes which functions require caching
     for node_id in G.nodes:
         if G.nodes[node_id]["node_type"] == "function":
-            function_signature = cr.first_signature_match(G, node_id, conversion_rules)
+            function_signature = cr.match_first_signature__node(
+                G, node_id, conversion_rules
+            )
             if function_signature and function_signature.get("requires_cache", False):
                 G.nodes[node_id]["cache"] = True
 
@@ -895,6 +897,7 @@ def generate_binomial_dag(function, n, data_type):
     G.nodes[calc_node_id - 1]["output_order"] = 0
     G.graph["output_node_ids"] = [calc_node_id - 1]
     G.graph["max_node_id"] = calc_node_id - 1
+    G.graph["name"] = f'binomial_expansion_for_{function}. n: {n}. data_type: {data_type}'
     if not validation.is_valid_graph(G, False):
         raise ValueError("Graph is not valid")
 
@@ -999,6 +1002,7 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
             for _, target_id, edge_data in out_edges_to_modify:
                 new_target_id = target_id + id_offset
                 base_dag.add_edge(new_id, new_target_id, **edge_data)
+
         # Step 3: Rewire Dependencies Based on Input Positions
         elif data["node_type"] == "input":
             input_order = int(data["input_order"])
@@ -1039,6 +1043,13 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
 
         mimic_output_attribs(node_id_to_expand, new_output_node_id, base_dag)
         new_output_node_ids = [new_output_node_id]
+        #If node_id_to_expand is part of the base_dag's output_node_ids
+        #   then update the base_dag's output_node_ids to replace it with
+        #   the new_output_node_id
+        if node_id_to_expand in base_dag.graph['output_node_ids']:
+            base_dag.graph['output_node_ids'] = [
+                new_output_node_id if nid == node_id_to_expand else nid for nid in base_dag.graph['output_node_ids']
+            ]
     elif len(output_node_ids) > 1:
         # New code begins here.
         new_output_node_ids = []
@@ -1051,7 +1062,7 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
             new_ouput_is_used = False
             new_output_node_id = output_node_id + id_offset
 
-            # Now process each FUNCTION_ARRAY node depending on its position
+            # Now process each FUNCTION_ARRAY node (fan_node) depending on its position
             for fan_node_id in base_dag.successors(node_id_to_expand):
                 fan_node = base_dag.nodes[fan_node_id]
                 if fan_node["function_name"] != "FUNCTION_ARRAY":
@@ -1066,6 +1077,13 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
                 # Check if the position matches the current output node being processed
                 if position - 1 == idx:  # Adjusting position to 0-based index
                     new_ouput_is_used = True
+                    #we need to check if this function array node is one of the nodes we track
+                    # in the output node ids of the base dag. if so, it needs to be updated with
+                    # the corresponding new output node id
+                    if fan_node_id in base_dag.graph['output_node_ids']:
+                        base_dag.graph['output_node_ids'] = [
+                            new_output_node_id if nid == fan_node_id else nid for nid in base_dag.graph['output_node_ids']
+                        ]
                     grandkids = list(base_dag.successors(fan_node_id))
                     for grandkid in grandkids:
                         # Retrieve all edges between fan_node_id and grandkid
@@ -1097,6 +1115,7 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
         raise ValueError(
             f"Function logic DAG {function_logic_dag.graph['name']} has an invalid number of outputs."
         )
+    
     base_dag.remove_node(node_id_to_expand)
 
     remove_all_non_output_sink_nodes(base_dag)
@@ -1108,7 +1127,6 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
         base_dag, False
     ), f"base_dag {base_dag.graph['name']} is not a valid graph. Check after expanding node for {function_logic_dag.graph['name']}."
 
-    # need to fix this so it returns a list of new IDs vs just the new ID in the old way of thinking where there could only be one.
     return new_output_node_ids
 
 

@@ -258,12 +258,9 @@
         ],
         "code_before": "power(",
         "code_after": ")",
-        "req_custom_function_name": "power",
-        "custom_func_num_params": 2,
-        "custom_function_code": "<![CDATA[
-def power(x, y):
-  return x ** y
-]]>"
+        "add_functions": [
+          "power"
+        ]
       }
     ],
     ">": [
@@ -377,7 +374,31 @@ def power(x, y):
         "code_before": "(",
         "code_after": ")"
       }
+    ],
+    "LOOKUP_INEXACT_MATCH_1": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Date]",
+          "Date",
+          "TABLE_COLUMN[Number]",
+          "Text"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "requires_cache": true,
+        "template": "LOOKUP_INEXACT_MATCH_1"
+      }
     ]
+  },
+  "functions": {
+    "power": {
+      "text": "<![CDATA[
+def power(x, y):
+  return x ** y
+]]>", 
+      "num_params": 2
+    }
   },
   "templates": {
     "LOOKUP_EXACT_MATCH_1": {
@@ -390,6 +411,25 @@ SET <var> = (
     SELECT b.<input3_col>
     FROM <input1_table_name> b
     WHERE b.<input1_col> COLLATE NOCASE = <input2> 
+    ),
+    <input4>
+  )
+);
+  
+]]>"
+    },
+    "LOOKUP_INEXACT_MATCH_1": {
+      "template": "<![CDATA[
+
+UPDATE <primary_table>
+SET <var> = (
+  SELECT COALESCE(
+    (
+    SELECT b.<input3_col>
+    FROM <input1_table_name> b
+    WHERE b.<input1_col> <= <input2> COLLATE NOCASE
+    ORDER BY b.<input1_col> DESC
+    LIMIT 1
     ),
     <input4>
   )

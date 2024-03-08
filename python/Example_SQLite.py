@@ -12,10 +12,11 @@ example_dir = "./examples"
 output_dir = "../../../sc_output_files"
 # xml_file = "av_bal.XML"
 # xml_file = "test_power.XML"
-# xml_file = "CmplxPeriod.XML"
+#xml_file = "CmplxPeriod.XML"
+xml_file = "ageAtDate.XML"
 # xml_file = "myPandL.XML"
 # xml_file = "ranch.XML"
-xml_file = "endDateDays.XML"
+#xml_file = "endDateDays.XML"
 # xml_file = 'PeriodDiff.XML'
 
 conversion_tracker = ct.initialize_conversion_tracker()
@@ -33,7 +34,7 @@ if code:
         output_dir, base_file_name + "_cr_sql.json"
     )
     conv_tracker_file = os.path.join(
-        output_dir, base_file_name + "_conversion_tracker.json"
+        output_dir, base_file_name + "_ct_sql.json"
     )
 
     if not os.path.exists(output_dir):

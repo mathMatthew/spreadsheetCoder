@@ -258,9 +258,9 @@
         ],
         "code_before": "power(",
         "code_after": ")",
-        "req_custom_function_name": "power",
-        "custom_func_num_params": 2,
-        "custom_function_code": "def power(x, y):\n  return x ** y"
+        "add_functions": [
+          "power"
+        ]
       }
     ],
     ">": [
@@ -374,11 +374,35 @@
         "code_before": "(",
         "code_after": ")"
       }
+    ],
+    "LOOKUP_INEXACT_MATCH_1": [
+      {
+        "inputs": [
+          "TABLE_COLUMN[Date]",
+          "Date",
+          "TABLE_COLUMN[Number]",
+          "Text"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "requires_cache": true,
+        "template": "LOOKUP_INEXACT_MATCH_1"
+      }
     ]
+  },
+  "functions": {
+    "power": {
+      "text": "def power(x, y):\n  return x ** y",
+      "num_params": 2
+    }
   },
   "templates": {
     "LOOKUP_EXACT_MATCH_1": {
       "template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2> \n    ),\n    <input4>\n  )\n);\n  "
+    },
+    "LOOKUP_INEXACT_MATCH_1": {
+      "template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> <= <input2> COLLATE NOCASE\n    ORDER BY b.<input1_col> DESC\n    LIMIT 1\n    ),\n    <input4>\n  )\n);\n  "
     },
     "CASE_3_INPUTS": {
       "template": "CASE WHEN <input1> THEN <input2> ELSE <input3>\nEND"

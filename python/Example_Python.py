@@ -38,10 +38,10 @@ if code:
     base_file_name = os.path.splitext(xml_file)[0]
     output_file = os.path.join(output_dir, base_file_name + ".py")
     conversion_rules_file = os.path.join(
-        output_dir, base_file_name + "_conversion_rules.json"
+        output_dir, base_file_name + "_cr_py.json"
     )
     conv_tracker_file = os.path.join(
-        output_dir, base_file_name + "_conversion_tracker.json"
+        output_dir, base_file_name + "_ct_py.json"
     )
 
     if not os.path.exists(output_dir):

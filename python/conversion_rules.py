@@ -63,19 +63,23 @@ def get_parent_data_types(G, node_id):
     return parent_data_types
 
 
-def first_signature_match(G, node_id, supported_functions) -> Optional[Dict]:
+def match_first_signature__node(G, node_id, supported_functions) -> Optional[Dict]:
     """
     Finds the first matching signature for the given node from within the
     supported functions dicationary.
     Returns None if no matching signature is found.
     """
     function_name = G.nodes[node_id]["function_name"]
-    matching_signatures = supported_functions["signatures"].get(function_name)
     parent_data_types = get_parent_data_types(G, node_id)
+    return match_first_signature(supported_functions, function_name, parent_data_types, "permissive")
+
+
+def match_first_signature(supported_functions, function_name, input_data_types, match_mode):
+    matching_signatures = supported_functions["signatures"].get(function_name)
     if not matching_signatures:
         return None
     for signature in matching_signatures:
-        if match_input_signature(parent_data_types, signature["inputs"], "permissive"):
+        if match_input_signature(input_data_types, signature["inputs"], match_mode):
             # if more than one signature matches, the first one will get returned.
             # note this means that the order of signatures within the same function name
             # can matter in conversion_rules files. In general more specific signature definitions
@@ -132,7 +136,7 @@ def build_current_signature_definitions(G):
         # expects a single output per function
         if attributes["function_name"] == "FUNCTION_ARRAY":
             continue
-        match_sig = first_signature_match(G, node_id, signatures)
+        match_sig = match_first_signature__node(G, node_id, signatures)
         if match_sig:
             if match_sig.get("source") == "Required signatures":
                 match_sig["locations"].append(
@@ -178,7 +182,7 @@ def if_missing_save_sigs_and_err(signature_definitions, G):
 def add_function_signature(
     signature_definition_dict,
     function_name,
-    parent_data_types,
+    input_data_types,
     return_data_types,
     source,
     no_code,
@@ -194,7 +198,7 @@ def add_function_signature(
     if not function_name in signature_definition_dict["signatures"]:
         signature_definition_dict["signatures"][function_name] = []
     signature_definition_dict["signatures"][function_name].append(
-        {"inputs": parent_data_types, "outputs": return_data_types, "source": source}
+        {"inputs": input_data_types, "outputs": return_data_types, "source": source}
     )
     if no_code:
         signature_definition_dict["signatures"][function_name][-1]["no_code"] = True
@@ -258,7 +262,7 @@ def match_input_signature(parent_data_types, input_signature, match_mode):
             "match_mode must be one of the following: "
             + ", ".join(valid_match_mode_types)
         )
-    
+
     if match_mode == "exact":
         return parent_data_types == input_signature
 
@@ -351,8 +355,8 @@ def add_signatures_to_library(
                 signature_definition_library[key].append(item)
 
 
-def _match_function_signature(
-    conversion_rules, function_name, parent_data_types, can_have_multiple_outputs
+def _match_all_signatures(
+    conversion_rules, function_name, input_data_types, can_have_multiple_outputs
 ):
     """
     used by get_data_types today.
@@ -360,7 +364,7 @@ def _match_function_signature(
 
     :param conversion_rules: Dictionary of function signaturesa, may also include the info needed for translating them.
     :param function_name: Name of the function to match signatures for.
-    :param parent_data_types: signature inputs to match on.
+    :param input_data_types: signature inputs to match on.
     :return: A list of tuples. Each tuple has (1) the return type function signature and (2) the list of sources for that signature.
              Returns an empty list if no match is found.
     """
@@ -370,7 +374,7 @@ def _match_function_signature(
     if signatures is not None:
         for signature in signatures:
             if match_input_signature(
-                parent_data_types, signature["inputs"], "permissive"
+                input_data_types, signature["inputs"], "permissive"
             ):
                 if len(signature["outputs"]) > 1 and not can_have_multiple_outputs:
                     continue
@@ -432,7 +436,7 @@ def get_data_types(
     parent_data_types = get_parent_data_types(G, node_id)
 
     can_have_multiple_outputs = validation.node_can_have_multiple_outputs(G, node_id)
-    matching_tuples = _match_function_signature(
+    matching_tuples = _match_all_signatures(
         conversion_rules, function_name, parent_data_types, can_have_multiple_outputs
     )
     if len(matching_tuples) > 1:
@@ -452,7 +456,7 @@ def get_data_types(
 
     missing_signature_info = f"function name: {function_name} with input signature {', '.join(parent_data_types)}"
 
-    matching_tuples = _match_function_signature(
+    matching_tuples = _match_all_signatures(
         signature_definition_library,
         function_name,
         parent_data_types,
@@ -564,8 +568,12 @@ def get_data_types(
     )
     return ["won't get here"]
 
+
 def sort_signatures(conversion_rules):
-    sorted_dict = {k: conversion_rules["signatures"][k] for k in sorted(conversion_rules["signatures"].keys())}
+    sorted_dict = {
+        k: conversion_rules["signatures"][k]
+        for k in sorted(conversion_rules["signatures"].keys())
+    }
     conversion_rules["signatures"] = sorted_dict
 
 

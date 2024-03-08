@@ -41,14 +41,13 @@ def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_k
 
     function_name = G.nodes[node_id]["function_name"]
 
-    parent_data_types = cr.get_parent_data_types(G, node_id)
-
-    function_signature = cr.first_signature_match(G, node_id, conversion_rules)
+    function_signature = cr.match_first_signature__node(G, node_id, conversion_rules)
     if not function_signature:
+        input_data_types = cr.get_parent_data_types(G, node_id)
         errs.save_dag_and_raise__node(
             G,
             node_id,
-            f"Unsupported function: {function_name} with input data types {', '.join(parent_data_types)} at node id: {node_id}",
+            f"Unsupported function: {function_name} with input data types {', '.join(input_data_types)} at node id: {node_id}",
         )
         return ""
 
@@ -86,14 +85,14 @@ def code_std_function_node(
         conversion_tracker
     ), "Conversion tracker is not valid."
 
-    signature = cr.first_signature_match(G, node_id, supported_functions)
+    signature = cr.match_first_signature__node(G, node_id, supported_functions)
     if not signature:
         function_name = G.nodes[node_id]["function_name"]
-        parent_data_types = cr.get_parent_data_types(G, node_id)
+        input_data_types = cr.get_parent_data_types(G, node_id)
         errs.save_dag_and_raise__node(
             G,
             node_id,
-            f"Unsupported function: {function_name} with input data types {', '.join(parent_data_types)} at node id: {node_id}",
+            f"Unsupported function: {function_name} with input data types {', '.join(input_data_types)} at node id: {node_id}",
         )
         return ""
 
@@ -174,6 +173,11 @@ def code_supported_function(
         else:
             code += ", ".join([code_node_fn(node_id=parent) for parent in parents])  # type: ignore
         code += function_signature.get("code_after", "")
+
+    if "add_functions" in function_signature:
+        ct.update_conversion_tracker_functions(
+            conversion_tracker, function_signature["add_functions"]
+        )
 
     special_process_fn(G, node_id, function_signature, conversion_tracker)
 

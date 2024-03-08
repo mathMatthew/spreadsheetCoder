@@ -56,7 +56,7 @@ def update_conversion_tracker_record_expand(conversion_tracker, expanded_functio
 
 
 def update_conversion_tracker_sig(
-    conversion_tracker, function_name, parent_data_types, return_types, event_name
+    conversion_tracker, function_name, input_data_types, return_types, event_name
 ):
     assert validation.is_valid_conversion_tracker(
         conversion_tracker
@@ -65,17 +65,17 @@ def update_conversion_tracker_sig(
     if function_name not in conversion_tracker["signatures"]:
         # If function name isn't there, add it with record of usage.
         conversion_tracker["signatures"][function_name] = [
-            {"inputs": parent_data_types, "outputs": return_types, event_name: 1}
+            {"inputs": input_data_types, "outputs": return_types, event_name: 1}
         ]
     else:
         for sig in conversion_tracker["signatures"][function_name]:
-            if cr.match_input_signature(parent_data_types, sig["inputs"], "strict"):
+            if cr.match_input_signature(input_data_types, sig["inputs"], "strict"):
                 sig[event_name] = sig.get(event_name, 0) + 1
                 return
 
         # If function name is there, but no matching signature was found, add the new signature with usage.
         new_signature = {
-            "inputs": parent_data_types,
+            "inputs": input_data_types,
             "outputs": return_types,
             event_name: 1,
         }

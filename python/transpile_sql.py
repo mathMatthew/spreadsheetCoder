@@ -34,7 +34,9 @@ with open(sql_reserved_words_file, "r") as file:
 
 def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
-    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory, "_sql")
+    standard_paths = setup.get_standard_paths(
+        base_dag_xml_file, working_directory, "_sql"
+    )
 
     standard_settings = setup.get_standard_settings(
         standard_paths, mode, language_conversion_rules
@@ -114,23 +116,23 @@ def _constant_value_in_code(value, value_type):
     if value_type == "Boolean":
         return value
     if value_type == "Date":
-        raise ValueError(f"Add support for date type")
-        # consider validating date time stuff in the transform module.
+        date_obj = datetime.strptime(value, "%m/%d/%Y") #the format may depend on your excel settings. may need to modify this.
+        return f"'{date_obj.strftime('%Y-%m-%d')}'"
 
     raise ValueError(f"Unsupported value type: {value_type}")
 
 
 def convert_to_sql_data_type(
     data_type,
-) -> Literal["VARCHAR(255)", "FLOAT", "BOOLEAN", "DATE"]:
+) -> Literal["TEXT", "FLOAT", "BOOLEAN", "DATE"]:
     if data_type == "Text":
-        return "VARCHAR(255)"
+        return "TEXT"
     elif data_type == "Number":
         return "FLOAT"
     elif data_type == "Boolean":
         return "BOOLEAN"
     elif data_type == "Date":
-        return "DATE"
+        return "TEXT"
     else:
         raise ValueError(f"Unsupported data type: {data_type}")
 
@@ -460,6 +462,7 @@ def get_placeholder_val(
 def _special_process_after_code_node(
     G, node_id, function_signature, conversion_tracker
 ):
+    # xxxadd support for:_add_functions_to_used_functions(function_signature["add_functions"])
     pass
 
 
@@ -512,32 +515,6 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
         return f"df_{G.nodes[node_id]['table_name']}.{G.nodes[node_id]['table_column']}"
     else:
         raise ValueError(f"Unsupported node type: {node_type}")
-
-
-def get_required_functions_code(signature_definitions, G):
-    """
-    Because of the extremely limited version of SQLite that is bundled here,
-    some basic functions (at least power) are not included. the solution is to
-    write python code and register those functions.
-    This returns the code that needs to be registered. It only gets the code that is actually
-    used as per the conversion tracker.
-    """
-    assert validation.is_valid_signature_definition_dict(
-        signature_definitions, True, False
-    ), "signature_definitions is not valid."
-
-    current_signatures = cr.build_current_signature_definitions(G)
-
-    for func_name, used_signatures in current_signatures["signatures"].items():
-        for used_signature in used_signatures:
-            for signature in signature_definitions["signatures"][func_name]:
-                if cr.match_input_signature(
-                    signature["inputs"], used_signature["inputs"], "exact"
-                ):
-                    if signature.get("req_custom_function_name"):
-                        yield signature["req_custom_function_name"], signature[
-                            "custom_func_num_params"
-                        ], signature["custom_function_code"]
 
 
 ##################################
@@ -626,14 +603,14 @@ def transpile_dags_to_sql_and_test(
         base_dag_G, base_dag_tree, tables_dict, conversion_rules, conversion_tracker
     )
 
-    conversion_rules = cr.filter_conversion_rules_by_conv_tracker(
+    filtered_conversion_rules = cr.filter_conversion_rules_by_conv_tracker(
         conversion_rules, conversion_tracker
     )
 
     conn = sqlite3.connect(":memory:")
 
-    required_function_codes = get_required_functions_code(conversion_rules, base_dag_G)
-    for func_name, num_params, code_str in required_function_codes:
+    for func_name, details in filtered_conversion_rules["functions"].items():
+        num_params, code_str  = details["num_params"], details["text"]
         exec(code_str, globals())  # Define function in global scope
         conn.create_function(
             func_name, num_params, globals()[func_name]
@@ -756,20 +733,22 @@ def main() -> None:
     # xml_file = "test_sum.XML"
     # xml_file = "myPandL.XML"
     xml_file = "ranch.XML"
+    mode = "supplement"  #'options:  'build' 'complete' 'supplement'
+
     conversion_tracker = ct.initialize_conversion_tracker()
     overrides = {}
     code, conversion_rules = transpile(
-        xml_file, working_directory, conversion_tracker, "build", overrides
+        xml_file, working_directory, mode, conversion_tracker, overrides
     )
 
     if code:
         base_file_name = os.path.splitext(xml_file)[0]
         output_file = os.path.join(working_directory, base_file_name + ".SQL")
         conversion_rules_file = os.path.join(
-            working_directory, base_file_name + "_conversion_rules.json"
+            output_dir, base_file_name + "_cr_sql.json"
         )
         conv_tracker_file = os.path.join(
-            working_directory, base_file_name + "_conversion_tracker.json"
+            working_directory, base_file_name + "_ct_sql.json"
         )
 
         # write code to file
@@ -778,9 +757,8 @@ def main() -> None:
             print(f"Code written to {output_file}")
 
         # write function signatures
-        with open(conversion_rules_file, "w") as f:
-            json.dump(conversion_rules, f, indent=2)
-            print(f"Function signatures written to {conversion_rules_file}")
+        cr.serialize_and_save_rules(conversion_rules, conversion_rules_file)
+        print(f"Conversion rules file written to {conversion_rules_file}")
 
         # write conversion tracker
         with open(conv_tracker_file, "w") as f:

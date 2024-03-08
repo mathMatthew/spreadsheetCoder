@@ -207,11 +207,10 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
 def python_special_process_after_code_node(
     G, node_id, function_signature, conversion_tracker
 ):
+    #xxx consider switching to same thing used by transpile_sql where we depend on conversion tracker.
     if "add_functions" in function_signature:
         _add_functions_to_used_functions(function_signature["add_functions"])
-        ct.update_conversion_tracker_functions(
-            conversion_tracker, function_signature["add_functions"]
-        )
+
     if "requires_imports" in function_signature:
         _add_imports_to_used_imports(function_signature["requires_imports"])
 
