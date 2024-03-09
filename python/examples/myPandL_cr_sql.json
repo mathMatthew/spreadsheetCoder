@@ -1,0 +1,82 @@
+{
+  "signatures": {
+    "*": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "*",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "+": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "+",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "-": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "-",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "/": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "operator": "/",
+        "code_before": "(",
+        "code_after": ")"
+      }
+    ],
+    "N": [
+      {
+        "inputs": [
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": " -(",
+        "code_after": ")"
+      }
+    ]
+  },
+  "templates": {
+    "cache_default": {
+      "force-cache": true,
+      "force-cache-template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
+    }
+  },
+  "commutative_functions_to_convert_to_binomial": {},
+  "functions": {},
+  "transforms": {},
+  "function_logic_dags": {}
+}

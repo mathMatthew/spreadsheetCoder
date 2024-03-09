@@ -12,14 +12,14 @@ start = datetime.now()
 
 example_dir = "./examples"
 output_dir = "../../../sc_output_files"
-# xml_file = "endDateDays.XML"
+xml_file = "endDateDays.XML"
 # xml_file = "endDateMonths.XML"
 # xml_file = "ageAtDate.XML"
 # xml_file = "av_bal.XML"
 # xml_file = "CmplxPeriod.XML"
 # xml_file = "myPandL.XML"
 # xml_file = "ranch.XML"  # super slow to run this.
-xml_file = "sumemup.XML" #this is a nice example becaues it shows how we might want to introduce a custom rule 
+#xml_file = "sumemup.XML" #this is a nice example becaues it shows how we might want to introduce a custom rule 
     #just for a specific situation that we may not want to introduce into the language conversion rules file. 
     #This uses a 'sumnum' function--which allows non numbers inputs to get added as parameters and get ignored. 
     #It's a hack. I would never allow this sumnum function in something i wanted to run in production. Just clean up the excel file to say what you actually want it to do.
@@ -27,7 +27,7 @@ xml_file = "sumemup.XML" #this is a nice example becaues it shows how we might w
 
 conversion_tracker = ct.initialize_conversion_tracker()
 overrides = {}
-mode = "supplement"  #'options:  'build' 'complete' 'supplement'
+mode = "build"  #'options:  'build' 'complete' 'supplement'
 # overrides = {"auto_add_signatures": False}
 
 code, conversion_rules = tp.transpile(

@@ -17,7 +17,6 @@
         "outputs": [
           "Text"
         ],
-        "requires_cache": true,
         "template": "LOOKUP_EXACT_MATCH_1"
       },
       {
@@ -30,7 +29,6 @@
         "outputs": [
           "Number"
         ],
-        "requires_cache": true,
         "template": "LOOKUP_EXACT_MATCH_1"
       }
     ],
@@ -45,6 +43,18 @@
           "Number"
         ],
         "template": "CASE_3_INPUTS"
+      }
+    ],
+    "EOMONTH": [
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "template": "EOMONTH"
       }
     ],
     "N": [
@@ -203,6 +213,16 @@
         "operator": "+",
         "code_before": "(",
         "code_after": ")"
+      },
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "template": "add_days_to_date"
       }
     ],
     "-": [
@@ -386,7 +406,6 @@
         "outputs": [
           "Number"
         ],
-        "requires_cache": true,
         "template": "LOOKUP_INEXACT_MATCH_1"
       }
     ]
@@ -396,13 +415,14 @@
       "text": "<![CDATA[
 def power(x, y):
   return x ** y
-]]>", 
+]]>",
       "num_params": 2
     }
   },
   "templates": {
     "LOOKUP_EXACT_MATCH_1": {
-      "template": "<![CDATA[
+      "force-cache": true,
+      "force-cache-template": "<![CDATA[
 
 UPDATE <primary_table>
 SET <var> = (
@@ -419,7 +439,8 @@ SET <var> = (
 ]]>"
     },
     "LOOKUP_INEXACT_MATCH_1": {
-      "template": "<![CDATA[
+      "force-cache": true,
+      "force-cache-template": "<![CDATA[
 
 UPDATE <primary_table>
 SET <var> = (
@@ -438,13 +459,29 @@ SET <var> = (
 ]]>"
     },
     "CASE_3_INPUTS": {
-      "template": "<![CDATA[
+      "force-cache": false,
+      "no-cache-template": "<![CDATA[
 CASE WHEN <input1> THEN <input2> ELSE <input3>
 END
 ]]>"
     },
+    "add_days_to_date": {
+      "force-cache": false,
+      "no-cache-template": "<![CDATA[
+date(<input1>, CAST(<input2> AS INTEGER) || ' days')
+
+]]>"
+    },
+    "EOMONTH": {
+      "force-cache": false,
+      "no-cache-template": "<![CDATA[
+date(<input1>, CAST(<input2> AS INTEGER) || ' months', '+1 month', '-1 day')
+
+]]>"
+    },
     "cache_default": {
-      "template": "<![CDATA[
+      "force-cache": true,
+      "force-cache-template": "<![CDATA[
 UPDATE <primary_table>
 SET <var> = <value>;
 
@@ -465,5 +502,7 @@ SET <var> = <value>;
     "PRODUCT": {
       "bin_func": "*"
     }
-  }
+  },
+  "transforms": {},
+  "function_logic_dags": {}
 }

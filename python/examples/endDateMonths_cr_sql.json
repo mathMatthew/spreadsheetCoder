@@ -1,0 +1,30 @@
+{
+  "signatures": {
+    "EOMONTH": [
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "template": "EOMONTH"
+      }
+    ]
+  },
+  "templates": {
+    "EOMONTH": {
+      "force-cache": false,
+      "no-cache-template": "date(<input1>, CAST(<input2> AS INTEGER) || ' months', '+1 month', '-1 day')\n"
+    },
+    "cache_default": {
+      "force-cache": true,
+      "force-cache-template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
+    }
+  },
+  "commutative_functions_to_convert_to_binomial": {},
+  "functions": {},
+  "transforms": {},
+  "function_logic_dags": {}
+}

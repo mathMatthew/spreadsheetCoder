@@ -7,7 +7,7 @@ import validation, errs, setup
 import conv_tracker as ct
 import convert_xml as cxml
 import conversion_rules as cr
-from coding_centralized import convert_to_type
+from coding_centralized import convert_to_python_type
 
 array1_functions = [
     "AND",
@@ -563,16 +563,21 @@ def mark_nodes_for_caching(
         for node_id in G.graph["output_node_ids"]:
             G.nodes[node_id]["cache"] = True
 
-    # mark nodes for caching for nodes which functions require caching
+    # mark nodes for caching for nodes whose functions require caching
+    # this can be specified in the signature itself, or if it has a template, the template can force the cache
     for node_id in G.nodes:
         if G.nodes[node_id]["node_type"] == "function":
             function_signature = cr.match_first_signature__node(
                 G, node_id, conversion_rules
             )
-            if function_signature and function_signature.get("requires_cache", False):
-                G.nodes[node_id]["cache"] = True
+            if function_signature:
+                if function_signature.get("requires_cache", False):
+                    G.nodes[node_id]["cache"] = True
+                elif "template" in function_signature:
+                    if conversion_rules["templates"][function_signature["template"]].get("force-cache", False):
+                        G.nodes[node_id]["cache"] = True
 
-    # First, mark nodes for caching based on usage count
+    # mark nodes for caching based on usage count
     for node_id in G.nodes:
         if G.nodes[node_id].get("cache"):
             continue
@@ -1292,7 +1297,7 @@ def remove_ifs_with_first_node_as_constant(G: nx.MultiDiGraph, conversion_tracke
             if G.nodes[parents[0]]["node_type"] == "constant":
                 first_parent = parents[0]
                 is_true = bool(
-                    convert_to_type(
+                    convert_to_python_type(
                         G.nodes[first_parent]["value"],
                         G.nodes[first_parent]["data_type"],
                     )

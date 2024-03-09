@@ -10,17 +10,16 @@ import conv_tracker as ct
 @pytest.mark.parametrize(
     "xml_file, mode",
     [
+        ("endDateDays.XML", "complete"),
+        ("myPandL.XML", "complete"),
+        ("ranch.XML", "supplement"), #note: cannot run ranch using complete as a i purposefully removed some functions to test supplement mode
         ("endDateDays.XML", "build"),
-#        ("endDateDays.XML", "complete"),
         ("endDateMonths.XML", "build"),
         ("ageAtDate.XML", "build"),
         ("av_bal.XML", "build"),
-#        ("av_bal.XML", "complete"),
         ("CmplxPeriod.XML", "build"),
-#        ("CmplxPeriod.XML", "supplement"), #note cannot run CmplxPeriod using complete as I purposefully removed the * function to test supplement mode
         ("myPandL.XML", "build"),
         ("ranch.XML", "build"),
-#        ("sumemup.XML", "supplement"),
     ],
 )
 def test_transpilation(xml_file, mode, tmp_path):

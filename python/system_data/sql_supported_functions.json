@@ -17,7 +17,6 @@
         "outputs": [
           "Text"
         ],
-        "requires_cache": true,
         "template": "LOOKUP_EXACT_MATCH_1"
       },
       {
@@ -30,7 +29,6 @@
         "outputs": [
           "Number"
         ],
-        "requires_cache": true,
         "template": "LOOKUP_EXACT_MATCH_1"
       }
     ],
@@ -45,6 +43,18 @@
           "Number"
         ],
         "template": "CASE_3_INPUTS"
+      }
+    ],
+    "EOMONTH": [
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "template": "EOMONTH"
       }
     ],
     "N": [
@@ -203,6 +213,16 @@
         "operator": "+",
         "code_before": "(",
         "code_after": ")"
+      },
+      {
+        "inputs": [
+          "Date",
+          "Number"
+        ],
+        "outputs": [
+          "Date"
+        ],
+        "template": "add_days_to_date"
       }
     ],
     "-": [
@@ -386,7 +406,6 @@
         "outputs": [
           "Number"
         ],
-        "requires_cache": true,
         "template": "LOOKUP_INEXACT_MATCH_1"
       }
     ]
@@ -399,16 +418,28 @@
   },
   "templates": {
     "LOOKUP_EXACT_MATCH_1": {
-      "template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2> \n    ),\n    <input4>\n  )\n);\n  "
+      "force-cache": true,
+      "force-cache-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2> \n    ),\n    <input4>\n  )\n);\n  "
     },
     "LOOKUP_INEXACT_MATCH_1": {
-      "template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> <= <input2> COLLATE NOCASE\n    ORDER BY b.<input1_col> DESC\n    LIMIT 1\n    ),\n    <input4>\n  )\n);\n  "
+      "force-cache": true,
+      "force-cache-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> <= <input2> COLLATE NOCASE\n    ORDER BY b.<input1_col> DESC\n    LIMIT 1\n    ),\n    <input4>\n  )\n);\n  "
     },
     "CASE_3_INPUTS": {
-      "template": "CASE WHEN <input1> THEN <input2> ELSE <input3>\nEND"
+      "force-cache": false,
+      "no-cache-template": "CASE WHEN <input1> THEN <input2> ELSE <input3>\nEND"
+    },
+    "add_days_to_date": {
+      "force-cache": false,
+      "no-cache-template": "date(<input1>, CAST(<input2> AS INTEGER) || ' days')\n"
+    },
+    "EOMONTH": {
+      "force-cache": false,
+      "no-cache-template": "date(<input1>, CAST(<input2> AS INTEGER) || ' months', '+1 month', '-1 day')\n"
     },
     "cache_default": {
-      "template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
+      "force-cache": true,
+      "force-cache-template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
     }
   },
   "commutative_functions_to_convert_to_binomial": {
@@ -424,5 +455,7 @@
     "PRODUCT": {
       "bin_func": "*"
     }
-  }
+  },
+  "transforms": {},
+  "function_logic_dags": {}
 }

@@ -7,7 +7,7 @@ import errs, validation, dags
 import conversion_rules as cr
 
 
-def convert_to_type(value, data_type):
+def convert_to_python_type(value, data_type):
     # move this to a centralized testing module at some point.
     if data_type == "Text":
         return value
@@ -32,7 +32,7 @@ def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_k
                 return ""  # maybe we should have a required template for this situation and langauges where they need nothing, define the required tmeplate as an empty string.will implement if needed.
             else:
                 template = conversion_rules["templates"]["cache_default"][
-                    "template"
+                    "force-cache-template"
                 ]  # maybe this should be an optional template and if we don't have it then use the default. will implement if needed.
                 code = replace_placeholders(template, replace_key_fn)
                 return code
@@ -65,8 +65,18 @@ def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_k
         "code_function_cached",
     )
 
-    template_key = function_signature.get("template", "cache_default")
-    template = conversion_rules["templates"][template_key]["template"]
+    # set the default template
+    template_key = "cache_default"
+
+    # but if there is a different cache template, use that instead.
+    if "template" in function_signature:
+        if conversion_rules["templates"][function_signature["template"]].get(
+            "force-cache", False
+        ):
+            template_key = function_signature["template"]
+
+    template = conversion_rules["templates"][template_key]["force-cache-template"]
+
     code = replace_placeholders(template, replace_key_fn)
     ct.update_conversion_tracker_template_used(conversion_tracker, template_key)
     return code
@@ -155,7 +165,7 @@ def code_supported_function(
 
     if "template" in function_signature:
         template_name = function_signature["template"]
-        template = supported_functions["templates"][template_name]["template"]
+        template = supported_functions["templates"][template_name]["no-cache-template"]
         code = replace_placeholders(template, replace_key_fn)
         ct.update_conversion_tracker_template_used(conversion_tracker, template_name)
     else:

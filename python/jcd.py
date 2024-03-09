@@ -131,7 +131,7 @@ def save_and_raise_err(bad_json, error):
     # Save the code string to the file
     with open(save_location, "w") as file:
         file.write(bad_json)
-    print("JCD to dicationary conversion failed. After converted JCD to JSON, JSON format was invalid. Bad JSON saved to {save_location}")
+    print(f"JCD to dicationary conversion failed. After converted JCD to JSON, JSON format was invalid. Bad JSON saved to {save_location}")
     # Re-raise the original error
     raise error from None
 

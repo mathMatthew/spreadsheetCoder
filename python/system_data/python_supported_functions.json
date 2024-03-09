@@ -882,5 +882,9 @@
     "SC_IF": {
       "text": "def sc_if(condition, if_true, if_false):\n    if condition:\n        return if_true\n    else:\n        return if_false"
     }
-  }
+  },
+  "commutative_functions_to_convert_to_binomial": {},
+  "templates": {},
+  "transforms": {},
+  "function_logic_dags": {}
 }

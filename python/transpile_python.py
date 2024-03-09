@@ -207,7 +207,8 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
 def python_special_process_after_code_node(
     G, node_id, function_signature, conversion_tracker
 ):
-    #xxx consider switching to same thing used by transpile_sql where we depend on conversion tracker.
+    #consider switching to same thing used by transpile_sql. No need for special_process after
+    #code because  it just looks at all the used functions at the end and registers them.
     if "add_functions" in function_signature:
         _add_functions_to_used_functions(function_signature["add_functions"])
 
@@ -472,7 +473,8 @@ def test_code(code_str, tree, G):
         for test_case_index, test_case in enumerate(test_cases):
             input_values = []
             for i, input_value in enumerate(test_case.findall("input_value")):
-                input_value_converted = cc.convert_to_type(
+                #fix this at some point to mirror what transpile_sql is doing here.
+                input_value_converted = cc.convert_to_python_type(
                     input_value.attrib["Value"], input_value.attrib["data_type"]
                 )
                 input_values.append(input_value_converted)
@@ -487,7 +489,8 @@ def test_code(code_str, tree, G):
                 row_data[i] = value
 
             expected_outputs = [
-                cc.convert_to_type(
+                #fix this at some point to mirror what transpile_sql is doing here.
+                cc.convert_to_python_type(
                     output_value.attrib["Value"], output_value.attrib["data_type"]
                 )
                 for output_value in test_case.findall("output_value")

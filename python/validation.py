@@ -149,11 +149,11 @@ def is_valid_signature_definition_dict(
 
     if not "signatures" in conversion_rules:
         return False
-    conversion_rules = conversion_rules["signatures"]
+    signatures = conversion_rules["signatures"]
 
     seen_function_inputs = {}
 
-    for func_name, signatures in conversion_rules.items():
+    for func_name, signatures in signatures.items():
         for signature in signatures:
             # Unless a library, don't allow dupes of function_name and input data types
             # though this doesnt use cr.match_input_signature(... "exact") it is doing the same thing. This comment is important for identifying cases where this function belongs.
@@ -238,6 +238,44 @@ def is_valid_conversion_rules_dict(conversion_rules_dict) -> bool:
                     signature["template"]
                 ):
                     return False
+
+    if not "templates" in conversion_rules_dict:
+        return False
+
+    for item in conversion_rules_dict["templates"].values():
+        if not isinstance(item, dict):
+            return False
+        
+        #template must define either a cache-template or a no-cache-template
+        if not any(key in item for key in ['force-cache-template', 'no-cache-template']):
+            return False
+
+    if not "commutative_functions_to_convert_to_binomial" in conversion_rules_dict:
+        return False
+
+    for item in conversion_rules_dict["commutative_functions_to_convert_to_binomial"].values():
+        if not isinstance(item, dict):
+            return False
+        if not 'bin_func' in item:
+            return False
+        
+    if not "functions" in conversion_rules_dict:
+        return False
+
+    for item in conversion_rules_dict["functions"].values():
+        if not isinstance(item, dict):
+            return False
+        
+        if not 'text' in item:
+            return False
+        
+    if not "transforms" in conversion_rules_dict:
+        #add check here for is_valid_transform
+        return False
+        
+    if not "function_logic_dags" in conversion_rules_dict:
+        #add check here for is_valid_logic_function
+        return False
 
     return True
 

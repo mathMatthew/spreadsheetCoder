@@ -110,11 +110,23 @@ def _constant_value_in_code(value, value_type):
     if value_type == "Any":
         raise ValueError(f"Constant shouldn't have type any")
     if value_type == "Text":
-        return f"'{value}'"
+        return escape_string(value)
     if value_type == "Number":
-        return value
+        try:
+            num_val = float(value)
+        except ValueError:
+            raise ValueError(f"Invalid number format: {value}")
+
+        if num_val in [float('inf'), float('-inf'), float('nan')]:
+            raise ValueError(f"Unsupported special float value: {num_val}")
+
+        return str(num_val)
     if value_type == "Boolean":
-        return value
+        #SQLite uses 1 and 0 for boolean
+        if value.lower() == "true":
+            return "1"
+        else:
+            return "0"
     if value_type == "Date":
         date_obj = datetime.strptime(value, "%m/%d/%Y") #the format may depend on your excel settings. may need to modify this.
         return f"'{date_obj.strftime('%Y-%m-%d')}'"
@@ -147,18 +159,20 @@ def _create_reference_table_sql(table_name, table_definition):
 
     # Retrieve the column names and data
     column_names = [col[0] for col in col_defs]
+    column_types = [col[1] for col in col_defs]
     data = table_definition["data"]
 
     # Ensure all columns have the same number of entries
-    assert all(
-        len(data[col]) == len(data[column_names[0]]) for col in column_names
-    ), "All columns must have the same number of entries"
+    if not all(len(data[col]) == len(data[column_names[0]]) for col in column_names):
+        raise ValueError(
+            "All columns must have the same number of entries"
+        )
 
-    # Loop through each record in the data
     for i in range(len(data[column_names[0]])):
-        # Create a record by fetching the ith item from each column
-        record = [data[col_name][i] for col_name in column_names]
-        # Generate an INSERT statement for each record and append it to the list
+        record = [
+            _constant_value_in_code(data[col_name][i], metadata['col_types'][col_name]) 
+            for col_name in column_names
+        ]
         insert_sql = _insert_statement(table_name, column_names, record)
         sql_statements.append(insert_sql)
 
@@ -167,16 +181,13 @@ def _create_reference_table_sql(table_name, table_definition):
 
     return combined_sql_code
 
-
 def _insert_statement(unformatted_table_name, unformatted_col_names, record) -> str:
     table_name = _sql_table_name(unformatted_table_name)
     col_names = [_sql_column_name(col_name) for col_name in unformatted_col_names]
-    escaped_values = [escape_string(val) for val in record]
-    values_str = ", ".join(str(val) for val in escaped_values)
+    values_str = ", ".join(record)
     columns_str = ", ".join(col_names)
     code = f"INSERT INTO {table_name} ({columns_str}) VALUES ({values_str});"
     return code
-
 
 def _create_table(unformatted_table_name, col_defs) -> str:
     table_name = _sql_table_name(unformatted_table_name)
@@ -254,7 +265,7 @@ def _insert_into_primary_table_sql(G, tree) -> str:
         # Extract input values
         input_values = []
         for input_value in test_case.findall("input_value"):
-            input_value_converted = cc.convert_to_type(
+            input_value_converted = _constant_value_in_code(
                 input_value.attrib["Value"], input_value.attrib["data_type"]
             )
             input_values.append(input_value_converted)
@@ -262,13 +273,13 @@ def _insert_into_primary_table_sql(G, tree) -> str:
         # Extract expected (predicted) output values
         expected_outputs = []
         for output_value in test_case.findall("output_value"):
-            output_value_converted = cc.convert_to_type(
+            output_value_converted = _constant_value_in_code(
                 output_value.attrib["Value"], output_value.attrib["data_type"]
             )
             expected_outputs.append(output_value_converted)
 
         # Combine scenario_id, input values, and expected output values for the insert statement
-        all_values = [scenario_id] + input_values + expected_outputs
+        all_values = [str(scenario_id)] + input_values + expected_outputs
 
         statements.append(
             _insert_statement(_unformatted_primary_table_name(G), col_names, all_values)
@@ -603,13 +614,13 @@ def transpile_dags_to_sql_and_test(
         base_dag_G, base_dag_tree, tables_dict, conversion_rules, conversion_tracker
     )
 
-    filtered_conversion_rules = cr.filter_conversion_rules_by_conv_tracker(
+    conversion_rules = cr.filter_conversion_rules_by_conv_tracker(
         conversion_rules, conversion_tracker
     )
 
     conn = sqlite3.connect(":memory:")
 
-    for func_name, details in filtered_conversion_rules["functions"].items():
+    for func_name, details in conversion_rules["functions"].items():
         num_params, code_str  = details["num_params"], details["text"]
         exec(code_str, globals())  # Define function in global scope
         conn.create_function(
@@ -728,12 +739,14 @@ def test_script(sql_script, test_query, conn) -> Dict[str, Any]:
 
 def main() -> None:
     working_directory = "../../../OneDrive/Documents/myDocs/sc_v2_data"
+    output_dir = "../../../sc_output_files"
+
     # xml_file = "test_power.XML"
     # xml_file = "CmplxPeriod.XML"
     # xml_file = "test_sum.XML"
     # xml_file = "myPandL.XML"
     xml_file = "ranch.XML"
-    mode = "supplement"  #'options:  'build' 'complete' 'supplement'
+    mode = "build"  #'options:  'build' 'complete' 'supplement'
 
     conversion_tracker = ct.initialize_conversion_tracker()
     overrides = {}
