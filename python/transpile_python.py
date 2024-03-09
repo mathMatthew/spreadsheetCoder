@@ -23,10 +23,11 @@ import conversion_rules as cr
 INDENT = " " * 2
 
 language_conversion_rules_files = "./system_data/python_supported_functions.json"
+
+#xxx remove global variables and depend on conversion tracker instead.
 used_tables = set()
 used_functions = set()
 used_imports = set()
-
 
 def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
@@ -260,7 +261,7 @@ def _code_array_node(G, node_id, conversion_rules, conversion_tracker) -> str:
 
 def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str:
     global used_tables, used_functions, used_imports
-    
+
     used_tables = set()
     used_functions = set()
     used_imports = set()

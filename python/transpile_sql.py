@@ -23,6 +23,7 @@ import conversion_rules as cr
 
 
 language_conversion_rules = "./system_data/sql_supported_functions.json"
+#xxx remove global variable and depend on conversion tracker instead.
 used_tables = set()
 NUMERIC_TOLERANCE = "0.01"
 sql_reserved_words_file = "./system_data/sql_reserved_words.txt"
