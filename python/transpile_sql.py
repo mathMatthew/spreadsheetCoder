@@ -591,7 +591,7 @@ def transpile_dags_to_sql_and_test(
     base_dag_G: nx.MultiDiGraph,
     base_dag_tree,
     tables_dict,
-    conversion_rules: Dict[str, List[Dict]],
+    conversion_rules: Dict[str, Any],
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
     conversion_tracker: Dict[str, Any],
@@ -620,7 +620,8 @@ def transpile_dags_to_sql_and_test(
 
     conn = sqlite3.connect(":memory:")
 
-    for func_name, details in conversion_rules["functions"].items():
+    conv_function: Dict[str, Any] = conversion_rules["functions"]
+    for func_name, details in conv_function.items():
         num_params, code_str  = details["num_params"], details["text"]
         exec(code_str, globals())  # Define function in global scope
         conn.create_function(

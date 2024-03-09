@@ -3,27 +3,28 @@ from datetime import datetime
 import pytest
 
 # Import your internal modules
-import transpile_python as tp
 import conversion_rules as cr
 import conv_tracker as ct
+import transpile_python as tp
 
 @pytest.mark.parametrize(
     "xml_file, mode",
     [
+        ("CmplxPeriod.XML", "supplement"), #note cannot run CmplxPeriod using complete as I purposefully removed the * function to test supplement mode
+        ("sumemup.XML", "supplement"),
         ("endDateDays.XML", "build"),
-        ("endDateDays.XML", "complete"),
         ("endDateMonths.XML", "build"),
         ("ageAtDate.XML", "build"),
         ("av_bal.XML", "build"),
-        ("av_bal.XML", "complete"),
         ("CmplxPeriod.XML", "build"),
-        ("CmplxPeriod.XML", "supplement"), #note cannot run CmplxPeriod using complete as I purposefully removed the * function to test supplement mode
         ("myPandL.XML", "build"),
         ("ranch.XML", "build"),
-        ("sumemup.XML", "supplement"),
+        ("endDateDays.XML", "complete"),
+        ("av_bal.XML", "complete"),
     ],
 )
 def test_transpilation(xml_file, mode, tmp_path):
+
     xml_test_files_dir = "./examples"
 
     start = datetime.now()

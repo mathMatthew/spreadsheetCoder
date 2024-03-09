@@ -259,6 +259,11 @@ def _code_array_node(G, node_id, conversion_rules, conversion_tracker) -> str:
 
 
 def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str:
+    global used_tables, used_functions, used_imports
+    
+    used_tables = set()
+    used_functions = set()
+    used_imports = set()
     """
     Core logic.
     Transforms a prepared graph into python.

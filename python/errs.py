@@ -2,7 +2,6 @@ import networkx as nx
 import json
 
 import dag_tables as g_tables
-from conversion_rules import serialize_and_save_rules 
 code_types = {"python": {"file_extension": ".py"}, "sql": {"file_extension": ".sql"}}
 
 
@@ -46,6 +45,8 @@ def save_dag_and_raise__node(G, node_id, message):
 
 
 def save_dag_and_conversion_rules_and_raise__node(G, node_id, conversion_rules, message):
+    from conversion_rules import serialize_and_save_rules 
+
     dag_error_file_location = "./errors/error_dag.json"
     conversion_rules_error_file_location = "./errors/error_conversion_rules.json"
 
