@@ -13,51 +13,6 @@ import pandas as pd
 import dags
 import networkx as nx
 
-
-class GPlus:
-    def __init__(self, graph, tables=None):
-        self._graph = graph
-        self._tables = tables
-
-    def __getattr__(self, name):
-        try:
-            return getattr(self._graph, name)
-        except AttributeError:
-            raise AttributeError(f"'GPlus' object has no attribute '{name}'")
-
-    def __setattr__(self, name, value):
-        if name in ["_graph", "_tables"]:
-            object.__setattr__(self, name, value)
-        else:
-            setattr(self._graph, name, value)
-
-    def __len__(self):
-        return len(self._graph)
-
-    def __getitem__(self, key):
-        return self._graph[key]
-
-    def __iter__(self):
-        return iter(self._graph)
-
-    def __contains__(self, key):
-        return key in self._graph
-
-    def __str__(self):
-        return str(self._graph)
-
-    def __repr__(self):
-        return repr(self._graph)
-
-    @property
-    def tables(self):
-        return self._tables
-
-    @tables.setter
-    def tables(self, value):
-        self._tables = value
-
-
 def all_precedents_are_constants(G, node):
     for predecessor in G.predecessors(node):
         if G.nodes[predecessor]["node_type"] != "constant":
@@ -81,13 +36,15 @@ def get_col_and_table_name(input_str):
     return table_name, column_name
 
 
-def separate_named_tables(G: nx.MultiDiGraph) -> Tuple[Any, Dict[str, Dict[str, Any]]]:
-    G = (
-        G.copy()
-    )  # type: ignore # given we are passing back the modified graph, ensure no side effects on the input for clarity.
-    tables: Dict[str, Dict[str, Any]] = {}
+def separate_named_tables(G: nx.MultiDiGraph, nodes, tables_dict: Dict[str, Dict[str, Any]]):
+    """
+    :param G: the graph
+    :param nodes: list of node IDs to check, typically the entire graph (G.nodes) but can be a subset
+    :param tables_dict: the dictionary for the tables
+    
+    """
     modification_queue = []
-    for node_id in G.nodes:
+    for node_id in nodes:
         node_data = G.nodes[node_id]
         if node_data["node_type"] != "function":
             continue
@@ -102,14 +59,12 @@ def separate_named_tables(G: nx.MultiDiGraph) -> Tuple[Any, Dict[str, Dict[str, 
         table_dict: Dict[str, List[Any]]
         col_type: str
         table_dict, col_type = get_table_dict(G, node_id, col_name)
-        add_column(tables, table_name, col_name, col_type, table_dict)
+        add_column(tables_dict, table_name, col_name, col_type, table_dict)
         modification_queue.append((node_id, table_name, col_name, col_type))
 
     while modification_queue:
         node_id, table_name, col_name, data_type = modification_queue.pop()
         make_table_array_node(G, node_id, table_name, col_name, data_type)
-
-    return G, tables
 
 
 def add_column(
@@ -208,20 +163,6 @@ def get_table_dict(
     return table_dict, column_data_type
 
 
-def combine_graph_tables(graph_plus1: GPlus, graph_plus2: GPlus):
-    # Merge tables (prioritizing tables from graph_plus1)
-    combined_tables = {**graph_plus2["tables"], **graph_plus1["tables"]}
-
-    new_graph_plus1 = GPlus(graph_plus1.graph, combined_tables)
-    new_graph_plus2 = GPlus(graph_plus2.graph, combined_tables)
-
-    return (new_graph_plus1, new_graph_plus2)
-
-
-def create_graph_plus(G) -> GPlus:
-    G, tables = separate_named_tables(G)
-    return GPlus(G, tables)
-
 
 def save_graph_plus(graph_plus, output_file):
     graph_plus_json = {
@@ -232,35 +173,10 @@ def save_graph_plus(graph_plus, output_file):
         json.dump(graph_plus_json, file, indent=2)
 
 
-def load_graph_plus_data(input_file) -> GPlus:
-    with open(input_file, "r") as file:
-        data = json.load(file)
-    graph = nx.node_link_graph(data["graph"])  # or other suitable format
-    return GPlus(graph, tables=data["tables"])
 
 
 def main():
-    # json_graph_file = "endDateMonths_output.json"
-    working_directory = "../../../OneDrive/Documents/myDocs/sc_v2_data"
-    xml_file = "singleCriteriaExact.XML"
-
-    # output_file = os.path.splitext(json_graph_file)[0] + "2.json"
-    output_file = os.path.splitext(xml_file)[0] + "2.json"
-    output_file = os.path.join(working_directory, output_file)
-
-    conversion_tracker = {}
-
-    # json_graph_file = os.path.join(working_directory, json_graph_file)
-    G = dags.xml_to_graph(
-        xml_file,
-        working_directory=working_directory,
-        conversion_tracker=conversion_tracker,
-        override_defaults={},
-    )
-
-    graph_plus = create_graph_plus(G)
-
-    save_graph_plus(graph_plus, output_file)
+    pass
 
 
 def convert_col_type_to_pd_types(col_types: Dict[str, str]) -> Dict[str, str]:
@@ -291,29 +207,6 @@ def convert_to_pandas_tables_dict(
         table_name: convert_to_pandas_table(definition)
         for table_name, definition in tables_dict.items()
     }
-
-
-def pull_out_and_save_tables(data_dict, safe_wrapper) -> nx.MultiDiGraph:
-    os.makedirs(data_dict["tables_dir"], exist_ok=True)
-    modified_dag, tables_dict = separate_named_tables(data_dict["base_dag_graph"])
-    pandas_tables = convert_to_pandas_tables_dict(tables_dict)
-
-    for table_name, df in pandas_tables.items():
-        # Process the table name through safe_wrapper
-        safe_table_name = safe_wrapper(table_name)
-
-        # Apply safe_wrapper to each column name
-        safe_column_names = {col: safe_wrapper(col) for col in df.columns}
-        df.rename(columns=safe_column_names, inplace=True)
-
-        # Construct the file name
-        file_name = os.path.join(data_dict["tables_dir"], safe_table_name)
-
-        # Save the DataFrame
-        df.to_parquet(f"{file_name}.parquet")
-
-    modified_dag.graph["tables_dir"] = data_dict["tables_dir"]
-    return modified_dag
 
 
 if __name__ == "__main__":

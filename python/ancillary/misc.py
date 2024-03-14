@@ -1,3 +1,5 @@
+import pandas as pd
+
 def print_dag_details(G):
     """
     Prints the details of the DAG in a tabular format including precedents of each node.

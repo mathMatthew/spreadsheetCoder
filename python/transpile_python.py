@@ -24,14 +24,17 @@ INDENT = " " * 2
 
 language_conversion_rules_files = "./system_data/python_supported_functions.json"
 
-#xxx remove global variables and depend on conversion tracker instead.
+# xxx remove global variables and depend on conversion tracker instead.
 used_tables = set()
 used_functions = set()
 used_imports = set()
 
+
 def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
-    standard_paths = setup.get_standard_paths(base_dag_xml_file, working_directory, "_py")
+    standard_paths = setup.get_standard_paths(
+        base_dag_xml_file, working_directory, "_py"
+    )
 
     standard_settings = setup.get_standard_settings(
         standard_paths, mode, language_conversion_rules_files
@@ -46,6 +49,24 @@ def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[st
 ##################################
 # Section 2: Utilities and python helper functions
 ##################################
+def _save_tables(tables_dir, tables_dict):
+    os.makedirs(tables_dir, exist_ok=True)
+    pandas_tables = g_tables.convert_to_pandas_tables_dict(tables_dict)
+
+    for table_name, df in pandas_tables.items():
+        safe_table_name = _python_safe_name(table_name)
+
+        # Apply _python_safe_name to each column name
+        safe_column_names = {col: _python_safe_name(col) for col in df.columns}
+        df.rename(columns=safe_column_names, inplace=True)
+
+        # Construct the file name
+        file_name = os.path.join(tables_dir, safe_table_name)
+
+        # Save the DataFrame
+        df.to_parquet(f"{file_name}.parquet")
+
+
 def _add_functions_to_used_functions(function_names):
     global used_functions
     used_functions.update(function_names)
@@ -208,8 +229,8 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
 def python_special_process_after_code_node(
     G, node_id, function_signature, conversion_tracker
 ):
-    #consider switching to same thing used by transpile_sql. No need for special_process after
-    #code because  it just looks at all the used functions at the end and registers them.
+    # consider switching to same thing used by transpile_sql. No need for special_process after
+    # code because  it just looks at all the used functions at the end and registers them.
     if "add_functions" in function_signature:
         _add_functions_to_used_functions(function_signature["add_functions"])
 
@@ -328,6 +349,7 @@ def transpile_dags_to_py_and_test(
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
     use_tables: bool,
+    tables_dir: str,
     conversion_tracker: Dict[str, Any],
 ) -> Tuple[str, Dict]:
     """
@@ -337,8 +359,13 @@ def transpile_dags_to_py_and_test(
         conversion_tracker
     ), "Conversion tracker is not valid."
 
-    assert validation.is_valid_conversion_rules_dict(conversion_rules), "Conversion rules is not valid."
+    assert validation.is_valid_conversion_rules_dict(
+        conversion_rules
+    ), "Conversion rules is not valid."
     assert validation.is_valid_signature_definition_dict(library_sigs, False, True)
+
+    #initialize tables in case they are needed
+    tables_dict = {}
 
     dags.convert_graph(
         dag_to_convert=base_dag_G,
@@ -346,8 +373,14 @@ def transpile_dags_to_py_and_test(
         signature_definition_library=library_sigs,
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
+        tables_dict=tables_dict,
+        separate_tables=use_tables,
         renum_nodes=False,
     )
+
+    if use_tables:
+        _save_tables(tables_dir, tables_dict)
+        base_dag_G.graph["tables_dir"] = tables_dir
 
     cr.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
 
@@ -404,21 +437,14 @@ def transpile(
     data_dict = get_standard_settings(xml_file_name, working_directory, mode)
     data_dict.update(override_defaults)
 
-    if data_dict["use_tables"]:
-        dag_to_send: nx.MultiDiGraph = g_tables.pull_out_and_save_tables(
-            data_dict, _python_safe_name
-        )
-    else:
-        dag_to_send = data_dict["base_dag_graph"]
-
-
     python_code, conversion_func_sig = transpile_dags_to_py_and_test(
-        base_dag_G=dag_to_send,
+        base_dag_G=data_dict["base_dag_graph"],
         base_dag_tree=data_dict["base_dag_xml_tree"],
         conversion_rules=data_dict["conversion_rules"],
         library_sigs=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
         use_tables=data_dict["use_tables"],
+        tables_dir=data_dict["tables_dir"],
         conversion_tracker=conversion_tracker,
     )
     return python_code, conversion_func_sig
@@ -479,7 +505,7 @@ def test_code(code_str, tree, G):
         for test_case_index, test_case in enumerate(test_cases):
             input_values = []
             for i, input_value in enumerate(test_case.findall("input_value")):
-                #fix this at some point to mirror what transpile_sql is doing here.
+                # fix this at some point to mirror what transpile_sql is doing here.
                 input_value_converted = cc.convert_to_python_type(
                     input_value.attrib["Value"], input_value.attrib["data_type"]
                 )
@@ -495,7 +521,7 @@ def test_code(code_str, tree, G):
                 row_data[i] = value
 
             expected_outputs = [
-                #fix this at some point to mirror what transpile_sql is doing here.
+                # fix this at some point to mirror what transpile_sql is doing here.
                 cc.convert_to_python_type(
                     output_value.attrib["Value"], output_value.attrib["data_type"]
                 )

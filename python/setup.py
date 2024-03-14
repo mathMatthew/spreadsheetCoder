@@ -233,7 +233,7 @@ def initial_dag_objects(
 
     base_dag_graph: nx.MultiDiGraph = dags.build_nx_graph(base_dag_xml_tree)
 
-    if not validation.is_valid_base_graph(base_dag_graph):
+    if not validation.is_valid_base_graph(base_dag_graph, False):
         errs.save_dag_and_raise_message(
             base_dag_graph,
             "XML for base dag file is not valid. Graph validation failed.",

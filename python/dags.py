@@ -7,6 +7,7 @@ import validation, errs, setup
 import conv_tracker as ct
 import convert_xml as cxml
 import conversion_rules as cr
+import dag_tables as g_tables
 from coding_centralized import convert_to_python_type
 
 array1_functions = [
@@ -240,13 +241,19 @@ def transform_from_to(
     transform_from_to_dag,
     node_id_to_replace,
     match_mapping,
+    tables_dict,
+    conversion_rules,
+    signature_definition_library,
+    auto_add_signatures,
     conversion_tracker,
+    separate_tables,
 ):
+
     assert validation.is_valid_conversion_tracker(
         conversion_tracker
     ), "Conversion tracker is not valid."
     assert validation.is_valid_base_graph(
-        base_dag
+        base_dag, True
     ), f"base_dag is not valid before transform {transform_from_to_dag.graph['name']}"
 
     # record action in conversion_tracker
@@ -311,9 +318,19 @@ def transform_from_to(
         base_dag.add_edge(u, v, **attr)
 
     # step2 : expand node and return new id of expanded node.
-    new_id = expand_node(node_id_to_replace, to_dag, base_dag)
+    new_id = expand_node(
+        node_id_to_expand=node_id_to_replace,
+        function_logic_dag=to_dag,
+        base_dag=base_dag,
+        tables_dict=tables_dict,
+        signature_definitions=conversion_rules,
+        signature_definition_library=signature_definition_library,
+        auto_add_signatures=auto_add_signatures,
+        conversion_tracker=conversion_tracker,
+        separate_tables=separate_tables,
+        )
     assert validation.is_valid_base_graph(
-        base_dag
+        base_dag, True
     ), f"base_dag is not valid after transform {transform_from_to_dag.graph['name']}"
     return new_id
 
@@ -411,7 +428,7 @@ def remove_arrays(G, node_id, seen):
                     G.remove_node(dim_node)
 
 
-def convert_to_binomial(G, node_id, comm_func_dict, conversion_tracker):
+def convert_to_binomial(G, node_id, comm_func_dict, conversion_rules, signature_definition_library, auto_add_signatures, conversion_tracker):
     """
     Convert the given node to a graph of binomial functions, ensuring that all input data types are the same.
     Parameters:
@@ -431,15 +448,26 @@ def convert_to_binomial(G, node_id, comm_func_dict, conversion_tracker):
     ct.update_conversion_tracker_record_binomial_expansion(
         conversion_tracker, G.nodes[node_id]["function_name"], comm_func_dict
     )
-    new_id = expand_node(node_id, new_dag, G)
+    new_id = expand_node(
+        node_id_to_expand=node_id,
+        function_logic_dag=new_dag,
+        base_dag=G,
+        tables_dict={}, #tables_dict is not needed given we just created it--and we didn't add tables
+        signature_definitions=conversion_rules,
+        signature_definition_library=signature_definition_library,
+        auto_add_signatures=auto_add_signatures, 
+        conversion_tracker=conversion_tracker, 
+        separate_tables=False, #see tables_dict comment above
+        ) 
     return new_id
 
 
 def update_dag_with_data_types(
     G: nx.MultiDiGraph,
+    topo_sorted_nodes,
     signature_definitions: Dict,
     signature_definition_library: Dict,
-    auto_add: bool,
+    auto_add_signatures: bool,
     conversion_tracker: Dict,
 ):
     assert nx.is_directed_acyclic_graph(G), f'{G.graph["name"]} is not a DAG'
@@ -449,8 +477,6 @@ def update_dag_with_data_types(
     assert validation.is_valid_signature_definition_dict(
         signature_definition_library, True, True
     ), "signature is not valid"
-
-    topo_sorted_nodes = list(nx.topological_sort(G))
 
     for node_id in topo_sorted_nodes:
         if "data_type" in G.nodes[node_id]:
@@ -468,7 +494,7 @@ def update_dag_with_data_types(
             node_id,
             signature_definitions,
             signature_definition_library,
-            auto_add,
+            auto_add_signatures,
             conversion_tracker,
         )
         if len(data_types) == 1:
@@ -477,7 +503,6 @@ def update_dag_with_data_types(
             G.nodes[node_id]["data_types"] = data_types
         else:
             raise Exception(f"get_data_types returned an empty list for Node {node_id}")
-
 
 def mark_nodes_for_caching(
     G,
@@ -644,13 +669,15 @@ def convert_graph(
     signature_definition_library: Dict[str, Any],
     auto_add_signatures: bool,
     conversion_tracker: Dict[str, Any],
-    renum_nodes=True,
+    tables_dict: Dict[str, Dict[str, Any]],
+    separate_tables: bool,
+    renum_nodes: bool,
 ) -> None:
     """
     Converts a directed acyclic graph (DAG) (the dag_to_convert) into a DAG transformed
     by applying the defined transforms and the function_logic_dags.
     """
-    assert validation.is_valid_base_graph(dag_to_convert), "dag is not valid"
+    assert validation.is_valid_base_graph(dag_to_convert, False), "dag is not valid"
     assert validation.is_valid_conversion_rules_dict(
         conversion_rules
     ), "conversion rules dictionary is not valid"
@@ -658,6 +685,9 @@ def convert_graph(
         signature_definition_library, False, True
     ), "signature is not valid"
 
+    if separate_tables:
+        g_tables.separate_named_tables(dag_to_convert, dag_to_convert.nodes(), tables_dict)
+        
     function_logic_dags: Dict[str, nx.MultiDiGraph] = conversion_rules[
         "function_logic_dags"
     ]
@@ -671,13 +701,14 @@ def convert_graph(
     )
 
     update_dag_with_data_types(
-        dag_to_convert,
-        conversion_rules,
-        signature_definition_library,
-        auto_add_signatures,
-        conversion_tracker,
+        G=dag_to_convert,
+        topo_sorted_nodes=nx.topological_sort(dag_to_convert),
+        signature_definitions=conversion_rules,
+        signature_definition_library=signature_definition_library,
+        auto_add_signatures=auto_add_signatures,
+        conversion_tracker=conversion_tracker,
     )
-    assert validation.is_valid_base_graph(dag_to_convert), "dag is not valid"
+    assert validation.is_valid_base_graph(dag_to_convert, True), "dag is not valid"
 
     def add_to_queue(node_ids):
         for node_id in node_ids:
@@ -703,7 +734,7 @@ def convert_graph(
 
     while stack:
         assert validation.is_valid_base_graph(
-            dag_to_convert
+            dag_to_convert, True
         ), "converted dag is not valid"
         node_id = stack.pop()
 
@@ -726,7 +757,13 @@ def convert_graph(
         if function_name in commutative_functions_to_convert_to_binomial:
             comm_func_dict = commutative_functions_to_convert_to_binomial[function_name]
             new_ids: List[int] = convert_to_binomial(
-                dag_to_convert, node_id, comm_func_dict, conversion_tracker
+                G=dag_to_convert,
+                node_id=node_id,
+                comm_func_dict=comm_func_dict,
+                conversion_rules=conversion_rules,
+                signature_definition_library=signature_definition_library,
+                auto_add_signatures=auto_add_signatures,
+                conversion_tracker=conversion_tracker,
             )
             add_to_queue(new_ids)
             continue
@@ -770,7 +807,12 @@ def convert_graph(
                             transform_from_to_dag=transform_logic_dag,
                             node_id_to_replace=node_id,
                             match_mapping=match_mapping,
+                            tables_dict=tables_dict,
+                            conversion_rules=conversion_rules,
+                            signature_definition_library=signature_definition_library,
+                            auto_add_signatures=auto_add_signatures,
                             conversion_tracker=conversion_tracker,
+                            separate_tables=separate_tables,
                         )
                         add_to_queue(new_ids)
                         continue_to_while = True
@@ -787,30 +829,31 @@ def convert_graph(
                 not in function_logic_dags_with_types_added
             ):
                 update_dag_with_data_types(
-                    function_logic_dag,
-                    conversion_rules,
-                    signature_definition_library,
-                    auto_add_signatures,
-                    conversion_tracker,
+                    G=function_logic_dag,
+                    topo_sorted_nodes = list(nx.topological_sort(function_logic_dag)),
+                    signature_definitions=conversion_rules,
+                    signature_definition_library=signature_definition_library,
+                    auto_add_signatures=auto_add_signatures,
+                    conversion_tracker=conversion_tracker,
                 )
                 function_logic_dags_with_types_added.add(
                     function_logic_dag.graph["name"]
                 )
-            new_ids = expand_node(node_id, function_logic_dag, dag_to_convert)
+            new_ids = expand_node(
+                        node_id_to_expand=node_id, 
+                        function_logic_dag=function_logic_dag, 
+                        base_dag=dag_to_convert, 
+                        tables_dict=tables_dict,
+                        signature_definitions=conversion_rules, 
+                        signature_definition_library=signature_definition_library,
+                        auto_add_signatures=auto_add_signatures,
+                        conversion_tracker=conversion_tracker, 
+                        separate_tables=separate_tables)
             add_to_queue(new_ids)
             continue
 
         # Add parent nodes
         add_to_queue(dag_to_convert.predecessors(node_id))
-
-    # because we don't insist that transforms have data types, we need to run one more time.
-    update_dag_with_data_types(
-        dag_to_convert,
-        conversion_rules,
-        signature_definition_library,
-        auto_add_signatures,
-        conversion_tracker,
-    )
 
     nodes_to_lop_off = find_nodes_to_lop_off(
         graph=dag_to_convert, treat_tables_as_dynamic=True
@@ -826,11 +869,10 @@ def convert_graph(
     if renum_nodes:
         renumber_nodes(dag_to_convert)
 
-    assert validation.is_valid_base_graph(dag_to_convert), "converted dag is not valid"
+    assert validation.is_valid_base_graph(dag_to_convert, True), "converted dag is not valid"
     assert validation.is_valid_conversion_rules_dict(
         conversion_rules
     ), "Conversion rules dictioanry is not valid"
-
 
 def get_ordered_parent_ids(graph, node_id) -> List[int]:
     # Retrieve incoming edges, including edge keys for MultiDiGraph
@@ -903,34 +945,13 @@ def generate_binomial_dag(function, n, data_type):
     G.graph["output_node_ids"] = [calc_node_id - 1]
     G.graph["max_node_id"] = calc_node_id - 1
     G.graph["name"] = f'binomial_expansion_for_{function}. n: {n}. data_type: {data_type}'
-    if not validation.is_valid_graph(G, False):
-        raise ValueError("Graph is not valid")
+    assert validation.is_valid_graph(G, False), "Graph is not valid"
 
     return G
 
-
-def xml_to_graph(
-    base_dag_xml_file, working_directory, conversion_tracker, override_defaults
-) -> nx.MultiDiGraph:
-    paths_dict = setup.get_standard_paths(base_dag_xml_file, working_directory)
-    setup.update_existing_keys(paths_dict, override_defaults)
-    # this function ends up mainly being for testing today. so for now forcing it to be
-    # run in complete mode. can generalize later if needed.
-    data_dict = setup.get_standard_settings(paths_dict, "complete", None)
-    setup.update_existing_keys(data_dict, override_defaults)
-    # convert graph is the core logic. ...
-    convert_graph(
-        dag_to_convert=data_dict["base_dag_graph"],
-        conversion_rules=data_dict["conversion_rules"],
-        signature_definition_library=data_dict["signature_definition_library"],
-        auto_add_signatures=data_dict["auto_add_signatures"],
-        conversion_tracker=conversion_tracker,
-    )
-
-    return data_dict["base_dag_graph"]
-
-
-def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
+def expand_node(node_id_to_expand, function_logic_dag, base_dag, tables_dict, signature_definitions, signature_definition_library, auto_add_signatures, conversion_tracker, separate_tables) -> List[int]:
+    
+    
     """
     The function_logic_dag is the 'definition' of the function represented
     by node_id_to_expand in the base_dag. This function 'expands' the
@@ -971,9 +992,9 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
                 "output_name"
             ]
 
-    assert validation.is_valid_graph(
+    assert validation.is_valid_base_graph(
         base_dag, False
-    ), f"base_dag {base_dag.graph['name']} is not a valid graph. check before expanding node for {function_logic_dag.graph['name']}."
+    ), f"base_dag {base_dag.graph['name']} is not a valid graph. This is the check before expanding node for {function_logic_dag.graph['name']}."
 
     # Step 1: Retrieve Ordered List of Parent Nodes of Node to Expand
     parents = get_ordered_parent_ids(base_dag, node_id_to_expand)
@@ -1127,8 +1148,19 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag) -> List[int]:
 
     base_dag.graph["max_node_id"] = max(base_dag.nodes())
 
+    #cleanup new nodes
+    new_nodes = [node_id for node_id in base_dag.nodes() if node_id > id_offset]
+
+    #separate out tables for new nodes
+    if separate_tables:
+        g_tables.separate_named_tables(base_dag, new_nodes, tables_dict)
+    
+    #set data types for new nodes
+    sorted_new_nodes = topo_sort_subgraph(base_dag, new_nodes)
+    update_dag_with_data_types(base_dag, sorted_new_nodes, signature_definitions, signature_definition_library, auto_add_signatures, conversion_tracker)
+
     # Final Steps: Update Graph Attributes and Check Integrity
-    assert validation.is_valid_graph(
+    assert validation.is_valid_base_graph(
         base_dag, False
     ), f"base_dag {base_dag.graph['name']} is not a valid graph. Check after expanding node for {function_logic_dag.graph['name']}."
 
@@ -1426,19 +1458,4 @@ def find_nodes_to_lop_off(graph: nx.MultiDiGraph, treat_tables_as_dynamic) -> se
 
 
 def main():
-    base_dag_xml_file = "MultipleMatchInexactNumeric.xml"
-    working_directory = "../../../OneDrive/Documents/myDocs/sc_v2_data"
-    paths_dict = setup.get_standard_paths(base_dag_xml_file, working_directory)
-
-    conversion_tracker: Dict[str, Any] = {"signatures": {}, "events": {}}
-
-    base_dag_graph = xml_to_graph(
-        base_dag_xml_file, working_directory, conversion_tracker, {}
-    )
-    data = nx.node_link_data(base_dag_graph)
-
-    with open(paths_dict["json_output_file"], "w") as file:
-        json.dump(data, file, indent=2)
-
-    with open(paths_dict["conversion_tracker_file"], "w") as file:
-        json.dump(conversion_tracker, file, indent=2)
+    pass

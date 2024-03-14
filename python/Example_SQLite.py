@@ -13,15 +13,15 @@ output_dir = "../../../sc_output_files"
 #xml_file = "av_bal.XML"
 #xml_file = "CmplxPeriod.XML"
 #xml_file = "ageAtDate.XML"
-#xml_file = "myPandL.XML"
-xml_file = "ranch.XML"
+xml_file = "myPandL.XML"
+#xml_file = "ranch.XML"
 #xml_file = "endDateDays.XML"
 #xml_file = 'PeriodDiff.XML'
 #xml_file = 'endDateMonths.XML'
 
 conversion_tracker = ct.initialize_conversion_tracker()
 overrides = {}
-mode = "supplement"  #'options:  'build' 'complete' 'supplement'
+mode = "complete"  #'options:  'build' 'complete' 'supplement'
 
 code, conversion_rules = ts.transpile(
     xml_file, example_dir, mode, conversion_tracker, overrides

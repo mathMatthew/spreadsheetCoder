@@ -12,10 +12,10 @@ start = datetime.now()
 
 example_dir = "./examples"
 output_dir = "../../../sc_output_files"
-xml_file = "endDateDays.XML"
+#xml_file = "endDateDays.XML"
 # xml_file = "endDateMonths.XML"
 # xml_file = "ageAtDate.XML"
-# xml_file = "av_bal.XML"
+xml_file = "av_bal.XML"
 # xml_file = "CmplxPeriod.XML"
 # xml_file = "myPandL.XML"
 # xml_file = "ranch.XML"  # super slow to run this.

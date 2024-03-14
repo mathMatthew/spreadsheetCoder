@@ -125,9 +125,9 @@ def is_valid_transform(transform_logic_dag, filename, name):
     return True
 
 
-def is_valid_base_graph(base_dag) -> bool:
-    return is_valid_graph(base_dag, False)
-
+def is_valid_base_graph(base_dag, require_types) -> bool:
+    #placeholder in case we want to add additional checks specifically for base_graphs.
+    return is_valid_graph(base_dag, require_types)
 
 def is_valid_logic_function(tree, filename, name):
     if name != filename.split(".")[0].upper():
@@ -245,36 +245,40 @@ def is_valid_conversion_rules_dict(conversion_rules_dict) -> bool:
     for item in conversion_rules_dict["templates"].values():
         if not isinstance(item, dict):
             return False
-        
-        #template must define either a cache-template or a no-cache-template
-        if not any(key in item for key in ['force-cache-template', 'no-cache-template']):
+
+        # template must define either a cache-template or a no-cache-template
+        if not any(
+            key in item for key in ["force-cache-template", "no-cache-template"]
+        ):
             return False
 
     if not "commutative_functions_to_convert_to_binomial" in conversion_rules_dict:
         return False
 
-    for item in conversion_rules_dict["commutative_functions_to_convert_to_binomial"].values():
+    for item in conversion_rules_dict[
+        "commutative_functions_to_convert_to_binomial"
+    ].values():
         if not isinstance(item, dict):
             return False
-        if not 'bin_func' in item:
+        if not "bin_func" in item:
             return False
-        
+
     if not "functions" in conversion_rules_dict:
         return False
 
     for item in conversion_rules_dict["functions"].values():
         if not isinstance(item, dict):
             return False
-        
-        if not 'text' in item:
+
+        if not "text" in item:
             return False
-        
+
     if not "transforms" in conversion_rules_dict:
-        #add check here for is_valid_transform
+        # add check here for is_valid_transform
         return False
-        
+
     if not "function_logic_dags" in conversion_rules_dict:
-        #add check here for is_valid_logic_function
+        # add check here for is_valid_logic_function
         return False
 
     return True

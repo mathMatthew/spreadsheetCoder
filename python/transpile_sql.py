@@ -23,7 +23,7 @@ import conversion_rules as cr
 
 
 language_conversion_rules = "./system_data/sql_supported_functions.json"
-#xxx remove global variable and depend on conversion tracker instead.
+# xxx remove global variable and depend on conversion tracker instead.
 used_tables = set()
 NUMERIC_TOLERANCE = "0.01"
 sql_reserved_words_file = "./system_data/sql_reserved_words.txt"
@@ -118,18 +118,20 @@ def _constant_value_in_code(value, value_type):
         except ValueError:
             raise ValueError(f"Invalid number format: {value}")
 
-        if num_val in [float('inf'), float('-inf'), float('nan')]:
+        if num_val in [float("inf"), float("-inf"), float("nan")]:
             raise ValueError(f"Unsupported special float value: {num_val}")
 
         return str(num_val)
     if value_type == "Boolean":
-        #SQLite uses 1 and 0 for boolean
+        # SQLite uses 1 and 0 for boolean
         if value.lower() == "true":
             return "1"
         else:
             return "0"
     if value_type == "Date":
-        date_obj = datetime.strptime(value, "%m/%d/%Y") #the format may depend on your excel settings. may need to modify this.
+        date_obj = datetime.strptime(
+            value, "%m/%d/%Y"
+        )  # the format may depend on your excel settings. may need to modify this.
         return f"'{date_obj.strftime('%Y-%m-%d')}'"
 
     raise ValueError(f"Unsupported value type: {value_type}")
@@ -165,13 +167,11 @@ def _create_reference_table_sql(table_name, table_definition):
 
     # Ensure all columns have the same number of entries
     if not all(len(data[col]) == len(data[column_names[0]]) for col in column_names):
-        raise ValueError(
-            "All columns must have the same number of entries"
-        )
+        raise ValueError("All columns must have the same number of entries")
 
     for i in range(len(data[column_names[0]])):
         record = [
-            _constant_value_in_code(data[col_name][i], metadata['col_types'][col_name]) 
+            _constant_value_in_code(data[col_name][i], metadata["col_types"][col_name])
             for col_name in column_names
         ]
         insert_sql = _insert_statement(table_name, column_names, record)
@@ -182,6 +182,7 @@ def _create_reference_table_sql(table_name, table_definition):
 
     return combined_sql_code
 
+
 def _insert_statement(unformatted_table_name, unformatted_col_names, record) -> str:
     table_name = _sql_table_name(unformatted_table_name)
     col_names = [_sql_column_name(col_name) for col_name in unformatted_col_names]
@@ -189,6 +190,7 @@ def _insert_statement(unformatted_table_name, unformatted_col_names, record) -> 
     columns_str = ", ".join(col_names)
     code = f"INSERT INTO {table_name} ({columns_str}) VALUES ({values_str});"
     return code
+
 
 def _create_table(unformatted_table_name, col_defs) -> str:
     table_name = _sql_table_name(unformatted_table_name)
@@ -591,7 +593,6 @@ def convert_to_sql(
 def transpile_dags_to_sql_and_test(
     base_dag_G: nx.MultiDiGraph,
     base_dag_tree,
-    tables_dict,
     conversion_rules: Dict[str, Any],
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
@@ -601,12 +602,18 @@ def transpile_dags_to_sql_and_test(
     Transpiles DAG to SQL code.
     """
 
+    #initialize tables_dict
+    tables_dict = {}
+
     dags.convert_graph(
         dag_to_convert=base_dag_G,
         conversion_rules=conversion_rules,
         signature_definition_library=library_sigs,
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
+        tables_dict=tables_dict,
+        separate_tables=True,
+        renum_nodes=False
     )
 
     cr.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
@@ -623,7 +630,7 @@ def transpile_dags_to_sql_and_test(
 
     conv_function: Dict[str, Any] = conversion_rules["functions"]
     for func_name, details in conv_function.items():
-        num_params, code_str  = details["num_params"], details["text"]
+        num_params, code_str = details["num_params"], details["text"]
         exec(code_str, globals())  # Define function in global scope
         conn.create_function(
             func_name, num_params, globals()[func_name]
@@ -660,14 +667,9 @@ def transpile(
     data_dict = get_standard_settings(xml_file_name, working_directory, mode)
     data_dict.update(override_defaults)
 
-    dag_to_send, tables_dict = g_tables.separate_named_tables(
-        data_dict["base_dag_graph"]
-    )
-
     sql_code, conversion_rules = transpile_dags_to_sql_and_test(
-        base_dag_G=dag_to_send,
+        base_dag_G=data_dict["base_dag_graph"],
         base_dag_tree=data_dict["base_dag_xml_tree"],
-        tables_dict=tables_dict,
         conversion_rules=data_dict["conversion_rules"],
         library_sigs=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
