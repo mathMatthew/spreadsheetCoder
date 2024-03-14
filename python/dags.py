@@ -318,7 +318,7 @@ def transform_from_to(
         base_dag.add_edge(u, v, **attr)
 
     # step2 : expand node and return new id of expanded node.
-    new_id = expand_node(
+    new_id, skip_stack = expand_node(
         node_id_to_expand=node_id_to_replace,
         function_logic_dag=to_dag,
         base_dag=base_dag,
@@ -332,7 +332,7 @@ def transform_from_to(
     assert validation.is_valid_base_graph(
         base_dag, True
     ), f"base_dag is not valid after transform {transform_from_to_dag.graph['name']}"
-    return new_id
+    return new_id, skip_stack
 
 
 def renumber_nodes(graph):
@@ -448,7 +448,7 @@ def convert_to_binomial(G, node_id, comm_func_dict, conversion_rules, signature_
     ct.update_conversion_tracker_record_binomial_expansion(
         conversion_tracker, G.nodes[node_id]["function_name"], comm_func_dict
     )
-    new_id = expand_node(
+    new_id, skip_stack = expand_node(
         node_id_to_expand=node_id,
         function_logic_dag=new_dag,
         base_dag=G,
@@ -459,7 +459,7 @@ def convert_to_binomial(G, node_id, comm_func_dict, conversion_rules, signature_
         conversion_tracker=conversion_tracker, 
         separate_tables=False, #see tables_dict comment above
         ) 
-    return new_id
+    return new_id, skip_stack
 
 
 def update_dag_with_data_types(
@@ -727,6 +727,7 @@ def convert_graph(
 
     # Initialize the stack with output nodes
     stack = deque(dag_to_convert.graph["output_node_ids"])
+    skip_stack: List[int] = []
     seen = set(stack)  # Set to keep track of nodes already in the stack
 
     array1_nodes_that_were_checked_for_arrays = set()
@@ -737,6 +738,8 @@ def convert_graph(
             dag_to_convert, True
         ), "converted dag is not valid"
         node_id = stack.pop()
+        if node_id in skip_stack:
+            continue
 
         # Process the node
         if dag_to_convert.nodes[node_id]["node_type"] != "function":
@@ -756,7 +759,7 @@ def convert_graph(
         )
         if function_name in commutative_functions_to_convert_to_binomial:
             comm_func_dict = commutative_functions_to_convert_to_binomial[function_name]
-            new_ids: List[int] = convert_to_binomial(
+            new_ids, new_skip_stack = convert_to_binomial(
                 G=dag_to_convert,
                 node_id=node_id,
                 comm_func_dict=comm_func_dict,
@@ -766,6 +769,7 @@ def convert_graph(
                 conversion_tracker=conversion_tracker,
             )
             add_to_queue(new_ids)
+            skip_stack.extend(new_skip_stack)
             continue
 
         # Check if the node is safe from a transform
@@ -802,7 +806,7 @@ def convert_graph(
                         base_node_id=node_id,
                     )
                     if match_mapping:
-                        new_ids = transform_from_to(
+                        new_ids, new_skip_stack = transform_from_to(
                             base_dag=dag_to_convert,
                             transform_from_to_dag=transform_logic_dag,
                             node_id_to_replace=node_id,
@@ -815,6 +819,7 @@ def convert_graph(
                             separate_tables=separate_tables,
                         )
                         add_to_queue(new_ids)
+                        skip_stack.extend(new_skip_stack)
                         continue_to_while = True
                         break
 
@@ -839,7 +844,7 @@ def convert_graph(
                 function_logic_dags_with_types_added.add(
                     function_logic_dag.graph["name"]
                 )
-            new_ids = expand_node(
+            new_ids, new_skip_stack = expand_node(
                         node_id_to_expand=node_id, 
                         function_logic_dag=function_logic_dag, 
                         base_dag=dag_to_convert, 
@@ -850,6 +855,7 @@ def convert_graph(
                         conversion_tracker=conversion_tracker, 
                         separate_tables=separate_tables)
             add_to_queue(new_ids)
+            skip_stack.extend(new_skip_stack)
             continue
 
         # Add parent nodes
@@ -949,7 +955,17 @@ def generate_binomial_dag(function, n, data_type):
 
     return G
 
-def expand_node(node_id_to_expand, function_logic_dag, base_dag, tables_dict, signature_definitions, signature_definition_library, auto_add_signatures, conversion_tracker, separate_tables) -> List[int]:
+def expand_node(
+        node_id_to_expand, 
+        function_logic_dag,
+        base_dag, 
+        tables_dict, 
+        signature_definitions, 
+        signature_definition_library, 
+        auto_add_signatures, 
+        conversion_tracker, 
+        separate_tables
+        ) -> Tuple[List[int], List[int]]:
     
     
     """
@@ -1008,7 +1024,6 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag, tables_dict, si
 
     id_offset: int = base_dag.graph["max_node_id"]
 
-    counter = 0
     # iterate through nodes for steps 2 and 3
     function_logic_nodes = list(function_logic_dag.nodes(data=True))
     for node_id, data in function_logic_nodes:
@@ -1103,13 +1118,6 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag, tables_dict, si
                 # Check if the position matches the current output node being processed
                 if position - 1 == idx:  # Adjusting position to 0-based index
                     new_ouput_is_used = True
-                    #we need to check if this function array node is one of the nodes we track
-                    # in the output node ids of the base dag. if so, it needs to be updated with
-                    # the corresponding new output node id
-                    if fan_node_id in base_dag.graph['output_node_ids']:
-                        base_dag.graph['output_node_ids'] = [
-                            new_output_node_id if nid == fan_node_id else nid for nid in base_dag.graph['output_node_ids']
-                        ]
                     grandkids = list(base_dag.successors(fan_node_id))
                     for grandkid in grandkids:
                         # Retrieve all edges between fan_node_id and grandkid
@@ -1121,11 +1129,11 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag, tables_dict, si
                             edges_to_add.append(
                                 (new_output_node_id, grandkid, edge_data, edge_key)
                             )
+                    mimic_output_attribs(output_node_id, new_output_node_id, base_dag)
                     nodes_to_remove.append(fan_node_id)
 
             if new_ouput_is_used:
                 new_output_node_ids.append(new_output_node_id)
-                mimic_output_attribs(output_node_id, new_output_node_id, base_dag)
 
         for edge in edges_to_remove:
             base_dag.remove_edge(*edge)
@@ -1144,7 +1152,7 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag, tables_dict, si
     
     base_dag.remove_node(node_id_to_expand)
 
-    remove_all_non_output_sink_nodes(base_dag)
+    skip_stack = remove_all_non_output_sink_nodes(base_dag)
 
     base_dag.graph["max_node_id"] = max(base_dag.nodes())
 
@@ -1164,10 +1172,11 @@ def expand_node(node_id_to_expand, function_logic_dag, base_dag, tables_dict, si
         base_dag, False
     ), f"base_dag {base_dag.graph['name']} is not a valid graph. Check after expanding node for {function_logic_dag.graph['name']}."
 
-    return new_output_node_ids
+    return new_output_node_ids, skip_stack
 
 
 def remove_all_non_output_sink_nodes(G):
+    removed: List[int] = []
     # Initialize a queue with initial non-output sink nodes
     initial_sink_nodes = [
         node
@@ -1181,10 +1190,13 @@ def remove_all_non_output_sink_nodes(G):
         # Before removal, get predecessors to check if they become new sinks after removal
         predecessors = list(G.predecessors(node))
         G.remove_node(node)
+        removed.append(node)
         for pred in predecessors:
             # If a predecessor is now a sink and does not have 'output_name', add it to the queue
             if G.out_degree(pred) == 0 and "output_name" not in G.nodes[pred]:
                 queue.append(pred)
+    
+    return removed
 
 
 def dict_of_matching_node_ids(

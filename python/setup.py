@@ -194,8 +194,11 @@ def initial_dag_objects(
         for filename in os.listdir(lib_func_sig_dir):
             if filename.endswith(".json") and filename.startswith("func_sig_"):
                 filename = os.path.join(lib_func_sig_dir, filename)
-                with open(filename, "r") as file:
-                    data = json.load(file)
+                try:
+                    with open(filename, "r") as file:
+                        data = json.load(file)
+                except Exception as e:
+                    print(f"An error occurred while loading the JSON file: {filename} {e}")
                 cr.add_signatures_to_library(
                     data, signature_definition_library, filename, False
                 )
