@@ -22,6 +22,13 @@ def is_valid_graph(G, require_types: bool) -> bool:
         if G.nodes[node_id]["node_type"] not in {"constant", "input", "table_array"}:
             return False
 
+    # all nodes with persist=True are function or input nodes
+    for node_id in G.nodes:
+        if G.nodes[node_id].get("persist", False) and not G.nodes[node_id][
+            "node_type"
+        ] in ("function", "input"):
+            return False
+
     # validate input_node_ids
     input_node_ids = [
         node_id
@@ -126,8 +133,9 @@ def is_valid_transform(transform_logic_dag, filename, name):
 
 
 def is_valid_base_graph(base_dag, require_types) -> bool:
-    #placeholder in case we want to add additional checks specifically for base_graphs.
+    # placeholder in case we want to add additional checks specifically for base_graphs.
     return is_valid_graph(base_dag, require_types)
+
 
 def is_valid_logic_function(tree, filename, name):
     if name != filename.split(".")[0].upper():
@@ -246,9 +254,9 @@ def is_valid_conversion_rules_dict(conversion_rules_dict) -> bool:
         if not isinstance(item, dict):
             return False
 
-        # template must define either a cache-template or a no-cache-template
+        # template must define either a persist-template or a no-persist-template
         if not any(
-            key in item for key in ["force-cache-template", "no-cache-template"]
+            key in item for key in ["force-persist-template", "no-persist-template"]
         ):
             return False
 

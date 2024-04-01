@@ -21,7 +21,7 @@ xml_file = "myPandL.XML"
 
 conversion_tracker = ct.initialize_conversion_tracker()
 overrides = {}
-mode = "complete"  #'options:  'build' 'complete' 'supplement'
+mode = "build"  #'options:  'build' 'complete' 'supplement'
 
 code, conversion_rules = ts.transpile(
     xml_file, example_dir, mode, conversion_tracker, overrides

@@ -1,9 +1,9 @@
 from typing import Any, Dict, Tuple, List
 import networkx as nx
 from collections import deque
-import os, json
+import logging, datetime, json
 
-import validation, errs, setup
+import validation, errs
 import conv_tracker as ct
 import convert_xml as cxml
 import conversion_rules as cr
@@ -27,6 +27,8 @@ array1_functions = [
     "SUM",
     "NPV",
 ]
+
+logging.basicConfig(filename="./data/caching_logs.log", level=logging.INFO)
 
 
 def subset_graph(original_graph, outputs_to_keep: List[int]) -> nx.MultiDiGraph:
@@ -328,7 +330,7 @@ def transform_from_to(
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
         separate_tables=separate_tables,
-        )
+    )
     assert validation.is_valid_base_graph(
         base_dag, True
     ), f"base_dag is not valid after transform {transform_from_to_dag.graph['name']}"
@@ -428,7 +430,15 @@ def remove_arrays(G, node_id, seen):
                     G.remove_node(dim_node)
 
 
-def convert_to_binomial(G, node_id, comm_func_dict, conversion_rules, signature_definition_library, auto_add_signatures, conversion_tracker):
+def convert_to_binomial(
+    G,
+    node_id,
+    comm_func_dict,
+    conversion_rules,
+    signature_definition_library,
+    auto_add_signatures,
+    conversion_tracker,
+):
     """
     Convert the given node to a graph of binomial functions, ensuring that all input data types are the same.
     Parameters:
@@ -452,13 +462,13 @@ def convert_to_binomial(G, node_id, comm_func_dict, conversion_rules, signature_
         node_id_to_expand=node_id,
         function_logic_dag=new_dag,
         base_dag=G,
-        tables_dict={}, #tables_dict is not needed given we just created it--and we didn't add tables
+        tables_dict={},  # tables_dict is not needed given we just created it--and we didn't add tables
         signature_definitions=conversion_rules,
         signature_definition_library=signature_definition_library,
-        auto_add_signatures=auto_add_signatures, 
-        conversion_tracker=conversion_tracker, 
-        separate_tables=False, #see tables_dict comment above
-        ) 
+        auto_add_signatures=auto_add_signatures,
+        conversion_tracker=conversion_tracker,
+        separate_tables=False,  # see tables_dict comment above
+    )
     return new_id, skip_stack
 
 
@@ -504,129 +514,374 @@ def update_dag_with_data_types(
         else:
             raise Exception(f"get_data_types returned an empty list for Node {node_id}")
 
-def mark_nodes_for_caching(
-    G,
-    usage_count_threshold,
-    branching_threshold,
-    complexity_threshold,
-    all_array_nodes,
-    all_outputs,
-    conversion_rules,
+
+def identify_sub_graph_nodes(G, sub_graph_output_node_id):
+    """
+    Identify all nodes within the sub_graph defined by tracing upstream from the sub_graph_output_node_id.
+    Utilizes a stack for iterative deepening to avoid recursion.
+    """
+    stack = [sub_graph_output_node_id]
+    sub_graph_nodes = set()
+
+    while stack:
+        current_node = stack.pop()
+        if current_node in sub_graph_nodes or G.nodes[current_node].get(
+            "persist", False
+        ):
+            continue
+        sub_graph_nodes.add(current_node)
+        stack.extend(G.predecessors(current_node))
+
+    return sub_graph_nodes
+
+
+def calculate_upstream_counts_toposort(G, sub_graph_nodes):
+    """
+    Calculate upstream counts for nodes in the sub_graph using a topological sort approach,
+    focusing the calculation on the sub_graph defined by the sub_graph_nodes parameter.
+    """
+    sub_graph = G.subgraph(sub_graph_nodes)
+
+    # Initialize function nodes with 1, others 0, ensuring we only include nodes within the sub_graph
+    step_counts = {
+        node: 1 if sub_graph.nodes[node]["node_type"] == "function" else 0
+        for node in sub_graph.nodes()
+    }
+
+    # Perform topological sort on the subgraph and calculate counts
+    for node in nx.topological_sort(sub_graph):
+        step_counts[node] += sum(
+            step_counts.get(pred, 0) for pred in sub_graph.predecessors(node)
+        )
+
+    return step_counts
+
+
+def persist_sub_graph_where_optimal(
+    G, output_node_id, step_count_trade_off, prohibited_types
+):
+    sub_graph_nodes = identify_sub_graph_nodes(G, output_node_id)
+    step_counts = calculate_upstream_counts_toposort(G, sub_graph_nodes)
+
+    # Filter nodes to exclude those with prohibited data types
+    permissible_nodes = [
+        node
+        for node in sub_graph_nodes
+        if G.nodes[node]["data_type"] not in prohibited_types
+    ]
+
+    # Calculate potential step count savings, considering only permissible nodes
+    step_count_saves = {
+        node: step_counts[node] * (len(list(G.successors(node))) - 1)
+        for node in permissible_nodes
+    }
+
+    if not step_count_saves:
+        return 0  # No permissible nodes to consider for caching
+
+    # Cache the node with the minimum savings > step_count_trade_off
+    # the reason I want to persist the node with the Least eligible savings (vs the max) is due to the
+    # iterative nature of this. Caching the one with the max (as I had been doing) has the
+    # potential to in a later round become trivial as it could be that in later round a prior
+    # node gets persistd and this first one ends up doing very little. By caching instead one
+    # one just over the minimum savings, we avoid that problem.
+
+    # Filter nodes that have savings greater than step_count_trade_off
+    eligible_nodes = {
+        node: saves
+        for node, saves in step_count_saves.items()
+        if saves > step_count_trade_off
+    }
+
+    if eligible_nodes:
+        min_savings_node = min(eligible_nodes, key=eligible_nodes.get)
+        # Cache the node with the minimum savings
+        G.nodes[min_savings_node]["persist"] = True
+        return min_savings_node
+    else:
+        return 0
+
+
+def persist_where_optimal(G, step_count_trade_off, prohibited_types):
+    nodes_to_check = []
+    for node_id in G.nodes:
+        if G.nodes[node_id].get("persist", False) or "output_name" in G.nodes[node_id]:
+            nodes_to_check.append(node_id)
+
+    stack = deque(nodes_to_check)
+    while stack:
+        node_id = stack.popleft()
+        return_val = persist_sub_graph_where_optimal(
+            G, node_id, step_count_trade_off, prohibited_types
+        )
+        if return_val:
+            # stack.append(return_val) #no longer needed with new strategy.
+            stack.append(node_id)
+
+
+def reduce_sub_graph_to_threshold(
+    G, sub_graph_output_node_id, max_step_count, prohibited_types
+):
+    # 1. Identify nodes in the subgraph and calculate step counts
+    sub_graph_nodes = identify_sub_graph_nodes(G, sub_graph_output_node_id)
+    step_counts = calculate_upstream_counts_toposort(G, sub_graph_nodes)
+
+    # Check if the total step count is already within the threshold
+    if sum(step_counts.values()) <= max_step_count:
+        return  # The total step count is within threshold; no action needed
+
+    # 2. Calculate the target step count
+    integer_component, modulo_component = divmod(
+        step_counts[sub_graph_output_node_id], max_step_count
+    )
+    target_step_count = step_counts[sub_graph_output_node_id] / (integer_component + 1)
+
+    # 3. Filter out nodes with prohibited data types after determining the target
+    permissible_nodes = [
+        node
+        for node in sub_graph_nodes
+        if G.nodes[node]["data_type"] not in prohibited_types
+    ]
+
+    # Adjust step counts to only include permissible nodes
+    permissible_step_counts = {node: step_counts[node] for node in permissible_nodes}
+
+    # If there are no permissible nodes to persist, raise an error
+    if not permissible_nodes:
+        raise ValueError(
+            "Unable to reduce step count within threshold: no permissible nodes to persist."
+        )
+        return
+
+    # 4. Find the node closest to the target step count for caching among permissible nodes
+    node_to_persist = min(
+        permissible_nodes,
+        key=lambda node: (
+            abs(permissible_step_counts[node] - target_step_count),
+            -permissible_step_counts[
+                node
+            ],  # Break ties by preferring larger step counts
+        ),
+    )
+
+    # Cache the selected node and call recursively for the remaining sub_graph (the sub_graph_output_node_id)
+    G.nodes[node_to_persist]["persist"] = True
+    reduce_sub_graph_to_threshold(
+        G, sub_graph_output_node_id, max_step_count, prohibited_types
+    )
+
+
+def reduce_all_sub_graphs_to_threshold(G, max_step_count, prohibited_types):
+    nodes_to_check_and_reduce = []
+    for node_id in G.nodes:
+        if G.nodes[node_id].get("persist", False):
+            continue
+        nodes_to_check_and_reduce.append(node_id)
+
+    for node_id in nodes_to_check_and_reduce:
+        reduce_sub_graph_to_threshold(G, node_id, max_step_count, prohibited_types)
+
+
+def calculate_branch_depth_and_persist(
+    G, max_branching_depth, conversion_rules, prohibited_types
 ):
     """
-    Marks nodes for caching based on usage count and computational complexity.
+    Modifies the graph G by caching nodes based on branching depth, considering prohibited data types.
+
+    NOTE:
+    Requires that the signatures in conversion_rules uses the key "branching_function"
+    with value True, where applicable, to count branching.
 
     Parameters:
-    G (nx.DiGraph): The directed graph.
-    usage_count_threshold (int): The threshold for usage count above which nodes are cached.
-    complexity_threshold (int): The threshold for computational complexity above which nodes are cached.
+    - G (nx.MultiDiGraph): The directed graph.
+    - max_branching_depth (int): The maximum allowed branching depth before caching is forced.
+    - conversion_rules (dict): Conversion rules, including signatures for identifying branching functions.
+    - prohibited_types (list): Data types that are prohibited from being persistd.
+
+    Raises:
+    - ValueError: If a node exceeds the max_branching_depth and has a data type that is prohibited from caching.
     """
+    # Initialize branch depth dictionary
+    branch_depths = {node_id: 0 for node_id in G.nodes()}
 
-    def calc_branching_depth_and_calc_complexity(G, node_id, memo) -> Tuple[int, int]:
-        if node_id in memo:
-            return memo[node_id]
+    # Traverse the graph in reverse topological order
+    for node_id in reversed(list(nx.topological_sort(G))):
         node_attribs = G.nodes[node_id]
-        if node_attribs["cache"] == True:
-            memo[node_id] = 0, 0
-            return memo[node_id]
-        if node_attribs["node_type"] != "function":
-            memo[node_id] = 0, 0
-            return memo[node_id]
 
-        if node_attribs["function_name"].upper() == "IF":
-            parent_ids = get_ordered_parent_ids(G, node_id)
-            condition_id, if_true_id, if_false_id = (
-                parent_ids[0],
-                parent_ids[1],
-                parent_ids[2],
-            )
+        # Nodes that aren't functions have branch_depth of 1 by definition
+        if not "function_name" in node_attribs:
+            branch_depths[node_id] = 1
+            continue
 
-            # Calculating branch depths and complexities
-            (
-                condition_branch_depth,
-                condition_complexity,
-            ) = calc_branching_depth_and_calc_complexity(G, condition_id, memo)
-            (
-                if_true_branch_depth,
-                if_true_complexity,
-            ) = calc_branching_depth_and_calc_complexity(G, if_true_id, memo)
-            (
-                if_false_branch_depth,
-                if_false_complexity,
-            ) = calc_branching_depth_and_calc_complexity(G, if_false_id, memo)
+        # Same goes for nodes that are persistd
+        if node_attribs["persist"]:
+            branch_depths[node_id] = 1
+            continue
 
-            # Computing the combined branch depth and complexity
-            branch_depth = 1 + max(
-                condition_branch_depth, if_true_branch_depth, if_false_branch_depth
-            )
-            calculation_complexity = (
-                1 + condition_complexity + max(if_true_complexity, if_false_complexity)
-            )
+        # And output nodes
+        if "output_order" in node_attribs:
+            branch_depths[node_id] = 1
+            continue
+
+        function_signature = cr.match_first_signature__node(
+            G, node_id, conversion_rules
+        )
+
+        current_depth = max(
+            (branch_depths[successor] for successor in G.successors(node_id)), default=1
+        )
+
+        # Adjust branch depth calculation for branching nodes, based on matching signature
+        current_depth += (
+            1 if function_signature.get("branching_function", False) else 0
+        )  # Increment depth for branching
+
+        # Check if current depth exceeds max allowed
+        if current_depth > max_branching_depth:
+            # If the node has a prohibited data type, raise an error
+            if node_attribs["data_type"] in prohibited_types:
+                raise ValueError(
+                    f"Add support for using branching functions with prohibited data types. Node ID: {node_id}"
+                )
+            # Otherwise, persist the node
+            G.nodes[node_id]["persist"] = True
+            branch_depths[node_id] = 1  # Reset depth after caching
         else:
-            # for non-if
-            # branch complexity = max of parents
-            # calculation complexity = sum of parents
-            parent_complexities: list[tuple[int, int]] = [
-                calc_branching_depth_and_calc_complexity(G, source, memo)
-                for source, _ in G.in_edges(node_id)
-            ]
-            branch_depth = max(depth for depth, _ in parent_complexities)
-            calculation_complexity = sum(
-                complexity for _, complexity in parent_complexities
+            branch_depths[node_id] = current_depth
+
+
+def persist_node_or_predecessors(G, node_id, prohibited_types):
+    if G.nodes[node_id]["data_type"] in prohibited_types:
+        for pred_id in G.predecessors(node_id):
+            persist_node_or_predecessors(G, pred_id, prohibited_types)
+    else:
+        G.nodes[node_id]["persist"] = True
+
+    return
+
+
+def mark_nodes_for_caching_by_usage_count(G, usage_count_threshold, prohibited_types):
+    for node_id in G.nodes:
+        if G.nodes[node_id].get("function_name"):
+            if len(list(G.successors(node_id))) > usage_count_threshold:
+                persist_node_or_predecessors(G, node_id, prohibited_types)
+
+
+def mark_nodes_for_caching(
+    G,
+    all_outputs,
+    all_array_nodes,
+    branching_threshold,
+    total_steps_threshold,
+    usage_count_threshold,
+    step_count_trade_off,
+    conversion_rules,
+    prohibited_types,
+):
+    """
+    Marks nodes for caching ensuring not to persist nodes with prohibited data types.
+
+    Parameters:
+    - G (nx.MultiDiGraph): The directed graph.
+    - all_outputs (bool): Whether to mark all outputs for caching.
+    - all_array_nodes (bool): Whether to mark all array nodes for caching.
+    - branching_threshold (int): Cache node if branching depth is greater than branching_threshold. Set to 0 to not use.
+    - usage_count_threshold (int): Usage count threshold for caching. Set to 0 to not use.
+    - step_count_trade_off (int): Step count savings threshold for caching. Set to 0 to not use. This one is preferred for optimization.
+    - total_steps_threshold (int): Considering non-persistd nodes as step, persist node to prevent step-count > threshold for any persistd nodes. Set to 0 to not use.
+    - conversion_rules (dict): Conversion rules dictionary.
+    - prohibited_types (list): Data types prohibited from being persistd.
+    """
+    assert validation.is_valid_graph(
+        G, True
+    ), "Graph is not valid at start of mark nodes for caching"
+
+    # Helper function to check for prohibited types and raise an error
+    def check_and_raise_for_prohibited_types(node_id, rule):
+        if G.nodes[node_id]["data_type"] in prohibited_types:
+            raise ValueError(
+                f"Node {node_id} required to be persistd by rule {rule}, but has a prohibited data type for caching."
             )
 
-        memo[node_id] = branch_depth, calculation_complexity
-        return branch_depth, calculation_complexity
+    # 1. Mark all output nodes for caching if flagged
+    if all_outputs:
+        for node_id in G.graph["output_node_ids"]:
+            check_and_raise_for_prohibited_types(
+                node_id, "Cache Outputs"
+            )  # Check for prohibited types
+            if G.nodes[node_id]["node_type"] in ("input", "function"):
+                G.nodes[node_id]["persist"] = True
+        assert validation.is_valid_graph(
+            G, True
+        ), "Graph is not valid. Mark nodes for caching. After 1"
 
+    # 2. Mark all array nodes for caching if flagged
     if all_array_nodes:
         for node_id in G.nodes:
             if G.nodes[node_id].get("function_name", "").upper() == "ARRAY":
-                G.nodes[node_id]["cache"] = True
+                check_and_raise_for_prohibited_types(
+                    node_id, "Cache Array Nodes"
+                )  # Check for prohibited types
+                G.nodes[node_id]["persist"] = True
+        assert validation.is_valid_graph(
+            G, True
+        ), "Graph is not valid. Mark nodes for caching. After 2"
 
-    # mark all outputs for caching, if applicable
-    if all_outputs:
-        for node_id in G.graph["output_node_ids"]:
-            G.nodes[node_id]["cache"] = True
-
-    # mark nodes for caching for nodes whose functions require caching
-    # this can be specified in the signature itself, or if it has a template, the template can force the cache
+    # 3. Function-specific caching requirements
     for node_id in G.nodes:
-        if G.nodes[node_id]["node_type"] == "function":
+        node_type = G.nodes[node_id].get("node_type")
+        if node_type == "function":
             function_signature = cr.match_first_signature__node(
                 G, node_id, conversion_rules
             )
             if function_signature:
-                if function_signature.get("requires_cache", False):
-                    G.nodes[node_id]["cache"] = True
-                elif "template" in function_signature:
-                    if conversion_rules["templates"][function_signature["template"]].get("force-cache", False):
-                        G.nodes[node_id]["cache"] = True
+                if function_signature.get("requires_persist", False) or (
+                    "template" in function_signature
+                    and conversion_rules["templates"][
+                        function_signature["template"]
+                    ].get("force-persist", False)
+                ):
+                    check_and_raise_for_prohibited_types(
+                        node_id,
+                        f'Signature {G.nodes[node_id]["function_name"]} Requires Caching',
+                    )  # Check for prohibited types
+                    G.nodes[node_id]["persist"] = True
+    assert validation.is_valid_graph(
+        G, True
+    ), "Graph is not valid. Mark nodes for caching. After 3"
 
-    # mark nodes for caching based on usage count
-    for node_id in G.nodes:
-        if G.nodes[node_id].get("cache"):
-            continue
-        usage_count = 0
-        for _, target in G.in_edges(node_id):
-            usage_count += 1
-        G.nodes[node_id]["cache"] = (
-            True if usage_count > usage_count_threshold else False
+    # 4. Branching depth threshold caching
+    if branching_threshold > 0:
+        calculate_branch_depth_and_persist(
+            G, branching_threshold, conversion_rules, prohibited_types
         )
+        assert validation.is_valid_graph(
+            G, True
+        ), "Graph is not valid. Mark nodes for caching. After 4"
 
-    # topo sort of graph will mean that when cPerform a topological sort of the graph
-    sorted_nodes = list(nx.topological_sort(G))
-
-    memo: dict[int, Tuple[int, int]] = {}  # Initialize the memoization dictionary
-
-    for node_id in sorted_nodes:
-        branching_depth, calc_complexity = calc_branching_depth_and_calc_complexity(
-            G, node_id, memo
+    # 5. Usage count threshold caching
+    if usage_count_threshold > 0:
+        mark_nodes_for_caching_by_usage_count(
+            G, usage_count_threshold, prohibited_types
         )
-        if (
-            branching_depth > branching_threshold
-            or calc_complexity > complexity_threshold
-        ):
-            G.nodes[node_id]["cache"] = True
+        assert validation.is_valid_graph(
+            G, True
+        ), "Graph is not valid. Mark nodes for caching. After 5"
+
+    # 6. Step count trade-off caching
+    if step_count_trade_off > 0:
+        persist_where_optimal(G, step_count_trade_off, prohibited_types)
+        assert validation.is_valid_graph(
+            G, True
+        ), "Graph is not valid. Mark nodes for caching. After 6"
+
+    # 7. Total steps threshold caching
+    if total_steps_threshold > 0:
+        reduce_all_sub_graphs_to_threshold(G, total_steps_threshold, prohibited_types)
+
+    assert validation.is_valid_graph(
+        G, True
+    ), "Graph is not valid after mark nodes for caching."
 
 
 def generate_transforms_categories(
@@ -686,8 +941,10 @@ def convert_graph(
     ), "signature is not valid"
 
     if separate_tables:
-        g_tables.separate_named_tables(dag_to_convert, dag_to_convert.nodes(), tables_dict)
-        
+        g_tables.separate_named_tables(
+            dag_to_convert, dag_to_convert.nodes(), tables_dict
+        )
+
     function_logic_dags: Dict[str, nx.MultiDiGraph] = conversion_rules[
         "function_logic_dags"
     ]
@@ -835,7 +1092,7 @@ def convert_graph(
             ):
                 update_dag_with_data_types(
                     G=function_logic_dag,
-                    topo_sorted_nodes = list(nx.topological_sort(function_logic_dag)),
+                    topo_sorted_nodes=list(nx.topological_sort(function_logic_dag)),
                     signature_definitions=conversion_rules,
                     signature_definition_library=signature_definition_library,
                     auto_add_signatures=auto_add_signatures,
@@ -845,15 +1102,16 @@ def convert_graph(
                     function_logic_dag.graph["name"]
                 )
             new_ids, new_skip_stack = expand_node(
-                        node_id_to_expand=node_id, 
-                        function_logic_dag=function_logic_dag, 
-                        base_dag=dag_to_convert, 
-                        tables_dict=tables_dict,
-                        signature_definitions=conversion_rules, 
-                        signature_definition_library=signature_definition_library,
-                        auto_add_signatures=auto_add_signatures,
-                        conversion_tracker=conversion_tracker, 
-                        separate_tables=separate_tables)
+                node_id_to_expand=node_id,
+                function_logic_dag=function_logic_dag,
+                base_dag=dag_to_convert,
+                tables_dict=tables_dict,
+                signature_definitions=conversion_rules,
+                signature_definition_library=signature_definition_library,
+                auto_add_signatures=auto_add_signatures,
+                conversion_tracker=conversion_tracker,
+                separate_tables=separate_tables,
+            )
             add_to_queue(new_ids)
             skip_stack.extend(new_skip_stack)
             continue
@@ -875,10 +1133,13 @@ def convert_graph(
     if renum_nodes:
         renumber_nodes(dag_to_convert)
 
-    assert validation.is_valid_base_graph(dag_to_convert, True), "converted dag is not valid"
+    assert validation.is_valid_base_graph(
+        dag_to_convert, True
+    ), "converted dag is not valid"
     assert validation.is_valid_conversion_rules_dict(
         conversion_rules
     ), "Conversion rules dictioanry is not valid"
+
 
 def get_ordered_parent_ids(graph, node_id) -> List[int]:
     # Retrieve incoming edges, including edge keys for MultiDiGraph
@@ -950,24 +1211,25 @@ def generate_binomial_dag(function, n, data_type):
     G.nodes[calc_node_id - 1]["output_order"] = 0
     G.graph["output_node_ids"] = [calc_node_id - 1]
     G.graph["max_node_id"] = calc_node_id - 1
-    G.graph["name"] = f'binomial_expansion_for_{function}. n: {n}. data_type: {data_type}'
+    G.graph["name"] = (
+        f"binomial_expansion_for_{function}. n: {n}. data_type: {data_type}"
+    )
     assert validation.is_valid_graph(G, False), "Graph is not valid"
 
     return G
 
+
 def expand_node(
-        node_id_to_expand, 
-        function_logic_dag,
-        base_dag, 
-        tables_dict, 
-        signature_definitions, 
-        signature_definition_library, 
-        auto_add_signatures, 
-        conversion_tracker, 
-        separate_tables
-        ) -> Tuple[List[int], List[int]]:
-    
-    
+    node_id_to_expand,
+    function_logic_dag,
+    base_dag,
+    tables_dict,
+    signature_definitions,
+    signature_definition_library,
+    auto_add_signatures,
+    conversion_tracker,
+    separate_tables,
+) -> Tuple[List[int], List[int]]:
     """
     The function_logic_dag is the 'definition' of the function represented
     by node_id_to_expand in the base_dag. This function 'expands' the
@@ -1084,12 +1346,13 @@ def expand_node(
 
         mimic_output_attribs(node_id_to_expand, new_output_node_id, base_dag)
         new_output_node_ids = [new_output_node_id]
-        #If node_id_to_expand is part of the base_dag's output_node_ids
+        # If node_id_to_expand is part of the base_dag's output_node_ids
         #   then update the base_dag's output_node_ids to replace it with
         #   the new_output_node_id
-        if node_id_to_expand in base_dag.graph['output_node_ids']:
-            base_dag.graph['output_node_ids'] = [
-                new_output_node_id if nid == node_id_to_expand else nid for nid in base_dag.graph['output_node_ids']
+        if node_id_to_expand in base_dag.graph["output_node_ids"]:
+            base_dag.graph["output_node_ids"] = [
+                new_output_node_id if nid == node_id_to_expand else nid
+                for nid in base_dag.graph["output_node_ids"]
             ]
     elif len(output_node_ids) > 1:
         # New code begins here.
@@ -1149,23 +1412,30 @@ def expand_node(
         raise ValueError(
             f"Function logic DAG {function_logic_dag.graph['name']} has an invalid number of outputs."
         )
-    
+
     base_dag.remove_node(node_id_to_expand)
 
     skip_stack = remove_all_non_output_sink_nodes(base_dag)
 
     base_dag.graph["max_node_id"] = max(base_dag.nodes())
 
-    #cleanup new nodes
+    # cleanup new nodes
     new_nodes = [node_id for node_id in base_dag.nodes() if node_id > id_offset]
 
-    #separate out tables for new nodes
+    # separate out tables for new nodes
     if separate_tables:
         g_tables.separate_named_tables(base_dag, new_nodes, tables_dict)
-    
-    #set data types for new nodes
+
+    # set data types for new nodes
     sorted_new_nodes = topo_sort_subgraph(base_dag, new_nodes)
-    update_dag_with_data_types(base_dag, sorted_new_nodes, signature_definitions, signature_definition_library, auto_add_signatures, conversion_tracker)
+    update_dag_with_data_types(
+        base_dag,
+        sorted_new_nodes,
+        signature_definitions,
+        signature_definition_library,
+        auto_add_signatures,
+        conversion_tracker,
+    )
 
     # Final Steps: Update Graph Attributes and Check Integrity
     assert validation.is_valid_base_graph(
@@ -1195,7 +1465,7 @@ def remove_all_non_output_sink_nodes(G):
             # If a predecessor is now a sink and does not have 'output_name', add it to the queue
             if G.out_degree(pred) == 0 and "output_name" not in G.nodes[pred]:
                 queue.append(pred)
-    
+
     return removed
 
 
@@ -1375,24 +1645,24 @@ def remove_node_and_ancestors_safe(G, start_node):
     # Initialize a queue with the start node
     queue = [start_node]
     # Initialize a set to track all nodes to potentially remove
-    subtree_nodes = set([start_node])
+    sub_graph_nodes = set([start_node])
 
     while queue:
         current_node = queue.pop(0)  # Dequeue the next node
-        # Check if current_node has successors outside subtree_nodes
+        # Check if current_node has successors outside sub_graph_nodes
         if any(
-            successor not in subtree_nodes for successor in G.successors(current_node)
+            successor not in sub_graph_nodes for successor in G.successors(current_node)
         ):
             continue  # Skip removal if there are external successors
 
         # For nodes with no external successors, check their predecessors
         for pred in G.predecessors(current_node):
-            if pred not in subtree_nodes:
-                subtree_nodes.add(pred)
+            if pred not in sub_graph_nodes:
+                sub_graph_nodes.add(pred)
                 queue.append(pred)  # Enqueue predecessor for further checks
 
     # Remove all identified nodes from the graph
-    for node in subtree_nodes:
+    for node in sub_graph_nodes:
         G.remove_node(node)
 
 

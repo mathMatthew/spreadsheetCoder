@@ -150,8 +150,14 @@ def convert_jcd_to_json_file(jcd_path, json_path):
     print(f"Converted {jcd_path} to {json_path}")
 
 def convert_json_to_jcd_file(json_path, jcd_path):
-    with open(json_path, "r") as file:
-        this_dict = json.load(file)
+    try:
+        with open(json_path, "r") as file:
+            this_dict = json.load(file)
+    except json.JSONDecodeError as e:
+        print(f"An error occurred while loading the JSON file: {json_path}")
+        raise e  # Re-raise the exception to stop the program
+
+    # Proceed with save_jcd outside the try-except block for JSON loading.
     save_jcd(this_dict, jcd_path)
     print(f"Converted {json_path} to {jcd_path}")
 

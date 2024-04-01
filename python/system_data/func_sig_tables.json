@@ -50,7 +50,8 @@
         ],
         "outputs": [
           "Text"
-        ]
+        ],
+        "branching_function": true
       },
       {
         "inputs": [
@@ -59,7 +60,8 @@
         ],
         "outputs": [
           "Number"
-        ]
+        ],
+        "branching_function": true
       }
     ],
     "MATCH": [
@@ -132,7 +134,8 @@
         ],
         "outputs": [
           "Number"
-        ]
+        ],
+        "branching_function": true
       }
     ]
   }

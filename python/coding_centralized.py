@@ -25,19 +25,24 @@ def convert_to_python_type(value, data_type):
     return value
 
 
-def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_key_fn):
+def code_persistd_node(
+    G, node_id, conversion_tracker, conversion_rules, replace_key_fn
+):
     if G.nodes[node_id]["node_type"] == "input":
         if "output_name" in G.nodes[node_id]:
             if G.nodes[node_id]["output_name"] == G.nodes[node_id]["input_name"]:
                 return ""  # maybe we should have a required template for this situation and langauges where they need nothing, define the required tmeplate as an empty string.will implement if needed.
             else:
-                template = conversion_rules["templates"]["cache_default"][
-                    "force-cache-template"
+                template = conversion_rules["templates"]["persist_default"][
+                    "force-persist-template"
                 ]  # maybe this should be an optional template and if we don't have it then use the default. will implement if needed.
                 code = replace_placeholders(template, replace_key_fn)
                 return code
         else:
-            return ""  # thinking is that there is nothing additional to do here. no special need to 'cache' them. AT least that is true for the SQL. May have need for other languages.
+            return ""  # thinking is that there is nothing additional to do here. no special need to 'persist' them. AT least that is true for the SQL. May have need for other languages.
+
+    if "function_name" not in G.nodes[node_id]:
+        print("check here")
 
     function_name = G.nodes[node_id]["function_name"]
 
@@ -62,20 +67,20 @@ def code_cached_node(G, node_id, conversion_tracker, conversion_rules, replace_k
         function_name,
         function_signature["inputs"],
         function_signature["outputs"],
-        "code_function_cached",
+        "code_function_persistd",
     )
 
     # set the default template
-    template_key = "cache_default"
+    template_key = "persist_default"
 
-    # but if there is a different cache template, use that instead.
+    # but if there is a different persist template, use that instead.
     if "template" in function_signature:
         if conversion_rules["templates"][function_signature["template"]].get(
-            "force-cache", False
+            "force-persist", False
         ):
             template_key = function_signature["template"]
 
-    template = conversion_rules["templates"][template_key]["force-cache-template"]
+    template = conversion_rules["templates"][template_key]["force-persist-template"]
 
     code = replace_placeholders(template, replace_key_fn)
     ct.update_conversion_tracker_template_used(conversion_tracker, template_key)
@@ -86,7 +91,7 @@ def code_std_function_node(
     G,
     node_id,
     conversion_tracker,
-    supported_functions,
+    converion_rules,
     code_node_fn,
     replace_key_fn,
     special_process_fn,
@@ -95,7 +100,7 @@ def code_std_function_node(
         conversion_tracker
     ), "Conversion tracker is not valid."
 
-    signature = cr.match_first_signature__node(G, node_id, supported_functions)
+    signature = cr.match_first_signature__node(G, node_id, converion_rules)
     if not signature:
         function_name = G.nodes[node_id]["function_name"]
         input_data_types = cr.get_parent_data_types(G, node_id)
@@ -110,7 +115,7 @@ def code_std_function_node(
         G,
         node_id,
         signature,
-        supported_functions,
+        converion_rules,
         conversion_tracker,
         code_node_fn,
         replace_key_fn,
@@ -122,7 +127,7 @@ def code_supported_function(
     G,
     node_id,
     function_signature,
-    supported_functions,
+    converion_rules,
     conversion_tracker,
     code_node_fn,
     replace_key_fn,
@@ -146,11 +151,11 @@ def code_supported_function(
             source = function_signature["source"]
             source = " and ".join(source) if isinstance(source, list) else source
             if source == "manual":
-                msg = f'The signature for {function_name} with inputs {", ".join(function_signature["inputs"])} was added manually. Right now there is no mechanism to code it. Add {function_name} with inputs {", ".join(function_signature["inputs"])} to the supported_functions json. Node id: {node_id}'
+                msg = f'The signature for {function_name} with inputs {", ".join(function_signature["inputs"])} was added manually. Right now there is no mechanism to code it. Add {function_name} with inputs {", ".join(function_signature["inputs"])} to the converion_rules json. Node id: {node_id}'
             else:
-                msg = f'Signature from { source } exists for {function_name} but the signature has no mechanism to code it. Add {function_name} with inputs {", ".join(function_signature["inputs"])} to the supported_functions json. Node id: {node_id}'
+                msg = f'Signature from { source } exists for {function_name} but the signature has no mechanism to code it. Add {function_name} with inputs {", ".join(function_signature["inputs"])} to the converion_rules json. Node id: {node_id}'
         else:
-            msg = f'Signature exists for {function_name} but the signature has no mechanism to code it. Add {function_name} with inputs {", ".join(function_signature["inputs"])} to the supported_functions json. Node id: {node_id}'
+            msg = f'Signature exists for {function_name} but the signature has no mechanism to code it. Add {function_name} with inputs {", ".join(function_signature["inputs"])} to the converion_rules json. Node id: {node_id}'
 
         errs.save_dag_and_raise_message(G, msg)
 
@@ -165,7 +170,7 @@ def code_supported_function(
 
     if "template" in function_signature:
         template_name = function_signature["template"]
-        template = supported_functions["templates"][template_name]["no-cache-template"]
+        template = converion_rules["templates"][template_name]["no-persist-template"]
         code = replace_placeholders(template, replace_key_fn)
         ct.update_conversion_tracker_template_used(conversion_tracker, template_name)
     else:

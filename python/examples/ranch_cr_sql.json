@@ -145,12 +145,12 @@
   },
   "templates": {
     "LOOKUP_EXACT_MATCH_1": {
-      "force-cache": true,
-      "force-cache-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2> \n    ),\n    <input4>\n  )\n);\n  "
+      "force-persist": true,
+      "force-persist-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2> \n    ),\n    <input4>\n  )\n);\n  "
     },
-    "cache_default": {
-      "force-cache": true,
-      "force-cache-template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
+    "persist_default": {
+      "force-persist": true,
+      "force-persist-template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
     }
   },
   "commutative_functions_to_convert_to_binomial": {

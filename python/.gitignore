@@ -1,3 +1,5 @@
 sc_venv/
 lib/
 __pycache__
+.metals/
+todo.txt

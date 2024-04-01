@@ -198,7 +198,7 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
     if node_type == "constant":
         return _constant_value_in_code(attribs["value"], data_type)
     if node_type == "function":
-        if attribs["cache"] and not is_primary:
+        if attribs.get("persist", False) and not is_primary:
             return _var_code(G, node_id)
         if G.nodes[node_id]["function_name"].upper() == "ARRAY":
             return _code_array_node(G, node_id, conversion_rules, conversion_tracker)
@@ -297,22 +297,23 @@ def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str
     ), "Conversion tracker is not valid."
 
     output_node_ids = G.graph["output_node_ids"]  # already sorted. see is_valid_graph
-    all_outputs_as_variables = True if len(output_node_ids) > 1 else False
 
     dags.mark_nodes_for_caching(
-        G,
-        usage_count_threshold=3,
-        complexity_threshold=200,
-        branching_threshold=10,
-        all_array_nodes=True,
-        all_outputs=all_outputs_as_variables,
+        G=G,
+        all_outputs=False,
+        all_array_nodes=False,
+        branching_threshold=0,
+        usage_count_threshold=0,
+        step_count_trade_off=5,
+        total_steps_threshold=25,
         conversion_rules=conversion_rules,
+        prohibited_types=[],
     )
 
     sorted_nodes = list(nx.topological_sort(G))
     code = ""
     for node_id in sorted_nodes:
-        if G.nodes[node_id]["cache"]:
+        if G.nodes[node_id].get("persist", False):
             code += f"{_var_code(G, node_id)} = {_code_node(G, node_id, True, conversion_rules, conversion_tracker)}\n"
 
     if len(output_node_ids) > 1:
@@ -325,7 +326,12 @@ def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str
         )
         code += (
             "return ("
-            + ", ".join([_var_code(G, node_id) for node_id in output_node_ids])
+            + ", ".join(
+                [
+                    _code_node(G, node_id, False, conversion_rules, conversion_tracker)
+                    for node_id in output_node_ids
+                ]
+            )
             + ")\n"
         )
     else:
@@ -364,7 +370,7 @@ def transpile_dags_to_py_and_test(
     ), "Conversion rules is not valid."
     assert validation.is_valid_signature_definition_dict(library_sigs, False, True)
 
-    #initialize tables in case they are needed
+    # initialize tables in case they are needed
     tables_dict = {}
 
     dags.convert_graph(

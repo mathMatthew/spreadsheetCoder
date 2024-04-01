@@ -15,12 +15,12 @@
   },
   "templates": {
     "add_days_to_date": {
-      "force-cache": false,
-      "no-cache-template": "date(<input1>, CAST(<input2> AS INTEGER) || ' days')\n"
+      "force-persist": false,
+      "no-persist-template": "date(<input1>, CAST(<input2> AS INTEGER) || ' days')\n"
     },
-    "cache_default": {
-      "force-cache": true,
-      "force-cache-template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
+    "persist_default": {
+      "force-persist": true,
+      "force-persist-template": "UPDATE <primary_table>\nSET <var> = <value>;\n\n"
     }
   },
   "commutative_functions_to_convert_to_binomial": {},

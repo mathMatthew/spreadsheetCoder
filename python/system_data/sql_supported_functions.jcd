@@ -42,6 +42,7 @@
         "outputs": [
           "Number"
         ],
+        "branching_function": true,
         "template": "CASE_3_INPUTS"
       }
     ],
@@ -421,8 +422,8 @@ def power(x, y):
   },
   "templates": {
     "LOOKUP_EXACT_MATCH_1": {
-      "force-cache": true,
-      "force-cache-template": "<![CDATA[
+      "force-persist": true,
+      "force-persist-template": "<![CDATA[
 
 UPDATE <primary_table>
 SET <var> = (
@@ -439,8 +440,8 @@ SET <var> = (
 ]]>"
     },
     "LOOKUP_INEXACT_MATCH_1": {
-      "force-cache": true,
-      "force-cache-template": "<![CDATA[
+      "force-persist": true,
+      "force-persist-template": "<![CDATA[
 
 UPDATE <primary_table>
 SET <var> = (
@@ -459,29 +460,29 @@ SET <var> = (
 ]]>"
     },
     "CASE_3_INPUTS": {
-      "force-cache": false,
-      "no-cache-template": "<![CDATA[
+      "force-persist": false,
+      "no-persist-template": "<![CDATA[
 CASE WHEN <input1> THEN <input2> ELSE <input3>
 END
 ]]>"
     },
     "add_days_to_date": {
-      "force-cache": false,
-      "no-cache-template": "<![CDATA[
+      "force-persist": false,
+      "no-persist-template": "<![CDATA[
 date(<input1>, CAST(<input2> AS INTEGER) || ' days')
 
 ]]>"
     },
     "EOMONTH": {
-      "force-cache": false,
-      "no-cache-template": "<![CDATA[
+      "force-persist": false,
+      "no-persist-template": "<![CDATA[
 date(<input1>, CAST(<input2> AS INTEGER) || ' months', '+1 month', '-1 day')
 
 ]]>"
     },
-    "cache_default": {
-      "force-cache": true,
-      "force-cache-template": "<![CDATA[
+    "persist_default": {
+      "force-persist": true,
+      "force-persist-template": "<![CDATA[
 UPDATE <primary_table>
 SET <var> = <value>;
 

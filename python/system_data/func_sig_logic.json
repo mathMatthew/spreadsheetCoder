@@ -140,7 +140,8 @@
         ],
         "outputs": [
           "Number"
-        ]
+        ],
+        "branching_function": true
       },
       {
         "inputs": [
@@ -150,7 +151,8 @@
         ],
         "outputs": [
           "Text"
-        ]
+        ],
+        "branching_function": true
       }
     ],
     "NOT": [

@@ -1,5 +1,5 @@
 """
-This module takes an sc graph and transpiles it to sql code
+This module takes an sc graph and transpiles it to py spark code
 """
 
 ##################################
@@ -12,7 +12,7 @@ import pandas as pd
 from datetime import datetime
 from typing import Any, Dict, Tuple, List, Literal
 from functools import partial
-
+from pyspark.sql import SparkSession
 
 # internal imports
 import dag_tables as g_tables
@@ -20,7 +20,6 @@ import setup, validation, errs, dags
 import coding_centralized as cc
 import conv_tracker as ct
 import conversion_rules as cr
-
 
 language_conversion_rules = "./system_data/sql_supported_functions.json"
 # xxx remove global variable and depend on conversion tracker instead.
@@ -321,7 +320,7 @@ def _create_primary_table_sql(G) -> str:
     for node_id in G.nodes:
         if "output_name" in G.nodes[node_id]:
             continue
-        if G.nodes[node_id].get("persist", False):
+        if G.nodes[node_id]["persist"]:
             tpl = (
                 _var_code(G, node_id, False),
                 convert_to_sql_data_type(G.nodes[node_id]["data_type"]),
@@ -496,7 +495,7 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
     if node_type == "constant":
         return _constant_value_in_code(attribs["value"], data_type)
     if node_type == "function":
-        if attribs.get("persist", False) and not is_primary:
+        if attribs["persist"] and not is_primary:
             return _var_code(G, node_id, True)
         if G.nodes[node_id]["function_name"].upper() == "ARRAY":
             errs.save_dag_and_raise__node(G, node_id, "Add support for ARRAY")
@@ -547,21 +546,19 @@ def convert_to_sql(
     """
 
     dags.mark_nodes_for_caching(
-        G=G,
-        all_outputs=True,
+        G,
+        usage_count_threshold=3,
+        complexity_threshold=200,
+        branching_threshold=10,
         all_array_nodes=True,
-        branching_threshold=0,
-        total_steps_threshold=0,
-        usage_count_threshold=0,
-        step_count_trade_off=15,
+        all_outputs=True,  # SQL created below doesn't have a separate step for writing the output variables. This is instead achieved by marking them for caching.
         conversion_rules=conversion_rules,
-        prohibited_types=[],
     )
 
     sorted_nodes = list(nx.topological_sort(G))
     code = ""
     for node_id in sorted_nodes:
-        if G.nodes[node_id].get("persist", False):
+        if G.nodes[node_id]["persist"]:
             partial_repl_placeholder_fn = partial(
                 get_placeholder_val,
                 G=G,
@@ -595,6 +592,7 @@ def convert_to_sql(
 def transpile_dags_to_sql_and_test(
     base_dag_G: nx.MultiDiGraph,
     base_dag_tree,
+    tables_dict,
     conversion_rules: Dict[str, Any],
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
@@ -604,18 +602,12 @@ def transpile_dags_to_sql_and_test(
     Transpiles DAG to SQL code.
     """
 
-    # initialize tables_dict
-    tables_dict = {}
-
     dags.convert_graph(
         dag_to_convert=base_dag_G,
         conversion_rules=conversion_rules,
         signature_definition_library=library_sigs,
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
-        tables_dict=tables_dict,
-        separate_tables=True,
-        renum_nodes=False,
     )
 
     cr.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
@@ -669,9 +661,14 @@ def transpile(
     data_dict = get_standard_settings(xml_file_name, working_directory, mode)
     data_dict.update(override_defaults)
 
+    dag_to_send, tables_dict = g_tables.separate_named_tables(
+        data_dict["base_dag_graph"]
+    )
+
     sql_code, conversion_rules = transpile_dags_to_sql_and_test(
-        base_dag_G=data_dict["base_dag_graph"],
+        base_dag_G=dag_to_send,
         base_dag_tree=data_dict["base_dag_xml_tree"],
+        tables_dict=tables_dict,
         conversion_rules=data_dict["conversion_rules"],
         library_sigs=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
@@ -747,42 +744,11 @@ def main() -> None:
     working_directory = "../../../OneDrive/Documents/myDocs/sc_v2_data"
     output_dir = "../../../sc_output_files"
 
-    # xml_file = "test_power.XML"
-    # xml_file = "CmplxPeriod.XML"
-    # xml_file = "test_sum.XML"
-    # xml_file = "myPandL.XML"
-    xml_file = "ranch.XML"
-    mode = "build"  #'options:  'build' 'complete' 'supplement'
-
-    conversion_tracker = ct.initialize_conversion_tracker()
-    overrides = {}
-    code, conversion_rules = transpile(
-        xml_file, working_directory, mode, conversion_tracker, overrides
+    spark = (
+        SparkSession.builder.appName("PySpark SQL Test")
+        .config("spark.master", "local")
+        .getOrCreate()
     )
-
-    if code:
-        base_file_name = os.path.splitext(xml_file)[0]
-        output_file = os.path.join(working_directory, base_file_name + ".SQL")
-        conversion_rules_file = os.path.join(
-            output_dir, base_file_name + "_cr_sql.json"
-        )
-        conv_tracker_file = os.path.join(
-            working_directory, base_file_name + "_ct_sql.json"
-        )
-
-        # write code to file
-        with open(output_file, "w") as f:
-            f.write(code)
-            print(f"Code written to {output_file}")
-
-        # write function signatures
-        cr.serialize_and_save_rules(conversion_rules, conversion_rules_file)
-        print(f"Conversion rules file written to {conversion_rules_file}")
-
-        # write conversion tracker
-        with open(conv_tracker_file, "w") as f:
-            json.dump(conversion_tracker, f, indent=2)
-            print(f"Conversion tracker written to {conv_tracker_file}")
 
 
 if __name__ == "__main__":
