@@ -28,8 +28,6 @@ array1_functions = [
     "NPV",
 ]
 
-logging.basicConfig(filename="./data/caching_logs.log", level=logging.INFO)
-
 
 def subset_graph(original_graph, outputs_to_keep: List[int]) -> nx.MultiDiGraph:
     new_graph = nx.MultiDiGraph()
@@ -577,13 +575,13 @@ def persist_sub_graph_where_optimal(
     }
 
     if not step_count_saves:
-        return 0  # No permissible nodes to consider for caching
+        return 0  # No permissible nodes to consider for persisting
 
     # Cache the node with the minimum savings > step_count_trade_off
     # the reason I want to persist the node with the Least eligible savings (vs the max) is due to the
     # iterative nature of this. Caching the one with the max (as I had been doing) has the
     # potential to in a later round become trivial as it could be that in later round a prior
-    # node gets persistd and this first one ends up doing very little. By caching instead one
+    # node gets persisted and this first one ends up doing very little. By persisting instead one
     # one just over the minimum savings, we avoid that problem.
 
     # Filter nodes that have savings greater than step_count_trade_off
@@ -653,7 +651,7 @@ def reduce_sub_graph_to_threshold(
         )
         return
 
-    # 4. Find the node closest to the target step count for caching among permissible nodes
+    # 4. Find the node closest to the target step count for persisting among permissible nodes
     node_to_persist = min(
         permissible_nodes,
         key=lambda node: (
@@ -686,7 +684,7 @@ def calculate_branch_depth_and_persist(
     G, max_branching_depth, conversion_rules, prohibited_types
 ):
     """
-    Modifies the graph G by caching nodes based on branching depth, considering prohibited data types.
+    Modifies the graph G by persisting nodes based on branching depth, considering prohibited data types.
 
     NOTE:
     Requires that the signatures in conversion_rules uses the key "branching_function"
@@ -694,12 +692,12 @@ def calculate_branch_depth_and_persist(
 
     Parameters:
     - G (nx.MultiDiGraph): The directed graph.
-    - max_branching_depth (int): The maximum allowed branching depth before caching is forced.
+    - max_branching_depth (int): The maximum allowed branching depth before persisting is forced.
     - conversion_rules (dict): Conversion rules, including signatures for identifying branching functions.
-    - prohibited_types (list): Data types that are prohibited from being persistd.
+    - prohibited_types (list): Data types that are prohibited from being persisted.
 
     Raises:
-    - ValueError: If a node exceeds the max_branching_depth and has a data type that is prohibited from caching.
+    - ValueError: If a node exceeds the max_branching_depth and has a data type that is prohibited from persisting.
     """
     # Initialize branch depth dictionary
     branch_depths = {node_id: 0 for node_id in G.nodes()}
@@ -713,7 +711,7 @@ def calculate_branch_depth_and_persist(
             branch_depths[node_id] = 1
             continue
 
-        # Same goes for nodes that are persistd
+        # Same goes for nodes that are persisted
         if node_attribs["persist"]:
             branch_depths[node_id] = 1
             continue
@@ -745,7 +743,7 @@ def calculate_branch_depth_and_persist(
                 )
             # Otherwise, persist the node
             G.nodes[node_id]["persist"] = True
-            branch_depths[node_id] = 1  # Reset depth after caching
+            branch_depths[node_id] = 1  # Reset depth after persisting
         else:
             branch_depths[node_id] = current_depth
 
@@ -760,50 +758,52 @@ def persist_node_or_predecessors(G, node_id, prohibited_types):
     return
 
 
-def mark_nodes_for_caching_by_usage_count(G, usage_count_threshold, prohibited_types):
+def mark_nodes_for_persisting_by_usage_count(
+    G, usage_count_threshold, prohibited_types
+):
     for node_id in G.nodes:
         if G.nodes[node_id].get("function_name"):
             if len(list(G.successors(node_id))) > usage_count_threshold:
                 persist_node_or_predecessors(G, node_id, prohibited_types)
 
 
-def mark_nodes_for_caching(
+def mark_nodes_for_persisting(
     G,
-    all_outputs,
-    all_array_nodes,
-    branching_threshold,
-    total_steps_threshold,
-    usage_count_threshold,
-    step_count_trade_off,
     conversion_rules,
-    prohibited_types,
+    prohibited_types = [],
+    all_outputs = False,
+    all_array_nodes = False,
+    step_count_trade_off = 150,
+    branching_threshold = 0,
+    total_steps_threshold = 1000,
+    usage_count_threshold= 0,#deprecated, use step_count_trade_off instead
 ):
     """
-    Marks nodes for caching ensuring not to persist nodes with prohibited data types.
+    Marks nodes for persisting ensuring not to persist nodes with prohibited data types.
 
     Parameters:
     - G (nx.MultiDiGraph): The directed graph.
-    - all_outputs (bool): Whether to mark all outputs for caching.
-    - all_array_nodes (bool): Whether to mark all array nodes for caching.
+    - all_outputs (bool): Whether to mark all outputs for persisting.
+    - all_array_nodes (bool): Whether to mark all array nodes for persisting.
     - branching_threshold (int): Cache node if branching depth is greater than branching_threshold. Set to 0 to not use.
-    - usage_count_threshold (int): Usage count threshold for caching. Set to 0 to not use.
-    - step_count_trade_off (int): Step count savings threshold for caching. Set to 0 to not use. This one is preferred for optimization.
-    - total_steps_threshold (int): Considering non-persistd nodes as step, persist node to prevent step-count > threshold for any persistd nodes. Set to 0 to not use.
+    - usage_count_threshold (int): Deprecated, use step_count_trade_off instead. 
+    - step_count_trade_off (int): Step count savings threshold for persisting. Set to 0 to not use. This one is preferred for optimization.
+    - total_steps_threshold (int): Considering non-persisted nodes as step, persist node to prevent step-count > threshold for any persisted nodes. Set to 0 to not use.
     - conversion_rules (dict): Conversion rules dictionary.
-    - prohibited_types (list): Data types prohibited from being persistd.
+    - prohibited_types (list): Data types prohibited from being persisted.
     """
     assert validation.is_valid_graph(
         G, True
-    ), "Graph is not valid at start of mark nodes for caching"
+    ), "Graph is not valid at start of mark nodes for persisting"
 
     # Helper function to check for prohibited types and raise an error
     def check_and_raise_for_prohibited_types(node_id, rule):
         if G.nodes[node_id]["data_type"] in prohibited_types:
             raise ValueError(
-                f"Node {node_id} required to be persistd by rule {rule}, but has a prohibited data type for caching."
+                f"Node {node_id} required to be persisted by rule {rule}, but has a prohibited data type for persisting."
             )
 
-    # 1. Mark all output nodes for caching if flagged
+    # 1. Mark all output nodes for persisting if flagged
     if all_outputs:
         for node_id in G.graph["output_node_ids"]:
             check_and_raise_for_prohibited_types(
@@ -813,9 +813,9 @@ def mark_nodes_for_caching(
                 G.nodes[node_id]["persist"] = True
         assert validation.is_valid_graph(
             G, True
-        ), "Graph is not valid. Mark nodes for caching. After 1"
+        ), "Graph is not valid. Mark nodes for persisting. After 1"
 
-    # 2. Mark all array nodes for caching if flagged
+    # 2. Mark all array nodes for persisting if flagged
     if all_array_nodes:
         for node_id in G.nodes:
             if G.nodes[node_id].get("function_name", "").upper() == "ARRAY":
@@ -825,9 +825,9 @@ def mark_nodes_for_caching(
                 G.nodes[node_id]["persist"] = True
         assert validation.is_valid_graph(
             G, True
-        ), "Graph is not valid. Mark nodes for caching. After 2"
+        ), "Graph is not valid. Mark nodes for persisting. After 2"
 
-    # 3. Function-specific caching requirements
+    # 3. Function-specific persisting requirements
     for node_id in G.nodes:
         node_type = G.nodes[node_id].get("node_type")
         if node_type == "function":
@@ -848,40 +848,40 @@ def mark_nodes_for_caching(
                     G.nodes[node_id]["persist"] = True
     assert validation.is_valid_graph(
         G, True
-    ), "Graph is not valid. Mark nodes for caching. After 3"
+    ), "Graph is not valid. Mark nodes for persisting. After 3"
 
-    # 4. Branching depth threshold caching
+    # 4. Step count trade-off persisting
+    if step_count_trade_off > 0:
+        persist_where_optimal(G, step_count_trade_off, prohibited_types)
+        assert validation.is_valid_graph(
+            G, True
+        ), "Graph is not valid. Mark nodes for persisting. After 6"
+
+    # 5. Usage count threshold persisting -- deprecated
+    if usage_count_threshold > 0:
+        mark_nodes_for_persisting_by_usage_count(
+            G, usage_count_threshold, prohibited_types
+        )
+        assert validation.is_valid_graph(
+            G, True
+        ), "Graph is not valid. Mark nodes for persisting. After 5"
+
+    # 6. Branching depth threshold persisting
     if branching_threshold > 0:
         calculate_branch_depth_and_persist(
             G, branching_threshold, conversion_rules, prohibited_types
         )
         assert validation.is_valid_graph(
             G, True
-        ), "Graph is not valid. Mark nodes for caching. After 4"
+        ), "Graph is not valid. Mark nodes for persisting. After 4"
 
-    # 5. Usage count threshold caching
-    if usage_count_threshold > 0:
-        mark_nodes_for_caching_by_usage_count(
-            G, usage_count_threshold, prohibited_types
-        )
-        assert validation.is_valid_graph(
-            G, True
-        ), "Graph is not valid. Mark nodes for caching. After 5"
-
-    # 6. Step count trade-off caching
-    if step_count_trade_off > 0:
-        persist_where_optimal(G, step_count_trade_off, prohibited_types)
-        assert validation.is_valid_graph(
-            G, True
-        ), "Graph is not valid. Mark nodes for caching. After 6"
-
-    # 7. Total steps threshold caching
+    # 7. Total steps threshold persisting
     if total_steps_threshold > 0:
         reduce_all_sub_graphs_to_threshold(G, total_steps_threshold, prohibited_types)
 
     assert validation.is_valid_graph(
         G, True
-    ), "Graph is not valid after mark nodes for caching."
+    ), "Graph is not valid after mark nodes for persisting."
 
 
 def generate_transforms_categories(

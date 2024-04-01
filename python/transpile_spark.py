@@ -545,13 +545,12 @@ def convert_to_sql(
     and results will be tested outside of this function.
     """
 
-    dags.mark_nodes_for_caching(
-        G,
-        usage_count_threshold=3,
-        complexity_threshold=200,
+    dags.mark_nodes_for_persisting(
+        G=G,
+        step_count_trade_off=200,
         branching_threshold=10,
         all_array_nodes=True,
-        all_outputs=True,  # SQL created below doesn't have a separate step for writing the output variables. This is instead achieved by marking them for caching.
+        all_outputs=True,  # SQL created below doesn't have a separate step for writing the output variables. This is instead achieved by marking them for persisting.
         conversion_rules=conversion_rules,
     )
 
@@ -566,7 +565,7 @@ def convert_to_sql(
                 conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
             )
-            code += cc.code_persistd_node(
+            code += cc.code_persistent_node(
                 G,
                 node_id,
                 conversion_tracker,

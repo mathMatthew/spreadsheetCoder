@@ -15,7 +15,7 @@ _schema_cache = {}
 
 
 def load_schema(schema_path):
-    """Load and return an XML schema from a given path, with caching."""
+    """Load and return an XML schema from a given path, with persisting."""
     if schema_path not in _schema_cache:
         with open(schema_path, "rb") as schema_file:
             schema_root = etree.XML(schema_file.read())  # type: ignore
@@ -139,7 +139,9 @@ def _fix_named_nodes(root):
         elif name_level == "100":
             named_node.attrib["node_name_type"] = "alias"
         elif name_level == "15":
-            named_node.attrib["node_name_type"] = "array_formula_parent_address"  #15 is used for addresses when the node represents the parent in an array formula. for now, not bothering assigning it a name.
+            named_node.attrib["node_name_type"] = (
+                "array_formula_parent_address"  # 15 is used for addresses when the node represents the parent in an array formula. for now, not bothering assigning it a name.
+            )
         else:
             save_xml_and_raise(root, f"NameLevel is not 10 or 100: {name_level}")
         del named_node.attrib["NameLevel"]

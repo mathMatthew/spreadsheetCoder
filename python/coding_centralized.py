@@ -25,7 +25,7 @@ def convert_to_python_type(value, data_type):
     return value
 
 
-def code_persistd_node(
+def code_persistent_node(
     G, node_id, conversion_tracker, conversion_rules, replace_key_fn
 ):
     if G.nodes[node_id]["node_type"] == "input":
@@ -67,7 +67,7 @@ def code_persistd_node(
         function_name,
         function_signature["inputs"],
         function_signature["outputs"],
-        "code_function_persistd",
+        "code_persistent_node",
     )
 
     # set the default template

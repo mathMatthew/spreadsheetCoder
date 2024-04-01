@@ -298,15 +298,13 @@ def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str
 
     output_node_ids = G.graph["output_node_ids"]  # already sorted. see is_valid_graph
 
-    dags.mark_nodes_for_caching(
+    dags.mark_nodes_for_persisting(
         G=G,
+        conversion_rules=conversion_rules,
         all_outputs=False,
         all_array_nodes=False,
-        branching_threshold=0,
-        usage_count_threshold=0,
         step_count_trade_off=5,
         total_steps_threshold=25,
-        conversion_rules=conversion_rules,
         prohibited_types=[],
     )
 

@@ -546,13 +546,10 @@ def convert_to_sql(
     and results will be tested outside of this function.
     """
 
-    dags.mark_nodes_for_caching(
+    dags.mark_nodes_for_persisting(
         G=G,
         all_outputs=True,
         all_array_nodes=True,
-        branching_threshold=0,
-        total_steps_threshold=0,
-        usage_count_threshold=0,
         step_count_trade_off=15,
         conversion_rules=conversion_rules,
         prohibited_types=[],
@@ -569,7 +566,7 @@ def convert_to_sql(
                 conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
             )
-            code += cc.code_persistd_node(
+            code += cc.code_persistent_node(
                 G,
                 node_id,
                 conversion_tracker,
