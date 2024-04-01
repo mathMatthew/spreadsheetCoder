@@ -546,7 +546,7 @@ def convert_to_sql(
     and results will be tested outside of this function.
     """
 
-    dags.mark_nodes_for_persisting(
+    dags.mark_nodes_to_persist(
         G=G,
         all_outputs=True,
         all_array_nodes=True,

@@ -545,7 +545,7 @@ def convert_to_sql(
     and results will be tested outside of this function.
     """
 
-    dags.mark_nodes_for_persisting(
+    dags.mark_nodes_to_persist(
         G=G,
         step_count_trade_off=200,
         branching_threshold=10,

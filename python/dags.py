@@ -758,25 +758,23 @@ def persist_node_or_predecessors(G, node_id, prohibited_types):
     return
 
 
-def mark_nodes_for_persisting_by_usage_count(
-    G, usage_count_threshold, prohibited_types
-):
+def mark_nodes_to_persist_by_usage_count(G, usage_count_threshold, prohibited_types):
     for node_id in G.nodes:
         if G.nodes[node_id].get("function_name"):
             if len(list(G.successors(node_id))) > usage_count_threshold:
                 persist_node_or_predecessors(G, node_id, prohibited_types)
 
 
-def mark_nodes_for_persisting(
+def mark_nodes_to_persist(
     G,
     conversion_rules,
-    prohibited_types = [],
-    all_outputs = False,
-    all_array_nodes = False,
-    step_count_trade_off = 150,
-    branching_threshold = 0,
-    total_steps_threshold = 1000,
-    usage_count_threshold= 0,#deprecated, use step_count_trade_off instead
+    prohibited_types=[],
+    all_outputs=False,
+    all_array_nodes=False,
+    step_count_trade_off=150,
+    branching_threshold=0,
+    total_steps_threshold=1000,
+    usage_count_threshold=0,  # deprecated, use step_count_trade_off instead
 ):
     """
     Marks nodes for persisting ensuring not to persist nodes with prohibited data types.
@@ -786,7 +784,7 @@ def mark_nodes_for_persisting(
     - all_outputs (bool): Whether to mark all outputs for persisting.
     - all_array_nodes (bool): Whether to mark all array nodes for persisting.
     - branching_threshold (int): Cache node if branching depth is greater than branching_threshold. Set to 0 to not use.
-    - usage_count_threshold (int): Deprecated, use step_count_trade_off instead. 
+    - usage_count_threshold (int): Deprecated, use step_count_trade_off instead.
     - step_count_trade_off (int): Step count savings threshold for persisting. Set to 0 to not use. This one is preferred for optimization.
     - total_steps_threshold (int): Considering non-persisted nodes as step, persist node to prevent step-count > threshold for any persisted nodes. Set to 0 to not use.
     - conversion_rules (dict): Conversion rules dictionary.
@@ -859,9 +857,7 @@ def mark_nodes_for_persisting(
 
     # 5. Usage count threshold persisting -- deprecated
     if usage_count_threshold > 0:
-        mark_nodes_for_persisting_by_usage_count(
-            G, usage_count_threshold, prohibited_types
-        )
+        mark_nodes_to_persist_by_usage_count(G, usage_count_threshold, prohibited_types)
         assert validation.is_valid_graph(
             G, True
         ), "Graph is not valid. Mark nodes for persisting. After 5"

@@ -298,7 +298,7 @@ def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str
 
     output_node_ids = G.graph["output_node_ids"]  # already sorted. see is_valid_graph
 
-    dags.mark_nodes_for_persisting(
+    dags.mark_nodes_to_persist(
         G=G,
         conversion_rules=conversion_rules,
         all_outputs=False,
