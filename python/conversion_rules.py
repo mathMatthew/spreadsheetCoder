@@ -63,19 +63,21 @@ def get_parent_data_types(G, node_id):
     return parent_data_types
 
 
-def match_first_signature__node(G, node_id, supported_functions) -> Optional[Dict]:
+def match_first_signature__node(G, node_id, converion_rules) -> Optional[Dict]:
     """
     Finds the first matching signature for the given node from within the
-    supported functions dicationary.
+    conversion rules dicationary.
     Returns None if no matching signature is found.
     """
     function_name = G.nodes[node_id]["function_name"]
     parent_data_types = get_parent_data_types(G, node_id)
-    return match_first_signature(supported_functions, function_name, parent_data_types, "permissive")
+    return match_first_signature(
+        converion_rules, function_name, parent_data_types, "permissive"
+    )
 
 
-def match_first_signature(supported_functions, function_name, input_data_types, match_mode):
-    matching_signatures = supported_functions["signatures"].get(function_name)
+def match_first_signature(converion_rules, function_name, input_data_types, match_mode):
+    matching_signatures = converion_rules["signatures"].get(function_name)
     if not matching_signatures:
         return None
     for signature in matching_signatures:
