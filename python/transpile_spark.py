@@ -5,14 +5,27 @@ This module takes an sc graph and transpiles it to py spark code
 ##################################
 # Section 1: Imports, constants, global, setup
 ##################################
+import os, time
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import expr
+from pyspark.sql.types import (
+    StructType,
+    StructField,
+    StringType,
+    DoubleType,
+    BooleanType,
+    DateType, 
+    IntegerType,
+)
+from pyspark.sql import Row
 
-import json, os, re, sqlite3
+import re
 import networkx as nx
 import pandas as pd
 from datetime import datetime
 from typing import Any, Dict, Tuple, List, Literal
 from functools import partial
-from pyspark.sql import SparkSession
+from dotenv import load_dotenv
 
 # internal imports
 import dag_tables as g_tables
@@ -21,12 +34,18 @@ import coding_centralized as cc
 import conv_tracker as ct
 import conversion_rules as cr
 
-language_conversion_rules = "./system_data/sql_supported_functions.json"
+language_conversion_rules = "./system_data/spark_supported_functions.json"
 # xxx remove global variable and depend on conversion tracker instead.
 used_tables = set()
 NUMERIC_TOLERANCE = "0.01"
-sql_reserved_words_file = "./system_data/sql_reserved_words.txt"
+sql_reserved_words_file = "./system_data/spark_reserved_words.txt"
 
+load_dotenv()  # Takes .env variables and adds them to the environment
+
+# make sure to have an .env file with PYSPARK_PYTHON set to your python (likely virtual env for development)
+pyspark_python = os.environ.get("PYSPARK_PYTHON", None)
+if not pyspark_python:
+    raise EnvironmentError("The PYSPARK_PYTHON environment variable is not set.")
 
 with open(sql_reserved_words_file, "r") as file:
     sql_reserved_keywords = {line.strip() for line in file}
@@ -35,7 +54,7 @@ with open(sql_reserved_words_file, "r") as file:
 def get_standard_settings(base_dag_xml_file, working_directory, mode) -> Dict[str, Any]:
 
     standard_paths = setup.get_standard_paths(
-        base_dag_xml_file, working_directory, "_sql"
+        base_dag_xml_file, working_directory, "_spark"
     )
 
     standard_settings = setup.get_standard_settings(
@@ -57,7 +76,7 @@ def _safe_name(name):
     # Convert to upper case to check against reserved keywords
     upper_name = name.upper()
 
-    # Prepend 'col_' if the name starts with a digit or is a reserved keyword
+    # Prepend 'sc_' if the name starts with a digit or is a reserved keyword
     if upper_name in sql_reserved_keywords or name[0].isdigit():
         name = "sc_" + name
 
@@ -103,118 +122,54 @@ def _sql_column_name(unformatted_name):
     # today mainly a placeholder to add extra formatting on column names
     return _safe_name(unformatted_name)
 
+from datetime import datetime
 
 def _constant_value_in_code(value, value_type):
     if value_type == "Range":
-        raise ValueError(f"Add support for range type")
+        raise ValueError("Add support for range type")
     if value_type == "Any":
-        raise ValueError(f"Constant shouldn't have type any")
+        raise ValueError("Constant shouldn't have type any")
     if value_type == "Text":
+        # Assuming escape_string properly escapes strings for use in PySpark
         return escape_string(value)
     if value_type == "Number":
         try:
-            num_val = float(value)
+            # Directly return the float value
+            return float(value)
         except ValueError:
             raise ValueError(f"Invalid number format: {value}")
-
-        if num_val in [float("inf"), float("-inf"), float("nan")]:
-            raise ValueError(f"Unsupported special float value: {num_val}")
-
-        return str(num_val)
     if value_type == "Boolean":
-        # SQLite uses 1 and 0 for boolean
-        if value.lower() == "true":
-            return "1"
-        else:
-            return "0"
+        # Convert to Python boolean
+        return value.lower() == "true"
     if value_type == "Date":
-        date_obj = datetime.strptime(
-            value, "%m/%d/%Y"
-        )  # the format may depend on your excel settings. may need to modify this.
-        return f"'{date_obj.strftime('%Y-%m-%d')}'"
-
+        try:
+            # Convert to Python date object
+            date_obj = datetime.strptime(value, "%m/%d/%Y")
+            return date_obj.date()
+        except ValueError:
+            raise ValueError(f"Invalid date format for value '{value}'. Expected format MM/DD/YYYY.")
+    
     raise ValueError(f"Unsupported value type: {value_type}")
 
 
-def convert_to_sql_data_type(
-    data_type,
-) -> Literal["TEXT", "FLOAT", "BOOLEAN", "DATE"]:
+def convert_to_spark_data_type(data_type):
     if data_type == "Text":
-        return "TEXT"
+        return StringType()
     elif data_type == "Number":
-        return "FLOAT"
+        return DoubleType()
     elif data_type == "Boolean":
-        return "BOOLEAN"
+        return BooleanType()
     elif data_type == "Date":
-        return "TEXT"
+        return DateType()
     else:
         raise ValueError(f"Unsupported data type: {data_type}")
-
-
-def _create_reference_table_sql(table_name, table_definition):
-    metadata = table_definition["metadata"]
-    col_defs = convert_col_defs(metadata["col_types"])
-
-    create_table_sql = _create_table(table_name, col_defs)
-
-    sql_statements = [create_table_sql]
-
-    # Retrieve the column names and data
-    column_names = [col[0] for col in col_defs]
-    column_types = [col[1] for col in col_defs]
-    data = table_definition["data"]
-
-    # Ensure all columns have the same number of entries
-    if not all(len(data[col]) == len(data[column_names[0]]) for col in column_names):
-        raise ValueError("All columns must have the same number of entries")
-
-    for i in range(len(data[column_names[0]])):
-        record = [
-            _constant_value_in_code(data[col_name][i], metadata["col_types"][col_name])
-            for col_name in column_names
-        ]
-        insert_sql = _insert_statement(table_name, column_names, record)
-        sql_statements.append(insert_sql)
-
-    # Combine all SQL statements into a single string
-    combined_sql_code = "\n".join(sql_statements)
-
-    return combined_sql_code
-
-
-def _insert_statement(unformatted_table_name, unformatted_col_names, record) -> str:
-    table_name = _sql_table_name(unformatted_table_name)
-    col_names = [_sql_column_name(col_name) for col_name in unformatted_col_names]
-    values_str = ", ".join(record)
-    columns_str = ", ".join(col_names)
-    code = f"INSERT INTO {table_name} ({columns_str}) VALUES ({values_str});"
-    return code
-
-
-def _create_table(unformatted_table_name, col_defs) -> str:
-    table_name = _sql_table_name(unformatted_table_name)
-    col_names = [
-        f"{_safe_name(col_name)} {col_type} {'NULL' if is_nullable else 'NOT NULL'}"
-        for col_name, col_type, is_nullable in col_defs
-    ]
-    col_names_str: str = ", ".join(col_names)
-    code = f"CREATE TABLE {table_name} ({col_names_str});"
-    return code
-
-
-def convert_col_defs(col_types):
-    col_defs = [
-        (col_name, convert_to_sql_data_type(col_type), True)
-        for col_name, col_type in col_types.items()
-    ]
-    return col_defs
 
 
 # 2.2 Part 2: These functions take the graph as inputs and then typically use the functions above to generate sql code.
 #               The returned sql is used to build the script with the function logic in it.
 def _unformatted_primary_table_name(G):
-    return G.graph["name"]
-
+    return "primary_table"
+    #return G.graph["name"]
 
 def primary_table_name(G):
     return _sql_table_name(_unformatted_primary_table_name(G))
@@ -225,72 +180,10 @@ def _table_name_code(G, node_id):
 
 
 def _column_name_code(G, node_id):
-    return _sql_column_name(G.nodes[node_id]["table_column"])
-
-
-def _create_reference_tables(G, tables_dict):
-    statements = []
-    for table_name, table_definition in tables_dict.items():
-        statements.append(_create_reference_table_sql(table_name, table_definition))
-    code = "\n\n".join(statements)
-    return code
-
-
-def _make_header(G, tree, tables_dict) -> str:
-    statements = []
-    statements.append(_create_primary_table_sql(G))
-    statements.append(_insert_into_primary_table_sql(G, tree))
-    statements.append(_create_reference_tables(G, tables_dict))
-    header = "\n\n".join(statements)
-    return header
-
-
-def _insert_into_primary_table_sql(G, tree) -> str:
-    statements = []
-    input_names = [
-        G.nodes[node_id]["input_name"] for node_id in G.graph["input_node_ids"]
-    ]
-    output_names = [
-        f"{G.nodes[node_id]['output_name']}_predicted"
-        for node_id in G.graph["output_node_ids"]
-    ]
-    col_names = (
-        ["scenario_id"] + input_names + output_names
-    )  # Include 'scenario_id' in the column names
-
-    test_cases = tree.findall("TestCases/test_case")
-    if len(test_cases) < 10:
-        raise ValueError("Must have at least 10 test cases.")
-
-    scenario_id = 1  # Initialize scenario_id counter
-    for test_case in test_cases:
-        # Extract input values
-        input_values = []
-        for input_value in test_case.findall("input_value"):
-            input_value_converted = _constant_value_in_code(
-                input_value.attrib["Value"], input_value.attrib["data_type"]
-            )
-            input_values.append(input_value_converted)
-
-        # Extract expected (predicted) output values
-        expected_outputs = []
-        for output_value in test_case.findall("output_value"):
-            output_value_converted = _constant_value_in_code(
-                output_value.attrib["Value"], output_value.attrib["data_type"]
-            )
-            expected_outputs.append(output_value_converted)
-
-        # Combine scenario_id, input values, and expected output values for the insert statement
-        all_values = [str(scenario_id)] + input_values + expected_outputs
-
-        statements.append(
-            _insert_statement(_unformatted_primary_table_name(G), col_names, all_values)
-        )
-
-        scenario_id += 1  # Increment the scenario_id for the next record
-
-    code = "\n".join(statements)
-    return code
+    if "input_name" in G.nodes[node_id]:
+        return _sql_column_name(G.nodes[node_id]["input_name"])
+    else:
+        return _sql_column_name(G.nodes[node_id]["table_column"])
 
 
 def _get_output_columns(G):
@@ -304,57 +197,42 @@ def _get_output_columns(G):
     ]
 
 
-def _create_primary_table_sql(G) -> str:
-    # Column tuples: (name, type, is_nullable)
-    scenario_col = [("Scenario_ID", "INT", False)]
-    input_ids = G.graph["input_node_ids"]
-    input_columns = [
-        (
-            G.nodes[node_id]["input_name"],
-            convert_to_sql_data_type(G.nodes[node_id]["data_type"]),
-            False,
-        )
-        for node_id in input_ids
-    ]
-    var_columns = []
-    for node_id in G.nodes:
-        if "output_name" in G.nodes[node_id]:
-            continue
-        if G.nodes[node_id]["persist"]:
-            tpl = (
-                _var_code(G, node_id, False),
-                convert_to_sql_data_type(G.nodes[node_id]["data_type"]),
-                True,
-            )
-            var_columns.append(tpl)
+def _initialize_reference_table(spark, table_name, table_definition):
+    col_name_type_pairs = list(table_definition["metadata"]["col_types"].items())
 
-    output_ids = G.graph["output_node_ids"]
-    output_columns = [
-        (
-            G.nodes[node_id]["output_name"],
-            convert_to_sql_data_type(G.nodes[node_id]["data_type"]),
-            True,
-        )
-        for node_id in output_ids
+    # Define schema
+    fields = [
+        StructField(_safe_name(col_name), convert_to_spark_data_type(col_type), True)
+        for col_name, col_type in col_name_type_pairs
     ]
-    predicted_output_columns = [
-        (
-            f'{G.nodes[node_id]["output_name"]}_predicted',
-            convert_to_sql_data_type(G.nodes[node_id]["data_type"]),
-            True,
-        )
-        for node_id in output_ids
-    ]
-    all_columns = (
-        scenario_col
-        + input_columns
-        + var_columns
-        + output_columns
-        + predicted_output_columns
-    )
-    code = _create_table(_unformatted_primary_table_name(G), all_columns)
-    return code
+    schema = StructType(fields)
 
+    data = table_definition["data"]
+
+    num_rows = len(data[col_name_type_pairs[0][0]])
+
+    rows = [
+        tuple(
+            _constant_value_in_code(data[col_name][i], col_type)
+            for col_name, col_type in col_name_type_pairs
+        )
+        for i in range(num_rows)
+    ]
+
+    df = spark.createDataFrame(rows, schema)
+    df.createOrReplaceTempView(table_name)
+    
+
+
+def _initialize_reference_tables(spark, G, tree, tables_dict):
+    # xxx prior make_header
+    assert validation.is_valid_tables_dict(tables_dict), "Invalid tables dict"
+
+    for table_name, table_definition in tables_dict.items():
+        _initialize_reference_table(
+            spark, table_name, table_definition
+        )
+        
 
 # 2.3 similar to 2.2, but now we are generating functions we will use as part of testing/displaying the results.
 
@@ -449,6 +327,10 @@ def get_placeholder_val(
         return _code_node(G, node_id, True, conversion_rules, conversion_tracker)
     if placeholder_key == "primary_table":
         return primary_table_name(G)
+    if placeholder_key == "data_type":
+        #if we need the spark data type, we'll create a new placeholder_key
+        #this one is used of the native data type
+        return G.nodes[node_id]["data_type"]
     if placeholder_key.startswith("input"):
         without_input = placeholder_key[5:]
         parts = without_input.split("_", 1)
@@ -479,7 +361,7 @@ def _special_process_after_code_node(
     pass
 
 
-def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> str:
+def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker):
     """
     first entry point to generates code for the node.
     """
@@ -491,12 +373,12 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
     data_type = attribs["data_type"]
 
     if node_type == "input":
-        return f'{primary_table_name(G)}.{_safe_name(attribs["input_name"])}'
+        return _safe_name(attribs["input_name"])
     if node_type == "constant":
         return _constant_value_in_code(attribs["value"], data_type)
     if node_type == "function":
-        if attribs["persist"] and not is_primary:
-            return _var_code(G, node_id, True)
+        if attribs.get("persist", False) and not is_primary:
+            return _var_code(G, node_id, False)
         if G.nodes[node_id]["function_name"].upper() == "ARRAY":
             errs.save_dag_and_raise__node(G, node_id, "Add support for ARRAY")
         else:
@@ -524,8 +406,9 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
                 _special_process_after_code_node,
             )
     if node_type == "table_array":
-        _add_table_to_used_tables(G.nodes[node_id]["table_name"])
-        return f"df_{G.nodes[node_id]['table_name']}.{G.nodes[node_id]['table_column']}"
+        raise ValueError(
+            "Use transforms to avoid needing to code table arrays directly"
+        )
     else:
         raise ValueError(f"Unsupported node type: {node_type}")
 
@@ -535,29 +418,27 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
 ##################################
 
 
-def convert_to_sql(
+def build_spark_statements(
     G, base_dag_tree, tables_dict, conversion_rules, conversion_tracker
-) -> str:
+):
+    # was: convert_to_sql
     """
     Core logic.
-    Transforms a prepared graph into python.
-    Assumes graph has been appropriately prepared
-    and results will be tested outside of this function.
     """
 
     dags.mark_nodes_to_persist(
         G=G,
-        step_count_trade_off=200,
-        branching_threshold=10,
+        all_outputs=True,
         all_array_nodes=True,
-        all_outputs=True,  # SQL created below doesn't have a separate step for writing the output variables. This is instead achieved by marking them for persisting.
+        step_count_trade_off=15,
         conversion_rules=conversion_rules,
+        prohibited_types=[],
     )
 
+    spark_statements = []
     sorted_nodes = list(nx.topological_sort(G))
-    code = ""
     for node_id in sorted_nodes:
-        if G.nodes[node_id]["persist"]:
+        if G.nodes[node_id].get("persist", False):
             partial_repl_placeholder_fn = partial(
                 get_placeholder_val,
                 G=G,
@@ -565,41 +446,97 @@ def convert_to_sql(
                 conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
             )
-            code += cc.code_persistent_node(
-                G,
-                node_id,
-                conversion_tracker,
-                conversion_rules,
-                partial_repl_placeholder_fn,
+            spark_statements.append(
+                cc.code_persistent_node(
+                    G,
+                    node_id,
+                    conversion_tracker,
+                    conversion_rules,
+                    partial_repl_placeholder_fn,
+                )
             )
 
-    code = _make_header(G, base_dag_tree, tables_dict) + "\n\n" + code + "\n\n"
+    return spark_statements
 
-    return code
+def run_spark_statements(spark, df, spark_statements, primary_table_name):
+    df.printSchema()
+    for statement in spark_statements:
+        if statement["type"].upper() == "SQL":
+            df.createOrReplaceTempView(primary_table_name)
+            df = spark.sql(statement["statement"])
+        elif statement["type"].upper() == "WITH-COLUMN-EXPR":
+            df = df.withColumn(statement["new_column_name"], expr(statement["expr"]).cast(convert_to_spark_data_type(statement["data_type"])))
+        else:
+            raise ValueError(f"Unknown statement type: {statement['type']}")
+    
+    return df
+
+def test_spark_statements(spark, df, spark_statements, primary_table_name, accuracy_summary_query):
+    #accuracy summary sql is a sql statement that must return a single row.
+
+    df = run_spark_statements(spark, df, spark_statements, primary_table_name)
+    df.createOrReplaceTempView(primary_table_name)
+
+    accuracy_summary_df = spark.sql(accuracy_summary_query)
+    return accuracy_summary_df.first()
 
 
-# def execute_closed_dag(
-#     G: nx.MultiDiGraph,
-#     tables_dict,
-#     conversion_rules: Dict[str, List[Dict]],
-#     ) -> str:
-#     """
-#     a 'closed' dag is one with no inputs. only constants.
-#     """
+def _initialize_primary_table_for_test(spark, G, tree):
+    # Prepare column metadata
+    input_columns = [
+        (G.nodes[node_id]["input_name"], G.nodes[node_id]["data_type"])
+        for node_id in G.graph["input_node_ids"]
+    ]
+    predicted_output_columns = [
+        (f'{G.nodes[node_id]["output_name"]}_predicted', G.nodes[node_id]["data_type"])
+        for node_id in G.graph["output_node_ids"]
+    ]
+
+    # Build the schema for table_definition
+    col_types = {name: dtype for name, dtype in input_columns + predicted_output_columns}
+
+    # Initialize data dictionary to hold columns of data
+    data = {col: [] for col, _ in input_columns + predicted_output_columns}
+
+    # Populate data from test cases
+    test_cases = tree.findall("TestCases/test_case")
+    if len(test_cases) < 10:
+        raise ValueError("Must have at least 10 test cases.")
+
+    for test_case in test_cases:
+        for input_value, (name, _) in zip(test_case.findall("input_value"), input_columns):
+            data[name].append(input_value.attrib["Value"])
+
+        for output_value, (name, _) in zip(test_case.findall("output_value"), predicted_output_columns):
+            data[name].append(output_value.attrib["Value"])
+
+    # Create table_definition
+    table_definition = {
+        "metadata": {"col_types": col_types},
+        "data": data
+    }
+
+    # Use the existing function to initialize the DataFrame
+    _initialize_reference_table(spark, "primary_table", table_definition)
+    return spark.table("primary_table")
 
 
-def transpile_dags_to_sql_and_test(
+def transpile_dags_to_spark_and_test(
+    spark,
     base_dag_G: nx.MultiDiGraph,
     base_dag_tree,
-    tables_dict,
     conversion_rules: Dict[str, Any],
     library_sigs: Dict[str, List[Dict]],
     auto_add_signatures: bool,
     conversion_tracker: Dict[str, Any],
-) -> Tuple[str, Dict]:
+):
     """
-    Transpiles DAG to SQL code.
+    Transpiles DAG to spark code.
+    validates code
     """
+
+    # initialize tables_dict
+    tables_dict = {}
 
     dags.convert_graph(
         dag_to_convert=base_dag_G,
@@ -607,11 +544,14 @@ def transpile_dags_to_sql_and_test(
         signature_definition_library=library_sigs,
         auto_add_signatures=auto_add_signatures,
         conversion_tracker=conversion_tracker,
+        tables_dict=tables_dict,
+        separate_tables=True,
+        renum_nodes=False,
     )
 
     cr.if_missing_save_sigs_and_err(conversion_rules, base_dag_G)
 
-    code = convert_to_sql(
+    spark_statements = build_spark_statements(
         base_dag_G, base_dag_tree, tables_dict, conversion_rules, conversion_tracker
     )
 
@@ -619,67 +559,46 @@ def transpile_dags_to_sql_and_test(
         conversion_rules, conversion_tracker
     )
 
-    conn = sqlite3.connect(":memory:")
+    if len(conversion_rules["functions"]) > 0:
+        raise ValueError("Add support for custom functions.")
 
-    conv_function: Dict[str, Any] = conversion_rules["functions"]
-    for func_name, details in conv_function.items():
-        num_params, code_str = details["num_params"], details["text"]
-        exec(code_str, globals())  # Define function in global scope
-        conn.create_function(
-            func_name, num_params, globals()[func_name]
-        )  # Register with SQLite
-
-    test_results = test_script(code, generate_accuracy_summary_query(base_dag_G), conn)
+    # test the generated spark statements on the example test cases
+    _initialize_reference_tables(spark, base_dag_G, base_dag_tree, tables_dict)
+    df = _initialize_primary_table_for_test(spark, base_dag_G, base_dag_tree)
+    
+    test_results = test_spark_statements(spark, df, spark_statements, primary_table_name(base_dag_G), generate_accuracy_summary_query(base_dag_G))
 
     if test_results["total"] == test_results["all_correct"]:
         print(f"All {test_results['total']} tests passed!")
     else:
         msg = f"{test_results['total'] - test_results['all_correct']} out of {test_results['total']} tests failed."
-        if len(test_results) > 3:
-            for label, value in test_results.items():
-                if label != "total" and label != "all_correct":
-                    print(f"{label}: {value}")
-        df = pd.read_sql_query(primary_table_sql(base_dag_G), conn)
-        conn.close()
-
-        errs.save_code_and_results_and_raise_msg(code, df, msg, "sql")
+        raise ValueError(msg)
         return "", conversion_rules
 
-    conn.close()
-    code += testing_footer(base_dag_G)
-
-    return code, conversion_rules
+    return spark_statements, conversion_rules
 
 
-def transpile(
-    xml_file_name, working_directory, mode, conversion_tracker, override_defaults: Dict
-) -> Tuple[str, Dict]:
-    """
-    Transpiles an XML file to SQL code.
-    """
+
+def test_only(
+    spark, xml_file_name, working_directory, mode, conversion_tracker, override_defaults: Dict
+):
     data_dict = get_standard_settings(xml_file_name, working_directory, mode)
     data_dict.update(override_defaults)
 
-    dag_to_send, tables_dict = g_tables.separate_named_tables(
-        data_dict["base_dag_graph"]
-    )
-
-    sql_code, conversion_rules = transpile_dags_to_sql_and_test(
-        base_dag_G=dag_to_send,
+    spark_statements, conversion_rules = transpile_dags_to_spark_and_test(
+        spark,
+        base_dag_G=data_dict["base_dag_graph"],
         base_dag_tree=data_dict["base_dag_xml_tree"],
-        tables_dict=tables_dict,
         conversion_rules=data_dict["conversion_rules"],
         library_sigs=data_dict["signature_definition_library"],
         auto_add_signatures=data_dict["auto_add_signatures"],
         conversion_tracker=conversion_tracker,
     )
-    return sql_code, conversion_rules
 
 
 #################################
 # Section 5: Test and related functions
 ##################################
-
 
 def testing_footer(G):
     statements = []
@@ -697,57 +616,113 @@ def testing_footer(G):
     return code
 
 
-def test_script(sql_script, test_query, conn) -> Dict[str, Any]:
-    # test_query parameter must be setup to return a single row only.
-    print("Testing generated script...")
-
+def run_query_single_row_result(test_query, spark) -> Dict[str, Any]:
     try:
-        conn.executescript(sql_script)
-    except Exception as e:
-        # If there's an error during execution, save the code and re-raise the error
-        errs.save_code_and_raise_err(sql_script, e, "sql")
-        return {}
-
-    cursor = conn.cursor()
-    try:
-        cursor.execute(test_query)
+        test_results_df = spark.sql(test_query)
     except Exception as e:
         # If there's an error during execution, save the code and re-raise the error
         errs.save_code_and_raise_err(test_query, e, "sql")
         return {}
 
-    results = cursor.fetchall()
+    result_count = test_results_df.count()
 
     # Check if exactly one row is returned
-    if len(results) != 1:
+    if result_count != 1:
         print(
-            f"Error: The test query must be setup to return exactly one row. Instead it returned {len(results)} rows."
+            f"Error: The test query must be setup to return exactly one row. Instead it returned {result_count} rows."
         )
         return {}
 
-    # Convert the single row to a dictionary
-    row = results[0]
-    columns = [description[0] for description in cursor.description]
-    row_dict = dict(zip(columns, row))
-    cursor.close()
-
-    return row_dict
+    # Convert the single row to a dictionary and return
+    return test_results_df.collect()[0].asDict()
 
 
 #################################
 # Section 6: main
 #################################
 
+"""
+Overall plan:
+1. Convert the DAG to spark statements
+
+2. Prepare reference and test data
+
+3. Test the spark statements
+
+Execute the spark statements on the test data
+Compare the results with the expected output in the test cases.
+
+4. Process the full dataset
+
+5. Saving the results
+"""
+
+def run_full_data_set(xml_file, complete_conversion_rules_file, override_defaults: Dict) -> None:
+    pass
 
 def main() -> None:
-    working_directory = "../../../OneDrive/Documents/myDocs/sc_v2_data"
-    output_dir = "../../../sc_output_files"
+    input_directory = "./examples"
+    temp_files = "./data/spark_temp_files"
+    output_dir = "./data/spark_output_files"
 
-    spark = (
-        SparkSession.builder.appName("PySpark SQL Test")
-        .config("spark.master", "local")
-        .getOrCreate()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    unique_output_dir = f"{output_dir}_{timestamp}"
+
+    spark = SparkSession.builder.appName("first app").getOrCreate()
+    #this second spark session is not used and i hope to remove it soon.
+    #for some unknown reason this prevents getting a long and ugly warning
+    #from java about not being able to cleanup temp files. 
+    #will monitor and remove this work around when we can.
+    spark = SparkSession.builder.appName("second app").getOrCreate()
+    
+    # main data set.
+    data = [
+        ("John Doe", 30, 65),
+        ("Jane Doe", 25, 60),
+        ("Mike Johnson", 60, 65),
+        ("Sophia Smith", 64, 65),
+    ]
+    columns = ["Name", "Age", "Eligible_Retirement_Age"]
+    df = spark.createDataFrame(data, schema=columns)
+
+    df = df.withColumn(
+        "YearsToRetirement", expr("Greatest(Eligible_Retirement_Age - Age, 0)")
     )
+
+    # Reference dataset
+    status_data = [("Gold", 0), ("Silver", 1), ("Bronze", 2)]
+    status_columns = ["Status", "YearsToRetirement"]
+    status_df = spark.createDataFrame(status_data, schema=status_columns)
+
+    df.createOrReplaceTempView("main")
+    status_df.createOrReplaceTempView("status")
+
+    df = spark.sql(
+        """
+    SELECT 
+        m.*, 
+        COALESCE(s.Status, 'No Status') as Status
+    FROM 
+        main m
+    LEFT JOIN 
+        status s 
+    ON 
+        m.YearsToRetirement = s.YearsToRetirement
+    """
+    )
+
+    df.withColumn(
+        "New_Status",
+        expr("case when YearsToRetirement > 5 then 'plan ahead' else Status end"),
+    )
+
+    output_file = os.path.join(unique_output_dir, "final_dataset.csv")
+    df.coalesce(1).write.csv(output_file, mode="overwrite", header=True)
+
+    time.sleep(5) #give a small amount of time for processes to shutdown gracefully.
+    spark.stop()
+    time.sleep(20) #give a small amount of time for processes to shutdown gracefully.
+    print("complete")
 
 
 if __name__ == "__main__":

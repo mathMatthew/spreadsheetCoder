@@ -419,6 +419,7 @@ def get_data_types(
         message = "\n".join(message_parts)
         return message, valid_responses
 
+    
     assert validation.is_valid_conversion_rules_dict(
         conversion_rules
     ), "signature is not valid"

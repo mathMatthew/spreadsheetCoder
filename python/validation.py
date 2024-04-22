@@ -1,4 +1,5 @@
 import networkx as nx
+from typing import Any, Dict, Tuple, List, Literal
 
 
 def is_valid_graph(G, require_types: bool) -> bool:
@@ -215,6 +216,7 @@ def is_valid_conversion_rules_dict(conversion_rules_dict) -> bool:
                 or signature.get("template")
             ):
                 if not signature.get("no_code"):
+                    print(f"Function signature {func_name} has no code associated with it.")
                     return False
             else:
                 # a signature can use a template or the before,operator, after stuff, but not both.
@@ -261,7 +263,7 @@ def is_valid_conversion_rules_dict(conversion_rules_dict) -> bool:
             return False
 
     if not "commutative_functions_to_convert_to_binomial" in conversion_rules_dict:
-        return False
+        return False 
 
     for item in conversion_rules_dict[
         "commutative_functions_to_convert_to_binomial"
@@ -407,3 +409,23 @@ def valid_data_type(data_type, is_strict):
         return inner_type in valid_data_types
     else:
         return False
+
+def is_valid_tables_dict(tables_dict: Dict[str, Dict[str, Any]]) -> bool:
+    for table_name, table_data in tables_dict.items():
+        columns = table_data.get("data", {})
+        
+        # Check if the table is empty (no columns)
+        if not columns:
+            return False
+        
+        # Ensure at least one row exists in the table by checking the first column
+        first_column = next(iter(columns.values()), [])
+        if len(first_column) == 0:
+            return False
+        
+        # Check if all columns have the same number of rows
+        column_lengths = [len(column_data) for column_data in columns.values()]
+        if len(set(column_lengths)) > 1:
+            return False
+    
+    return True

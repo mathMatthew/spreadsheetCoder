@@ -12,6 +12,7 @@ import pandas as pd
 # local imports
 import dags
 import networkx as nx
+import validation
 
 def all_precedents_are_constants(G, node):
     for predecessor in G.predecessors(node):
@@ -66,6 +67,8 @@ def separate_named_tables(G: nx.MultiDiGraph, nodes, tables_dict: Dict[str, Dict
         node_id, table_name, col_name, data_type = modification_queue.pop()
         make_table_array_node(G, node_id, table_name, col_name, data_type)
 
+    if not validation.is_valid_tables_dict(tables_dict):
+        raise ValueError("Tables are not valid")
 
 def add_column(
     tables: Dict[str, Dict[str, Any]], table_name, col_name, col_type, table_dict
@@ -110,6 +113,9 @@ def make_table_array_node(G, node_id, table_name, table_column, data_type):
     G.nodes[node_id]["node_type"] = "table_array"
     G.nodes[node_id]["data_type"] = f"TABLE_COLUMN[{data_type}]"
 
+def save_tables_to_file(tables_dict, output_file):
+    with open(output_file, "w") as file:
+        json.dump(tables_dict, file, indent=2)
 
 def get_table_dict(
     G: nx.MultiDiGraph, node_id: int, col_name: str

@@ -58,7 +58,7 @@ def _safe_name(name):
     # Convert to upper case to check against reserved keywords
     upper_name = name.upper()
 
-    # Prepend 'col_' if the name starts with a digit or is a reserved keyword
+    # Prepend 'sc_' if the name starts with a digit or is a reserved keyword
     if upper_name in sql_reserved_keywords or name[0].isdigit():
         name = "sc_" + name
 
@@ -525,8 +525,7 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
                 _special_process_after_code_node,
             )
     if node_type == "table_array":
-        _add_table_to_used_tables(G.nodes[node_id]["table_name"])
-        return f"df_{G.nodes[node_id]['table_name']}.{G.nodes[node_id]['table_column']}"
+        raise ValueError("Use transforms to avoid needing to code table arrays directly")
     else:
         raise ValueError(f"Unsupported node type: {node_type}")
 
@@ -541,9 +540,6 @@ def convert_to_sql(
 ) -> str:
     """
     Core logic.
-    Transforms a prepared graph into python.
-    Assumes graph has been appropriately prepared
-    and results will be tested outside of this function.
     """
 
     dags.mark_nodes_to_persist(
@@ -663,6 +659,7 @@ def transpile(
     """
     Transpiles an XML file to SQL code.
     """
+    
     data_dict = get_standard_settings(xml_file_name, working_directory, mode)
     data_dict.update(override_defaults)
 

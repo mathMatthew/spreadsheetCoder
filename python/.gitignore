@@ -3,3 +3,4 @@ lib/
 __pycache__
 .metals/
 todo.txt
+spark-temp

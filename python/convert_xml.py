@@ -107,6 +107,7 @@ def _fix_type(element):
         "Table_Column[Text]": "TABLE_COLUMN[Text]",
         "Table_Column[Number]": "TABLE_COLUMN[Number]",
         "Table_Column[Boolean]": "TABLE_COLUMN[Boolean]",
+        "Table_Column[Date]": "TABLE_COLUMN[Date]",
     }
     # yyyy add newtypes here.
     if "Type" in element.attrib:

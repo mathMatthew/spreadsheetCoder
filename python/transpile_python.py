@@ -345,7 +345,6 @@ def convert_and_test(G, conversion_rules, use_tables, conversion_tracker) -> str
 
     return code
 
-
 def transpile_dags_to_py_and_test(
     base_dag_G: nx.MultiDiGraph,
     base_dag_tree,

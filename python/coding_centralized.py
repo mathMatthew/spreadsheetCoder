@@ -1,10 +1,11 @@
-from typing import Any, Dict, Tuple, List, Callable, Set, Optional
+from typing import Any, Dict, Tuple, List, Union, Callable, Set, Optional
 import re
 from datetime import datetime
 
 import conv_tracker as ct
 import errs, validation, dags
 import conversion_rules as cr
+
 
 
 def convert_to_python_type(value, data_type):
@@ -31,59 +32,56 @@ def code_persistent_node(
     if G.nodes[node_id]["node_type"] == "input":
         if "output_name" in G.nodes[node_id]:
             if G.nodes[node_id]["output_name"] == G.nodes[node_id]["input_name"]:
-                return ""  # maybe we should have a required template for this situation and langauges where they need nothing, define the required tmeplate as an empty string.will implement if needed.
+                code = ""  # maybe we should have a required template for this situation and langauges where they need nothing, define the required tmeplate as an empty string.will implement if needed.
             else:
                 template = conversion_rules["templates"]["persist_default"][
                     "force-persist-template"
                 ]  # maybe this should be an optional template and if we don't have it then use the default. will implement if needed.
                 code = replace_placeholders(template, replace_key_fn)
-                return code
         else:
-            return ""  # thinking is that there is nothing additional to do here. no special need to 'persist' them. AT least that is true for the SQL. May have need for other languages.
+            code = ""  # thinking is that there is nothing additional to do here. no special need to 'persist' them. AT least that is true for the SQL. May have need for other languages.
+    else:
+        function_name = G.nodes[node_id]["function_name"]
 
-    if "function_name" not in G.nodes[node_id]:
-        print("check here")
+        function_signature = cr.match_first_signature__node(G, node_id, conversion_rules)
+        if not function_signature:
+            input_data_types = cr.get_parent_data_types(G, node_id)
+            errs.save_dag_and_raise__node(
+                G,
+                node_id,
+                f"Unsupported function: {function_name} with input data types {', '.join(input_data_types)} at node id: {node_id}",
+            )
+            code = ""
 
-    function_name = G.nodes[node_id]["function_name"]
+        else:
+            if len(function_signature["outputs"]) > 1:
+                raise ValueError(
+                    f"Add support for more than one output. Function {function_name} requires >1 output"
+                )
 
-    function_signature = cr.match_first_signature__node(G, node_id, conversion_rules)
-    if not function_signature:
-        input_data_types = cr.get_parent_data_types(G, node_id)
-        errs.save_dag_and_raise__node(
-            G,
-            node_id,
-            f"Unsupported function: {function_name} with input data types {', '.join(input_data_types)} at node id: {node_id}",
-        )
-        return ""
+            ct.update_conversion_tracker_sig(
+                conversion_tracker,
+                function_name,
+                function_signature["inputs"],
+                function_signature["outputs"],
+                "code_persistent_node",
+            )
 
-    if len(function_signature["outputs"]) > 1:
-        raise ValueError(
-            f"Add support for more than one output. Function {function_name} requires >1 output"
-        )
-        return ""
+            # set the default template
+            template_key = "persist_default"
 
-    ct.update_conversion_tracker_sig(
-        conversion_tracker,
-        function_name,
-        function_signature["inputs"],
-        function_signature["outputs"],
-        "code_persistent_node",
-    )
+            # but if there is a different persist template, use that instead.
+            if "template" in function_signature:
+                if conversion_rules["templates"][function_signature["template"]].get(
+                    "force-persist", False
+                ):
+                    template_key = function_signature["template"]
 
-    # set the default template
-    template_key = "persist_default"
+            template = conversion_rules["templates"][template_key]["force-persist-template"]
 
-    # but if there is a different persist template, use that instead.
-    if "template" in function_signature:
-        if conversion_rules["templates"][function_signature["template"]].get(
-            "force-persist", False
-        ):
-            template_key = function_signature["template"]
-
-    template = conversion_rules["templates"][template_key]["force-persist-template"]
-
-    code = replace_placeholders(template, replace_key_fn)
-    ct.update_conversion_tracker_template_used(conversion_tracker, template_key)
+            code = replace_placeholders(template, replace_key_fn)
+            ct.update_conversion_tracker_template_used(conversion_tracker, template_key)
+        
     return code
 
 
@@ -199,7 +197,7 @@ def code_supported_function(
     return code
 
 
-def replace_placeholders(
+def replace_placeholders_str(
     template: str, get_placeholder_value: Callable[[str], str]
 ) -> str:
     missing_variables: Set[str] = set()
@@ -224,3 +222,16 @@ def replace_placeholders(
         )
     else:
         return replaced_template
+
+def replace_placeholders(
+    template: Union[str, Dict[str, Any], List[Any]], get_placeholder_value: Callable[[str], str]
+) -> Union[str, Dict[str, Any], List[Any]]:
+    if isinstance(template, str):
+        return replace_placeholders_str(template, get_placeholder_value)
+    elif isinstance(template, dict):
+        return {key: replace_placeholders(value, get_placeholder_value) for key, value in template.items()}
+    elif isinstance(template, list):
+        return [replace_placeholders(item, get_placeholder_value) for item in template]
+    else:
+        raise TypeError("Template must be either a string, a dictionary, or a list.")
+                    
