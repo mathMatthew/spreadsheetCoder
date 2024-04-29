@@ -63,8 +63,9 @@ def _save_tables(tables_dir, tables_dict):
         # Construct the file name
         file_name = os.path.join(tables_dir, safe_table_name)
 
-        # Save the DataFrame
-        df.to_parquet(f"{file_name}.parquet")
+        # Save the DataFrame using Pickle
+        df.to_pickle(f"{file_name}.pkl")
+
 
 
 def _add_functions_to_used_functions(function_names):
@@ -155,11 +156,12 @@ def _make_header(G, use_tables, conversion_rules) -> str:
     table_statements = []
     for import_table in used_tables:
         import_table_file_name = os.path.join(
-            tables_dir, f"{_python_safe_name(import_table)}.parquet"
+            tables_dir, f"{_python_safe_name(import_table)}.pkl"  
         )
         table_statements.append(
-            f"df_{import_table} = pd.read_parquet(r'{import_table_file_name}')\n"
+            f"df_{import_table} = pd.read_pickle(r'{import_table_file_name}')\n" 
         )
+
 
     main_function_header = f'def {_python_safe_name(G.graph["name"])}('
     # create input names
