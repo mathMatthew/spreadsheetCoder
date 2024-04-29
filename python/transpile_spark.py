@@ -375,7 +375,7 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker):
     if node_type == "input":
         return _safe_name(attribs["input_name"])
     if node_type == "constant":
-        return _constant_value_in_code(attribs["value"], data_type)
+        return str(_constant_value_in_code(attribs["value"], data_type))
     if node_type == "function":
         if attribs.get("persist", False) and not is_primary:
             return _var_code(G, node_id, False)
@@ -463,7 +463,14 @@ def run_spark_statements(spark, df, spark_statements, primary_table_name):
     for statement in spark_statements:
         if statement["type"].upper() == "SQL":
             df.createOrReplaceTempView(primary_table_name)
-            df = spark.sql(statement["statement"])
+            try:
+                # Execute the Spark SQL query
+                df = spark.sql(statement["statement"])
+            except Exception as e:
+                # If an error occurs, print the SQL statement and the error message
+                print("An error occurred while executing the following SQL statement:")
+                print(statement["statement"])
+                print("Error message:", e)
         elif statement["type"].upper() == "WITH-COLUMN-EXPR":
             df = df.withColumn(statement["new_column_name"], expr(statement["expr"]).cast(convert_to_spark_data_type(statement["data_type"])))
         else:
@@ -478,7 +485,14 @@ def test_spark_statements(spark, df, spark_statements, primary_table_name, accur
     df.createOrReplaceTempView(primary_table_name)
 
     accuracy_summary_df = spark.sql(accuracy_summary_query)
-    return accuracy_summary_df.first()
+    
+    test_results = accuracy_summary_df.first()
+    if test_results["total"] == test_results["all_correct"]:
+        print(f"All {test_results['total']} tests passed!")
+    else:
+        msg = f"{test_results['total'] - test_results['all_correct']} out of {test_results['total']} tests failed."
+        df.show()
+        raise ValueError(msg)
 
 
 def _initialize_primary_table_for_test(spark, G, tree):
@@ -566,17 +580,9 @@ def transpile_dags_to_spark_and_test(
     _initialize_reference_tables(spark, base_dag_G, base_dag_tree, tables_dict)
     df = _initialize_primary_table_for_test(spark, base_dag_G, base_dag_tree)
     
-    test_results = test_spark_statements(spark, df, spark_statements, primary_table_name(base_dag_G), generate_accuracy_summary_query(base_dag_G))
-
-    if test_results["total"] == test_results["all_correct"]:
-        print(f"All {test_results['total']} tests passed!")
-    else:
-        msg = f"{test_results['total'] - test_results['all_correct']} out of {test_results['total']} tests failed."
-        raise ValueError(msg)
-        return "", conversion_rules
+    test_spark_statements(spark, df, spark_statements, primary_table_name(base_dag_G), generate_accuracy_summary_query(base_dag_G))
 
     return spark_statements, conversion_rules
-
 
 
 def test_only(

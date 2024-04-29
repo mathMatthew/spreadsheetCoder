@@ -440,7 +440,7 @@ WITH ranked AS (
            RANK() OVER (PARTITION BY p.<input2_col> ORDER BY b.<input1_col> DESC) as rank
     FROM <input1_table_name> b
     CROSS JOIN <primary_table> p
-    WHERE b.<input1_col> < p.<input2_col>
+    WHERE b.<input1_col> <= p.<input2_col>
 )
 SELECT p.*, rb.<input3_col> as <var>
 FROM primary_table p
