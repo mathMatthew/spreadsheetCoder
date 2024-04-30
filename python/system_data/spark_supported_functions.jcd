@@ -418,13 +418,13 @@
 
 SELECT 
     p.*, 
-    COALESCE(b.<input3_col>, <input4>) as <var>
+    COALESCE(b.<input3_col>, <input4_withprefix_p>) as <var>
 FROM 
     <primary_table> p
 LEFT JOIN 
     <input1_table_name> b
 ON 
-    <input2> = b.<input1_col>
+    <input2_withprefix_p> = b.<input1_col>
   
 ]]>"
       }
@@ -436,15 +436,15 @@ ON
         "statement": "<![CDATA[
 
 WITH ranked AS (
-    SELECT b.<input1_col>, b.<input3_col>, p.<input2_col>,
-           RANK() OVER (PARTITION BY p.<input2_col> ORDER BY b.<input1_col> DESC) as rank
+    SELECT b.<input1_col>, b.<input3_col>, <input2_withprefix_p> as _SC1,
+           RANK() OVER (PARTITION BY <input2_withprefix_p> ORDER BY b.<input1_col> DESC) as _SC_rank
     FROM <input1_table_name> b
     CROSS JOIN <primary_table> p
-    WHERE b.<input1_col> <= p.<input2_col>
+    WHERE b.<input1_col> <= <input2_withprefix_p>
 )
 SELECT p.*, rb.<input3_col> as <var>
 FROM primary_table p
-LEFT JOIN ranked rb ON p.<input2_col> = rb.<input2_col> AND rb.rank = 1
+LEFT JOIN ranked rb ON <input2_withprefix_p> = _SC1 AND rb._SC_rank = 1
 
 ]]>"
       }

@@ -141,12 +141,42 @@
         "code_before": " -(",
         "code_after": ")"
       }
+    ],
+    "SUM": [
+      {
+        "inputs": [
+          "Multiple[ARRAY[Number]]"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "source": [
+          "./system_data/func_sig_basic_arrays.json"
+        ],
+        "no_code": true
+      }
+    ],
+    "^": [
+      {
+        "inputs": [
+          "Number",
+          "Number"
+        ],
+        "outputs": [
+          "Number"
+        ],
+        "code_before": "power(",
+        "code_after": ")",
+        "add_functions": [
+          "power"
+        ]
+      }
     ]
   },
   "templates": {
-    "LOOKUP_EXACT_MATCH_1": {
-      "force-persist": true,
-      "force-persist-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2> \n    ),\n    <input4>\n  )\n);\n  "
+    "CASE_3_INPUTS": {
+      "force-persist": false,
+      "no-persist-template": "CASE WHEN <input1> THEN <input2> ELSE <input3>\nEND"
     },
     "persist_default": {
       "force-persist": true,
@@ -164,139 +194,6 @@
       "num_params": 2
     }
   },
-  "transforms": {
-    "SQL_LOOKUP_EXACT_MATCH_1": {
-      "_is_graph": true,
-      "graph_data": {
-        "directed": true,
-        "multigraph": true,
-        "graph": {
-          "max_node_id": 8,
-          "name": "SQL_lookup_exact_match_1",
-          "input_node_ids": [
-            1,
-            2,
-            3
-          ],
-          "output_node_ids": [
-            7,
-            8
-          ]
-        },
-        "nodes": [
-          {
-            "node_type": "input",
-            "data_type": "Range",
-            "input_name": "Return_Arr",
-            "input_order": 0,
-            "id": 1
-          },
-          {
-            "node_type": "input",
-            "data_type": "Range",
-            "input_name": "Match_Arr",
-            "input_order": 1,
-            "id": 2
-          },
-          {
-            "node_type": "input",
-            "data_type": "Text",
-            "input_name": "Match_Val",
-            "input_order": 2,
-            "id": 3
-          },
-          {
-            "node_type": "constant",
-            "data_type": "Number",
-            "value": "0",
-            "id": 4
-          },
-          {
-            "node_type": "constant",
-            "data_type": "Text",
-            "value": " ",
-            "id": 5
-          },
-          {
-            "node_type": "function",
-            "function_name": "MATCH",
-            "id": 6
-          },
-          {
-            "node_type": "function",
-            "function_name": "INDEX",
-            "output_order": "0",
-            "output_name": "From",
-            "data_type": "Any",
-            "id": 7
-          },
-          {
-            "node_type": "function",
-            "function_name": "LOOKUP_EXACT_MATCH_1",
-            "output_order": "1",
-            "output_name": "To",
-            "data_type": "Any",
-            "id": 8
-          }
-        ],
-        "links": [
-          {
-            "parent_position": 0,
-            "source": 1,
-            "target": 7,
-            "key": 0
-          },
-          {
-            "parent_position": 2,
-            "source": 1,
-            "target": 8,
-            "key": 0
-          },
-          {
-            "parent_position": 1,
-            "source": 2,
-            "target": 6,
-            "key": 0
-          },
-          {
-            "parent_position": 0,
-            "source": 2,
-            "target": 8,
-            "key": 0
-          },
-          {
-            "parent_position": 0,
-            "source": 3,
-            "target": 6,
-            "key": 0
-          },
-          {
-            "parent_position": 1,
-            "source": 3,
-            "target": 8,
-            "key": 0
-          },
-          {
-            "parent_position": 2,
-            "source": 4,
-            "target": 6,
-            "key": 0
-          },
-          {
-            "parent_position": 3,
-            "source": 5,
-            "target": 8,
-            "key": 0
-          },
-          {
-            "parent_position": 1,
-            "source": 6,
-            "target": 7,
-            "key": 0
-          }
-        ]
-      }
-    }
-  },
+  "transforms": {},
   "function_logic_dags": {}
 }

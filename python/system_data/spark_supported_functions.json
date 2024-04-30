@@ -414,14 +414,14 @@
       "force-persist": true,
       "force-persist-template": {
         "type": "SQL",
-        "statement": "\nSELECT \n    p.*, \n    COALESCE(b.<input3_col>, <input4>) as <var>\nFROM \n    <primary_table> p\nLEFT JOIN \n    <input1_table_name> b\nON \n    <input2> = b.<input1_col>\n  "
+        "statement": "\nSELECT \n    p.*, \n    COALESCE(b.<input3_col>, <input4_withprefix_p>) as <var>\nFROM \n    <primary_table> p\nLEFT JOIN \n    <input1_table_name> b\nON \n    <input2_withprefix_p> = b.<input1_col>\n  "
       }
     },
     "LOOKUP_INEXACT_MATCH_1": {
       "force-persist": true,
       "force-persist-template": {
         "type": "SQL",
-        "statement": "\nWITH ranked AS (\n    SELECT b.<input1_col>, b.<input3_col>, p.<input2_col>,\n           RANK() OVER (PARTITION BY p.<input2_col> ORDER BY b.<input1_col> DESC) as rank\n    FROM <input1_table_name> b\n    CROSS JOIN <primary_table> p\n    WHERE b.<input1_col> <= p.<input2_col>\n)\nSELECT p.*, rb.<input3_col> as <var>\nFROM primary_table p\nLEFT JOIN ranked rb ON p.<input2_col> = rb.<input2_col> AND rb.rank = 1\n"
+        "statement": "\nWITH ranked AS (\n    SELECT b.<input1_col>, b.<input3_col>, <input2_withprefix_p> as _SC1,\n           RANK() OVER (PARTITION BY <input2_withprefix_p> ORDER BY b.<input1_col> DESC) as _SC_rank\n    FROM <input1_table_name> b\n    CROSS JOIN <primary_table> p\n    WHERE b.<input1_col> <= <input2_withprefix_p>\n)\nSELECT p.*, rb.<input3_col> as <var>\nFROM primary_table p\nLEFT JOIN ranked rb ON <input2_withprefix_p> = _SC1 AND rb._SC_rank = 1\n"
       }
     },
     "CASE_3_INPUTS": {

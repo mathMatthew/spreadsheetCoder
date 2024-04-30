@@ -420,11 +420,11 @@
   "templates": {
     "LOOKUP_EXACT_MATCH_1": {
       "force-persist": true,
-      "force-persist-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2> \n    ),\n    <input4>\n  )\n);\n  "
+      "force-persist-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> COLLATE NOCASE = <input2_withprimarytableprefix>\n    ),\n    <input4>\n  )\n);\n  "
     },
     "LOOKUP_INEXACT_MATCH_1": {
       "force-persist": true,
-      "force-persist-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> <= <input2> COLLATE NOCASE\n    ORDER BY b.<input1_col> DESC\n    LIMIT 1\n    ),\n    <input4>\n  )\n);\n  "
+      "force-persist-template": "\nUPDATE <primary_table>\nSET <var> = (\n  SELECT COALESCE(\n    (\n    SELECT b.<input3_col>\n    FROM <input1_table_name> b\n    WHERE b.<input1_col> <= <input2_withprimarytableprefix> COLLATE NOCASE\n    ORDER BY b.<input1_col> DESC\n    LIMIT 1\n    ),\n    <input4>\n  )\n);\n  "
     },
     "CASE_3_INPUTS": {
       "force-persist": false,

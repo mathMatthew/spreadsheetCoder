@@ -82,16 +82,20 @@ def _add_table_to_used_tables(table_name):
     used_tables.add(table_name)
 
 
-def _var_code(G, node_id, include_prefix):
+def _var_code(G, node_id, prefix):
     if "output_name" in G.nodes[node_id]:
         var = _safe_name(G.nodes[node_id]["output_name"])
+    elif "node_name" in G.nodes[node_id]:
+        var = _safe_name(G.nodes[node_id]["node_name"])
     else:
         var = f"var_{str(node_id)}"
 
-    if include_prefix:
-        var = f"{primary_table_name(G)}.{var}"
-    return var
+    return _prefix_var_code(var, prefix)
 
+def _prefix_var_code(var_name, prefix):
+    if prefix:
+        var_name = f"{prefix}.{var_name}"
+    return var_name
 
 def _sql_table_name(unformatted_name):
     # wrap table names with this
@@ -323,7 +327,7 @@ def _create_primary_table_sql(G) -> str:
             continue
         if G.nodes[node_id].get("persist", False):
             tpl = (
-                _var_code(G, node_id, False),
+                _var_code(G, node_id, ""),
                 convert_to_sql_data_type(G.nodes[node_id]["data_type"]),
                 True,
             )
@@ -444,13 +448,17 @@ def get_placeholder_val(
 ):
     if placeholder_key == "var":
         return _var_code(G, node_id, False)
-    if placeholder_key == "prefixed_var":
-        return _var_code(G, node_id, True)
     if placeholder_key == "value":
-        return _code_node(G, node_id, True, conversion_rules, conversion_tracker)
+        return _code_node(G, node_id, True, conversion_rules, conversion_tracker, "")
     if placeholder_key == "primary_table":
         return primary_table_name(G)
     if placeholder_key.startswith("input"):
+        #Handles 3 cases where # can be any number corresponding to the input number for the function, aka parent node
+        #"input#_table_name" -> get table name for that input (executes _table_name_code)
+        #"input#_col" -> get column name for that input (executes _column_name_code)
+        #"input#" -> executes _code_node for that input, no prefix
+        #"input#_withprefix_XYZ" -> executes _code_node for that input, with prefix XYZ
+        #"input#_withprimarytableprefix" -> executes _code_node for that input using primary_table_name as the prefix
         without_input = placeholder_key[5:]
         parts = without_input.split("_", 1)
         if len(parts) == 2:
@@ -464,12 +472,21 @@ def get_placeholder_val(
         parent_node_id = dags.get_ordered_parent_ids(G, node_id)[input_number - 1]
         if not detail:
             return _code_node(
-                G, parent_node_id, False, conversion_rules, conversion_tracker
+                G, parent_node_id, False, conversion_rules, conversion_tracker, ""
             )
         if detail == "table_name":
             return _table_name_code(G, parent_node_id)
         if detail == "col":
             return _column_name_code(G, parent_node_id)
+        if detail == "withprimarytableprefix":
+            return _code_node(
+                G, parent_node_id, False, conversion_rules, conversion_tracker, primary_table_name(G)
+            )
+        if detail.startswith("withprefix_"):
+            prefix = detail.split("_", 2)[1]
+            return _code_node(
+                G, parent_node_id, False, conversion_rules, conversion_tracker, prefix
+            )
     raise KeyError(f"Invalid placeholder key: {placeholder_key}")
 
 
@@ -480,7 +497,7 @@ def _special_process_after_code_node(
     pass
 
 
-def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> str:
+def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker, prefix) -> str:
     """
     first entry point to generates code for the node.
     """
@@ -492,12 +509,13 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
     data_type = attribs["data_type"]
 
     if node_type == "input":
-        return f'{primary_table_name(G)}.{_safe_name(attribs["input_name"])}'
+        var_name = _safe_name(attribs["input_name"])
+        return _prefix_var_code(var_name, prefix)
     if node_type == "constant":
         return _constant_value_in_code(attribs["value"], data_type)
     if node_type == "function":
         if attribs.get("persist", False) and not is_primary:
-            return _var_code(G, node_id, True)
+            return _var_code(G, node_id, prefix)
         if G.nodes[node_id]["function_name"].upper() == "ARRAY":
             errs.save_dag_and_raise__node(G, node_id, "Add support for ARRAY")
         else:
@@ -507,6 +525,7 @@ def _code_node(G, node_id, is_primary, conversion_rules, conversion_tracker) -> 
                 is_primary=False,
                 conversion_rules=conversion_rules,
                 conversion_tracker=conversion_tracker,
+                prefix=prefix,
             )
             partial_repl_placeholder_fn = partial(
                 get_placeholder_val,
