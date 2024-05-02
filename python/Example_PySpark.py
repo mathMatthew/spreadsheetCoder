@@ -15,10 +15,10 @@ output_dir = "../../../sc_output_files"
 #xml_file = "CmplxPeriod.XML"
 #xml_file = "ageAtDate.XML"
 #xml_file = "myPandL.XML"
-#xml_file = "ranch.XML" #need fix to properly prefix table
+#xml_file = "ranch.XML" 
 #xml_file = "endDateDays.XML"
-#xml_file = 'PeriodDiff.XML'
-xml_file = 'endDateMonths.XML'
+xml_file = 'PeriodDiff.XML'
+#xml_file = 'endDateMonths.XML'
 
 conversion_tracker = ct.initialize_conversion_tracker()
 overrides = {}
@@ -26,7 +26,7 @@ mode = "build"  #'options:  'build' 'complete' 'supplement'
 
 spark = SparkSession.builder.appName("Test app").getOrCreate()
 
-tspk.test_only(
+tspk.prep_and_test(
     spark, xml_file, example_dir, mode, conversion_tracker, overrides
 )
 print("Total Time = ", datetime.now() - start)

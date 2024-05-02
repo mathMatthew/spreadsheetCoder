@@ -223,7 +223,7 @@
         "outputs": [
           "Date"
         ],
-        "template": "add_days_to_date"
+        "template": "date_add"
       }
     ],
     "-": [
@@ -453,16 +453,13 @@ LEFT JOIN ranked rb ON <input2_withprefix_p> = _SC1 AND rb._SC_rank = 1
       "force-persist": false,
       "no-persist-template": "CASE WHEN <input1> THEN <input2> ELSE <input3> END"
     },
-    "add_days_to_date": {
+    "date_add": {
       "force-persist": false,
-      "no-persist-template": "<date(<input1>, CAST(<input2> AS INTEGER) || ' days')"
+      "no-persist-template": "date_add(<input1>, CAST(<input2> as int))"
     },
     "EOMONTH": {
       "force-persist": false,
-      "no-persist-template": "<![CDATA[
-date(<input1>, CAST(<input2> AS INTEGER) || ' months', '+1 month', '-1 day')
-
-]]>"
+      "no-persist-template": "last_day(add_months(<input1>, CAST(<input2> as int)))"
     },
     "persist_default": {
       "force-persist": true,

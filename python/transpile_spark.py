@@ -192,12 +192,12 @@ def _column_name_code(G, node_id):
         return _sql_column_name(G.nodes[node_id]["table_column"])
 
 
-def _get_output_columns(G):
+def _get_output_columns(G) -> List[Tuple[str]]:
     output_ids = G.graph["output_node_ids"]
     return [
         (
             _safe_name(G.nodes[node_id]["output_name"]),
-            True if G.nodes[node_id]["data_type"] in ["Number", "Date"] else False,
+            G.nodes[node_id]["data_type"] if G.nodes[node_id]["data_type"] in ["Number", "Date"] else "Non-Numerical",
         )
         for node_id in output_ids
     ]
@@ -248,10 +248,14 @@ def generate_act_vs_predicted_query(G):
     columns = _get_output_columns(G)
 
     where_clauses = []
-    for col_name, is_numeric in columns:
-        if is_numeric:
+    for col_name, simple_type in columns:
+        if simple_type=="Number":
             where_clauses.append(
                 f"ABS({col_name} - {col_name}_predicted) > {NUMERIC_TOLERANCE}"
+            )
+        elif simple_type=="Date":
+            where_clauses.append(
+                f"abs(datediff({col_name}, {col_name}_predicted) > {NUMERIC_TOLERANCE})"
             )
         else:
             where_clauses.append(f"{col_name} <> {col_name}_predicted")
@@ -288,10 +292,14 @@ def generate_accuracy_summary_query(G):
 
     case_clauses = []
     all_correct_conditions = []
-    for col_name, is_numeric in columns:
-        if is_numeric:
+    for col_name, simple_type in columns:
+        if simple_type == "Number":
             condition = (
                 f"(ABS({col_name} - {col_name}_predicted) <= {NUMERIC_TOLERANCE})"
+            )
+        elif simple_type == "Date":
+            condition = (
+                f"abs(datediff({col_name}, {col_name}_predicted)) <= {NUMERIC_TOLERANCE}"
             )
         else:
             condition = f"({col_name} = {col_name}_predicted)"
@@ -477,7 +485,7 @@ def build_spark_statements(
     return spark_statements
 
 def run_spark_statements(spark, df, spark_statements, primary_table_name):
-    df.printSchema()
+    #make sure to update the parallel function write_code_to_file any changes you make here.
     for statement in spark_statements:
         if statement["type"].upper() == "SQL":
             df.createOrReplaceTempView(primary_table_name)
@@ -496,6 +504,19 @@ def run_spark_statements(spark, df, spark_statements, primary_table_name):
     
     return df
 
+def write_code_to_file(spark_statements, output_file):
+    code = ""
+    for statement in spark_statements:
+        if statement["type"].upper() == "SQL":
+            code += f"df.createOrReplaceTempView({primary_table_name})\n"
+            code += f'df = spark.sql({statement["statement"]})\n'                
+        elif statement["type"].upper() == "WITH-COLUMN-EXPR":
+            code += f'df = df.withColumn("{statement["new_column_name"]}", expr("{statement["expr"]}").cast("{convert_to_spark_data_type(statement["data_type"])}"))\n'
+    with open(output_file, "w") as f:
+        f.write(code)
+        print(f"Code written to {output_file}.")
+
+
 def test_spark_statements(spark, df, spark_statements, primary_table_name, accuracy_summary_query):
     #accuracy summary sql is a sql statement that must return a single row.
 
@@ -508,6 +529,8 @@ def test_spark_statements(spark, df, spark_statements, primary_table_name, accur
     if test_results["total"] == test_results["all_correct"]:
         print(f"All {test_results['total']} tests passed!")
     else:
+        df.write.csv("errors/pyspark_error_results.csv", header=True)
+    
         msg = f"{test_results['total'] - test_results['all_correct']} out of {test_results['total']} tests failed."
         df.show()
         raise ValueError(msg)
@@ -566,7 +589,7 @@ def transpile_dags_to_spark_and_test(
     Transpiles DAG to spark code.
     validates code
     """
-
+    write_code_to_file_only = True
     # initialize tables_dict
     tables_dict = {}
 
@@ -594,6 +617,10 @@ def transpile_dags_to_spark_and_test(
     if len(conversion_rules["functions"]) > 0:
         raise ValueError("Add support for custom functions.")
 
+    if write_code_to_file_only:
+        write_code_to_file(spark_statements,"./data/spark_code.py")
+        return spark_statements, conversion_rules
+    
     # test the generated spark statements on the example test cases
     _initialize_reference_tables(spark, base_dag_G, base_dag_tree, tables_dict)
     df = _initialize_primary_table_for_test(spark, base_dag_G, base_dag_tree)
@@ -603,7 +630,7 @@ def transpile_dags_to_spark_and_test(
     return spark_statements, conversion_rules
 
 
-def test_only(
+def prep_and_test(
     spark, xml_file_name, working_directory, mode, conversion_tracker, override_defaults: Dict
 ):
     data_dict = get_standard_settings(xml_file_name, working_directory, mode)
@@ -678,7 +705,7 @@ Compare the results with the expected output in the test cases.
 
 4. Process the full dataset
 
-5. Saving the results
+5. Save the results
 """
 
 def run_full_data_set(xml_file, complete_conversion_rules_file, override_defaults: Dict) -> None:
