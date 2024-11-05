@@ -1,0 +1,91 @@
+rowsDim1_code,rowsDim1_description,rowsDim1_rel_level,rowsDim2_code,rowsDim2_description,rowsDim2_rel_level,filterDim1_code,filterDim1_description,filterDim2_code,filterDim2_description,value
+Global,Global,1,2023,2023,1,Revenue,Revenue,Electronics,Electronics,161000
+Global,Global,1,Jan,Jan,2,Revenue,Revenue,Electronics,Electronics,16292.03
+Global,Global,1,Feb,Feb,2,Revenue,Revenue,Electronics,Electronics,12312.52
+Global,Global,1,Mar,Mar,2,Revenue,Revenue,Electronics,Electronics,10589.37
+Global,Global,1,Apr,Apr,2,Revenue,Revenue,Electronics,Electronics,12334.82
+Global,Global,1,May,May,2,Revenue,Revenue,Electronics,Electronics,7310.7
+Global,Global,1,Jun,Jun,2,Revenue,Revenue,Electronics,Electronics,13520.72
+Global,Global,1,Jul,Jul,2,Revenue,Revenue,Electronics,Electronics,12136.12
+Global,Global,1,Aug,Aug,2,Revenue,Revenue,Electronics,Electronics,12296.51
+Global,Global,1,Sep,Sep,2,Revenue,Revenue,Electronics,Electronics,15088.04
+Global,Global,1,Oct,Oct,2,Revenue,Revenue,Electronics,Electronics,18287.57
+Global,Global,1,Nov,Nov,2,Revenue,Revenue,Electronics,Electronics,18185.14
+Global,Global,1,Dec,Dec,2,Revenue,Revenue,Electronics,Electronics,12646.46
+N-AM,North America,2,2023,2023,1,Revenue,Revenue,Electronics,Electronics,55000
+N-AM,North America,2,Jan,Jan,2,Revenue,Revenue,Electronics,Electronics,5041.3
+N-AM,North America,2,Feb,Feb,2,Revenue,Revenue,Electronics,Electronics,3685.01
+N-AM,North America,2,Mar,Mar,2,Revenue,Revenue,Electronics,Electronics,4109.71
+N-AM,North America,2,Apr,Apr,2,Revenue,Revenue,Electronics,Electronics,5400.47
+N-AM,North America,2,May,May,2,Revenue,Revenue,Electronics,Electronics,2459.21
+N-AM,North America,2,Jun,Jun,2,Revenue,Revenue,Electronics,Electronics,4793.55
+N-AM,North America,2,Jul,Jul,2,Revenue,Revenue,Electronics,Electronics,4277.07
+N-AM,North America,2,Aug,Aug,2,Revenue,Revenue,Electronics,Electronics,3701.58
+N-AM,North America,2,Sep,Sep,2,Revenue,Revenue,Electronics,Electronics,5077.14
+N-AM,North America,2,Oct,Oct,2,Revenue,Revenue,Electronics,Electronics,6718.85
+N-AM,North America,2,Nov,Nov,2,Revenue,Revenue,Electronics,Electronics,5347.75
+N-AM,North America,2,Dec,Dec,2,Revenue,Revenue,Electronics,Electronics,4388.36
+US,United States,3,2023,2023,1,Revenue,Revenue,Electronics,Electronics,35000
+US,United States,3,Jan,Jan,2,Revenue,Revenue,Electronics,Electronics,4111.81
+US,United States,3,Feb,Feb,2,Revenue,Revenue,Electronics,Electronics,1523.95
+US,United States,3,Mar,Mar,2,Revenue,Revenue,Electronics,Electronics,3266.94
+US,United States,3,Apr,Apr,2,Revenue,Revenue,Electronics,Electronics,4108.85
+US,United States,3,May,May,2,Revenue,Revenue,Electronics,Electronics,1354
+US,United States,3,Jun,Jun,2,Revenue,Revenue,Electronics,Electronics,2906.33
+US,United States,3,Jul,Jul,2,Revenue,Revenue,Electronics,Electronics,3287.94
+US,United States,3,Aug,Aug,2,Revenue,Revenue,Electronics,Electronics,1759.84
+US,United States,3,Sep,Sep,2,Revenue,Revenue,Electronics,Electronics,3102.7
+US,United States,3,Oct,Oct,2,Revenue,Revenue,Electronics,Electronics,4203.08
+US,United States,3,Nov,Nov,2,Revenue,Revenue,Electronics,Electronics,2644.32
+CAN,Canada,3,2023,2023,1,Revenue,Revenue,Electronics,Electronics,20000
+CAN,Canada,3,Jan,Jan,2,Revenue,Revenue,Electronics,Electronics,929.49
+CAN,Canada,3,Feb,Feb,2,Revenue,Revenue,Electronics,Electronics,2161.06
+CAN,Canada,3,Mar,Mar,2,Revenue,Revenue,Electronics,Electronics,842.77
+CAN,Canada,3,Apr,Apr,2,Revenue,Revenue,Electronics,Electronics,1291.62
+CAN,Canada,3,May,May,2,Revenue,Revenue,Electronics,Electronics,1105.21
+CAN,Canada,3,Jun,Jun,2,Revenue,Revenue,Electronics,Electronics,1887.22
+CAN,Canada,3,Jul,Jul,2,Revenue,Revenue,Electronics,Electronics,989.13
+CAN,Canada,3,Aug,Aug,2,Revenue,Revenue,Electronics,Electronics,1941.74
+CAN,Canada,3,Sep,Sep,2,Revenue,Revenue,Electronics,Electronics,1974.44
+CAN,Canada,3,Oct,Oct,2,Revenue,Revenue,Electronics,Electronics,2515.77
+CAN,Canada,3,Nov,Nov,2,Revenue,Revenue,Electronics,Electronics,2703.43
+CAN,Canada,3,Dec,Dec,2,Revenue,Revenue,Electronics,Electronics,1658.12
+Europe,Europe,2,2023,2023,1,Revenue,Revenue,Electronics,Electronics,50000
+Europe,Europe,2,Jan,Jan,2,Revenue,Revenue,Electronics,Electronics,5128.85
+Europe,Europe,2,Feb,Feb,2,Revenue,Revenue,Electronics,Electronics,2801.28
+Europe,Europe,2,Mar,Mar,2,Revenue,Revenue,Electronics,Electronics,3284.94
+Europe,Europe,2,Apr,Apr,2,Revenue,Revenue,Electronics,Electronics,3538.79
+Europe,Europe,2,May,May,2,Revenue,Revenue,Electronics,Electronics,2600.73
+Europe,Europe,2,Jun,Jun,2,Revenue,Revenue,Electronics,Electronics,3377.84
+Europe,Europe,2,Jul,Jul,2,Revenue,Revenue,Electronics,Electronics,2693.86
+Europe,Europe,2,Aug,Aug,2,Revenue,Revenue,Electronics,Electronics,5220.56
+Europe,Europe,2,Sep,Sep,2,Revenue,Revenue,Electronics,Electronics,4631
+Europe,Europe,2,Oct,Oct,2,Revenue,Revenue,Electronics,Electronics,5770.53
+Europe,Europe,2,Nov,Nov,2,Revenue,Revenue,Electronics,Electronics,6832.46
+Europe,Europe,2,Dec,Dec,2,Revenue,Revenue,Electronics,Electronics,4119.16
+GER,Germany,3,2023,2023,1,Revenue,Revenue,Electronics,Electronics,35000
+GER,Germany,3,Jan,Jan,2,Revenue,Revenue,Electronics,Electronics,3327.68
+GER,Germany,3,Feb,Feb,2,Revenue,Revenue,Electronics,Electronics,1657.55
+GER,Germany,3,Mar,Mar,2,Revenue,Revenue,Electronics,Electronics,2654.07
+GER,Germany,3,Apr,Apr,2,Revenue,Revenue,Electronics,Electronics,2077.79
+GER,Germany,3,May,May,2,Revenue,Revenue,Electronics,Electronics,1533.6
+GER,Germany,3,Jun,Jun,2,Revenue,Revenue,Electronics,Electronics,2339.02
+GER,Germany,3,Jul,Jul,2,Revenue,Revenue,Electronics,Electronics,2019.82
+GER,Germany,3,Aug,Aug,2,Revenue,Revenue,Electronics,Electronics,3831.72
+GER,Germany,3,Sep,Sep,2,Revenue,Revenue,Electronics,Electronics,3241.39
+GER,Germany,3,Oct,Oct,2,Revenue,Revenue,Electronics,Electronics,4545.81
+GER,Germany,3,Nov,Nov,2,Revenue,Revenue,Electronics,Electronics,4916.06
+GER,Germany,3,Dec,Dec,2,Revenue,Revenue,Electronics,Electronics,2855.49
+Asia,Asia,2,2023,2023,1,Revenue,Revenue,Electronics,Electronics,56000
+Asia,Asia,2,Jan,Jan,2,Revenue,Revenue,Electronics,Electronics,6121.88
+Asia,Asia,2,Feb,Feb,2,Revenue,Revenue,Electronics,Electronics,5826.23
+Asia,Asia,2,Mar,Mar,2,Revenue,Revenue,Electronics,Electronics,3194.72
+Asia,Asia,2,Apr,Apr,2,Revenue,Revenue,Electronics,Electronics,3395.56
+Asia,Asia,2,May,May,2,Revenue,Revenue,Electronics,Electronics,2250.76
+Asia,Asia,2,Jun,Jun,2,Revenue,Revenue,Electronics,Electronics,5349.33
+Asia,Asia,2,Jul,Jul,2,Revenue,Revenue,Electronics,Electronics,5165.19
+Asia,Asia,2,Aug,Aug,2,Revenue,Revenue,Electronics,Electronics,3374.37
+Asia,Asia,2,Sep,Sep,2,Revenue,Revenue,Electronics,Electronics,5379.9
+Asia,Asia,2,Oct,Oct,2,Revenue,Revenue,Electronics,Electronics,5798.19
+Asia,Asia,2,Nov,Nov,2,Revenue,Revenue,Electronics,Electronics,6004.93
+Asia,Asia,2,Dec,Dec,2,Revenue,Revenue,Electronics,Electronics,4138.94
