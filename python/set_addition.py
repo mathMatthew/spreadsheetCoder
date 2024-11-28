@@ -1,7 +1,9 @@
 from networkx import all_topological_sorts
+import duckdb
 import pandas as pd
 import networkx as nx
 import numpy as np
+
 
 # Predefined dimension names for auto-feeding
 predefined_dim_names = {
@@ -12,6 +14,7 @@ predefined_dim_names = {
 }
 
 global_reserve_tolerance = 0.01
+con = duckdb.connect()
 
 # Identify and map dimensions
 
@@ -72,17 +75,6 @@ def add_first_hierarchy_level(incoming_df, mapping_df, hierarchy_df):
         hierarchy_df = pd.concat([hierarchy_df, rel_level1], ignore_index=True)
     return hierarchy_df
 
-
-
-def ordered_unique_dimension_members(df, dimension_col):
-    # helper function for add_to_hierarchy
-    # Group by the dimension column and take the first occurrence
-    unique_df = (
-        df.groupby([dimension_col], as_index=False).first().sort_values(by="row_number")
-    )
-    # Return the resulting DataFrame containing unique members in their original order
-    # using first here in case we want to pull description or something else.
-    return unique_df
 
 
 
@@ -358,8 +350,8 @@ def missing_rows_all_ancestors(all_facts_df, hierarchy_df):
             [all_facts_df, missing_required_rows], axis=0, ignore_index=True
         )
         all_facts_df = all_facts_df.drop_duplicates()
-        # sort so that child code is always after parent code
-        all_facts_df = sort_parent_to_child(all_facts_df, hierarchy_df)
+        # sort so that child code is always before parent code
+        all_facts_df = sort_child_to_parent(all_facts_df, hierarchy_df)
         all_facts_df.to_csv("data/required_new_query.csv", index=False)
         # raise exception
         raise Exception(
@@ -377,6 +369,10 @@ def denormalize_balanced_dimension(hierarchy, dimension):
     # Start with the lowest level and move up to create the dernomalized structure
     max_level = dimension_hierarchy["level"].max()
 
+    if max_level == 0:
+        raise ValueError(
+            f"The dimension '{dimension}' has no rows."
+        )
     # Initialize the denromalized table with the highest level as the key
     if max_level == 1:
         denormalized_dimension = dimension_hierarchy[["code", "description"]].rename(
@@ -796,8 +792,9 @@ def create_atomic_facts_table(facts_with_summaries, hierarchy_df, reserve_tolera
 
 def recalc_hierarchy_levels(hierarchy_df):
     hierarchy_df["level"] = hierarchy_df.apply(
-        lambda row: 0 if row["parent"] is None else None, axis=1
+        lambda row: 0 if row["parent"] is None else None, axis=1 #xxx downstream issue identified with na records when importing from pandas. determine how best to solve. work around check pd.isna.
     )
+    #xxx consider switching to BFS for better performance
 
     def set_level(parent_code, level):
         hierarchy_df.loc[hierarchy_df["parent"] == parent_code, "level"] = int(
@@ -810,6 +807,10 @@ def recalc_hierarchy_levels(hierarchy_df):
     top_level_nodes = hierarchy_df[hierarchy_df["parent"].isnull()]["code"]
     for node in top_level_nodes:
         set_level(node, 1)
+
+    #raise error if nulls in level
+    if hierarchy_df["level"].isnull().any():
+        raise ValueError("Null values found in the 'level' column.")
 
     hierarchy_df["level"] = hierarchy_df["level"].astype(int)
     return hierarchy_df
@@ -921,6 +922,7 @@ def child_parent_records(unique_df, mapping_row):
         unique_df[mapping_row.rel_level_column] - 1
     )
 
+    #xxx reported slow performance. evidently moving to a row based approach and finding the next parent is faster
     # Get unique levels in the dataframe
     unique_levels = unique_df[mapping_row.rel_level_column].unique()
 
@@ -946,16 +948,16 @@ def child_parent_records(unique_df, mapping_row):
     )
 
     potential_parents = potential_parents[
-        potential_parents["row_number_parent"] < potential_parents["row_number"]
+        potential_parents["row_number"] < potential_parents["row_number_parent"]
     ]
 
     # Sort by 'row_id' and 'row_id_parent' ascending
     potential_parents = potential_parents.sort_values(
         by=["row_number", "row_number_parent"]
     )
-    # Group by the node and select the last parent within the sorted group
+    # Group by the node and select the first parent within the sorted group
     child_parents = (
-        potential_parents.groupby(mapping_row.code_column).last().reset_index()
+        potential_parents.groupby(mapping_row.code_column).first().reset_index()
     )
 
     # Select & rename the relevant columns
@@ -975,11 +977,9 @@ def child_parent_records(unique_df, mapping_row):
 def add_to_hierarchy(incoming_df, mapping_df, hierarchy_df):
     incoming_df = incoming_df.copy()
     incoming_df["row_number"] = incoming_df.index + 1
+    #xxx reported slow performance. Hoping switching to duckdb resolves
     for mapping_row in mapping_df[mapping_df["type"] == "row"].itertuples():
-        unique_df = ordered_unique_dimension_members(
-            incoming_df, mapping_row.code_column
-        )
-        result = child_parent_records(unique_df, mapping_row)
+        result = child_parent_records(incoming_df, mapping_row)
         if hierarchy_df.empty:
             hierarchy_df = result
             hierarchy_df["dimension"] = mapping_row.dimension_name
@@ -1130,8 +1130,7 @@ def incremental_add(
 
     return all_facts_df, hierarchy_df, atomic_facts_df, flattened_df
 
-#Not used now, but might be useful in the future
-def sort_parent_to_child(facts, hierarchy):
+def sort_child_to_parent(facts, hierarchy):
     sorted_orders = {}
 
     # Step 1: Build a hierarchy tree for each dimension using adjacency lists
@@ -1162,11 +1161,12 @@ def sort_parent_to_child(facts, hierarchy):
         sorted_codes = []
 
         def dfs(node):
-            # Append the node to the sorted list
-            sorted_codes.append(node)
+            #ensure parents come AFTER their children
             # Recursively apply DFS on all children of the current node
             for child in tree[node]:
                 dfs(child)
+            # Append the node to the sorted list
+            sorted_codes.append(node)
 
         # Identify top-level parents (nodes where parent is NaN)
         top_parents = dim_hierarchy[pd.isna(dim_hierarchy["parent"])]["code"].tolist()
