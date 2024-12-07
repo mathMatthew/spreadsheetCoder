@@ -4,7 +4,6 @@ import pandas as pd
 import networkx as nx
 import numpy as np
 
-
 # Predefined dimension names for auto-feeding
 predefined_dim_names = {
     "filterDim1": "Metric",
@@ -14,9 +13,6 @@ predefined_dim_names = {
 }
 
 global_reserve_tolerance = 0.01
-con = duckdb.connect()
-
-# Identify and map dimensions
 
 def add_dimension_names(dim_mapping_df, founding_df, auto_feed_dim_names):
     #adds dimension names either by asking the user for them (normal) or
@@ -41,7 +37,6 @@ def add_dimension_names(dim_mapping_df, founding_df, auto_feed_dim_names):
         dim_mapping_df.at[idx, "dimension_name"] = dimension_name
 
     return dim_mapping_df
-
 
 
 def add_first_hierarchy_level(incoming_df, mapping_df, hierarchy_df):
@@ -76,13 +71,11 @@ def add_first_hierarchy_level(incoming_df, mapping_df, hierarchy_df):
     return hierarchy_df
 
 
-
-
 def validate_and_merge_new_facts(prior_all_facts_df, new_facts_df, tolerance):
-    # Step 2: Identify key columns (all columns except the 'value' column)
+    # Identify key columns (all columns except the 'value' column)
     key_columns = new_facts_df.columns.difference(["value"])
 
-    # Step 3: Merge the old and new data on the key columns to identify overlapping records
+    # Merge the old and new data on the key columns to identify overlapping records
     merged_df = pd.merge(
         prior_all_facts_df,
         new_facts_df,
@@ -91,33 +84,32 @@ def validate_and_merge_new_facts(prior_all_facts_df, new_facts_df, tolerance):
         how="inner",
     )
 
-    # Step 4: Check for discrepancies in the 'value' column with a tolerance factor
+    # Check for discrepancies in the 'value' column with a tolerance factor
     conflict_df = merged_df[
         abs(merged_df["value_old"] - merged_df["value_new"]) > tolerance
     ]
 
     if not conflict_df.empty:
-        # Step 5: If discrepancies exist, save the conflicting records (both old and new) to a CSV
+        # If discrepancies exist, save the conflicting records (both old and new) to a CSV
         conflict_df.to_csv("data/conflicts.csv", index=False)
 
-        # Step 6: Raise an error or warning with details about the conflicts
+        # Raise an error or warning with details about the conflicts
         raise ValueError(
             f"Data conflict detected! {len(conflict_df)} conflicting records found (tolerance: {tolerance}). "
-            f"Conflicts have been saved to 'data/conflicts.csv' for further investigation."
+            f"Conflicts have been saved to 'data/conflicts.csv'."
         )
 
-    # Step 7: If no conflicts, proceed with concatenation of new and old facts
+    # If no conflicts, proceed with concatenation of new and old facts
     new_all_facts_df = pd.concat(
         [prior_all_facts_df, new_facts_df], ignore_index=True
     ).drop_duplicates()
 
-    # Step 8: Identify new facts not present in the old dataset
+    # Identify new facts not present in the old dataset
     new_unique_facts = set_subtract(
         new_facts_df, prior_all_facts_df, key_columns.tolist()
     )
 
     return new_all_facts_df, new_unique_facts
-
 
 
 def incremental_assign_dimension_names(incoming_df, hierarchy_df, dim_mapping_df):
@@ -140,7 +132,7 @@ def incremental_assign_dimension_names(incoming_df, hierarchy_df, dim_mapping_df
             )
             return False, None
         else:
-            # map the arbitrary column naes to the correct dimension name based on the matching code.
+            # map the arbitrary column names to the correct dimension name based on the matching code.
             dim_mapping_df.loc[
                 dim_mapping_df["code_column"] == row["code_column"], "dimension_name"
             ] = hierarchy_row.iloc[0]["dimension"]
@@ -186,9 +178,7 @@ def incremental_assign_dimension_names(incoming_df, hierarchy_df, dim_mapping_df
             dim_mapping_df["code_column"] == row["code_column"], "top_level"
         ] = hierarchy_row.iloc[0]["level"]
 
-
     return True, dim_mapping_df
-
 
 
 def build_hierarchy_mappings(hierarchy_df, include_level_1_child_records):
@@ -234,16 +224,16 @@ def build_hierarchy_mappings(hierarchy_df, include_level_1_child_records):
             ).dropna(subset=["new_member"])
 
             if include_level_1_child_records:
-                dim_df = hierarchy_df[
+                dim_df_level1 = hierarchy_df[
                     (hierarchy_df["dimension"] == dimension)
                     & (hierarchy_df["level"] == 1)
                 ]
                 leve_1_child_df = pd.DataFrame(
                     {
-                        "prior_member": dim_df["code"],
-                        "new_member": dim_df["code"],
+                        "prior_member": dim_df_level1["code"],
+                        "new_member": dim_df_level1["code"],
                         "new_member_type": "child",
-                        "level": dim_df["level"],
+                        "level": dim_df_level1["level"],
                     }
                 )
                 child_df = pd.concat([child_df, leve_1_child_df])
@@ -257,13 +247,11 @@ def build_hierarchy_mappings(hierarchy_df, include_level_1_child_records):
     return hierarchy_mappings
 
 
-
 def required_rows(facts_df, hierarchy_mappings):
     # This function will build a list of required rows to avoid "partials"
     # This process will produce a set of required rows which is approximately 2^n larger
 
     required_rows_df = facts_df.copy()
-
     required_columns = list(hierarchy_mappings.keys())
 
     for dimension in hierarchy_mappings.keys():
@@ -285,11 +273,9 @@ def required_rows(facts_df, hierarchy_mappings):
 
             # Select only the required columns for the next iteration
             required_rows_df = required_rows_df[required_columns]
-
             required_rows_df = required_rows_df.drop_duplicates()
 
     return required_rows_df
-
 
 
 def set_subtract(set1, set2, columns):
@@ -305,12 +291,11 @@ def set_subtract(set1, set2, columns):
     return result
 
 
-
 def missing_rows_all_ancestors(all_facts_df, hierarchy_df):
-    # Step 1: Build the hierarchy mappings for each dimension.
+    # Build the hierarchy mappings for each dimension.
     hierarchy_mappings = build_hierarchy_mappings(hierarchy_df, False)
 
-    # Step 2: Get the list of initial missing rows based on all facts.
+    # Get the list of initial missing rows based on all facts.
     initial_required_rows = required_rows(all_facts_df, hierarchy_mappings)
 
     # Perform initial set subtraction to get the missing rows
@@ -325,41 +310,28 @@ def missing_rows_all_ancestors(all_facts_df, hierarchy_df):
 
     while not missing_rows.empty:
         build_result = pd.concat([build_result, missing_rows])
-
         new_required_rows = required_rows(build_result, hierarchy_mappings)
-
         missing_rows = set_subtract(
             new_required_rows, build_result, hierarchy_mappings.keys()
         )
-
         iteration_count += 1
-
         if iteration_count >= 100:
-            raise RuntimeError(
-                "The process has reached 100 iterations, which may indicate an infinite loop."
-            )
+            raise RuntimeError("Reached 100 iterations. This may indicate an infinite loop.")
 
     missing_required_rows = build_result
     if not missing_required_rows.empty:
-        # save missing rows to csv
         missing_required_rows.to_csv("data/missing_rows.csv", index=False)
-        # add missing rows to all_facts, without the values column as required_new_query
-        # and save to csv
         all_facts_df = all_facts_df.drop(columns=["value"])
-        all_facts_df = pd.concat(
-            [all_facts_df, missing_required_rows], axis=0, ignore_index=True
-        )
+        all_facts_df = pd.concat([all_facts_df, missing_required_rows], axis=0, ignore_index=True)
         all_facts_df = all_facts_df.drop_duplicates()
         # sort so that child code is always before parent code
         all_facts_df = sort_child_to_parent(all_facts_df, hierarchy_df)
         all_facts_df.to_csv("data/required_new_query.csv", index=False)
-        # raise exception
         raise Exception(
             "Missing required rows. See 'missing_rows.csv' and 'required_new_query.csv'."
         )
 
     return True
-
 
 
 def denormalize_balanced_dimension(hierarchy, dimension):
@@ -370,9 +342,8 @@ def denormalize_balanced_dimension(hierarchy, dimension):
     max_level = dimension_hierarchy["level"].max()
 
     if max_level == 0:
-        raise ValueError(
-            f"The dimension '{dimension}' has no rows."
-        )
+        raise ValueError(f"The dimension '{dimension}' has no rows.")
+
     # Initialize the denromalized table with the highest level as the key
     if max_level == 1:
         denormalized_dimension = dimension_hierarchy[["code", "description"]].rename(
@@ -417,7 +388,6 @@ def denormalize_balanced_dimension(hierarchy, dimension):
     return denormalized_dimension
 
 
-
 def balance_hierarchy_with_reserve_codes(hierarchy_df):
     new_rows = []
     node_mapping = {}
@@ -429,7 +399,6 @@ def balance_hierarchy_with_reserve_codes(hierarchy_df):
         dimension_df = hierarchy_df[hierarchy_df["dimension"] == dimension].copy()
         max_level = dimension_df["level"].max()
         existing_codes = set(dimension_df["code"].values)
-
         all_codes = set(dimension_df["code"])
 
         # Initialize mapping for the current dimension
@@ -481,7 +450,6 @@ def balance_hierarchy_with_reserve_codes(hierarchy_df):
     return result_df, node_mapping
 
 
-
 def create_flat_fact_table(atomic_fact_table, hierarchy):
     """
     Flattens the atomic_fact_table by joining with dimension tables based on the hierarchy.
@@ -501,7 +469,6 @@ def create_flat_fact_table(atomic_fact_table, hierarchy):
     - KeyError: If the join key is not found in the flattened dimension.
     """
     print("\n-----------Create flat fact table-----------")
-    #isolate input table
     atomic_fact_table = atomic_fact_table.copy()
 
     # Add reserve codes to the hierarchy
@@ -666,7 +633,6 @@ def create_flat_fact_table(atomic_fact_table, hierarchy):
     return atomic_fact_table
 
 
-
 def create_atomic_facts_table(facts_with_summaries, hierarchy_df, reserve_tolerance):
     # The key insight is that for everything we add, we also subtract it back out.
     # The only exception is the top level row which represents everything. But once we have that
@@ -693,11 +659,9 @@ def create_atomic_facts_table(facts_with_summaries, hierarchy_df, reserve_tolera
 
     result_df = facts_with_summaries.copy()
     dimensions = hierarchy_df["dimension"].unique().tolist()
-
-    # Build and transform hierarchy mappings
     hierarchy_mappings = build_hierarchy_mappings(hierarchy_df, True)
 
-    # Identify the "double dimensions" (those with non-empty hierarchy mappings)
+    # Identify the "double dimensions" (those with non-empty hierarchy mappings. Each double dimension will double the size of the result set.)
     doubled_dimensions = [
         dimension for dimension in dimensions if not hierarchy_mappings[dimension].empty
     ]
@@ -767,9 +731,11 @@ def create_atomic_facts_table(facts_with_summaries, hierarchy_df, reserve_tolera
     final_df: pd.DataFrame
     final_df = concatenated_df.groupby(dimensions)["value"].sum().reset_index()
 
-    # Apply the reserve tolerance filter
+    # Apply the reserve tolerance filter. 
+    # may want to think a bit about this one more. or maybe it is more about how it is used
+    # I am not sure the tolerance for identifyin errors should be the same as the tolerance
+    # for removing very small values.
     final_df = final_df[abs(final_df["value"]) > reserve_tolerance]
-
     final_record_count = len(final_df)
 
     # Output the counts and ratios, including the inflation ratio
@@ -794,7 +760,6 @@ def recalc_hierarchy_levels(hierarchy_df):
     hierarchy_df["level"] = hierarchy_df.apply(
         lambda row: 0 if row["parent"] is None else None, axis=1 #xxx downstream issue identified with na records when importing from pandas. determine how best to solve. work around check pd.isna.
     )
-    #xxx consider switching to BFS for better performance
 
     def set_level(parent_code, level):
         hierarchy_df.loc[hierarchy_df["parent"] == parent_code, "level"] = int(
@@ -816,7 +781,6 @@ def recalc_hierarchy_levels(hierarchy_df):
     return hierarchy_df
 
 
-
 def validate_and_define_dimensions(df):
     # Validate and map dimensions
     dim_mapping = []
@@ -832,7 +796,6 @@ def validate_and_define_dimensions(df):
             base_name = col.replace("_code", "").replace("_description", "")
             code_column = f"{base_name}_code"
             description_column = f"{base_name}_description"
-
             if code_column not in df.columns or description_column not in df.columns:
                 error_messages.append(
                     f"Filter dimension '{base_name}' is missing either '{code_column}' or '{description_column}'."
@@ -882,7 +845,6 @@ def validate_and_define_dimensions(df):
     return pd.DataFrame(dim_mapping)
 
 
-
 def child_parent_records(unique_df, mapping_row):
     # helper function for add_to_hierarchy
     """
@@ -926,9 +888,8 @@ def child_parent_records(unique_df, mapping_row):
     # Get unique levels in the dataframe
     unique_levels = unique_df[mapping_row.rel_level_column].unique()
 
-    # Check if the prior level exists for each level
     for level in unique_levels:
-        if (level - 1) not in unique_levels and level > 1:  # Assuming levels start at 1
+        if (level - 1) not in unique_levels and level > 1:
             raise ValueError(f"No rows with level {level - 1} found for level {level} for {mapping_row.rel_level_column} in the data.")
     
 
@@ -969,9 +930,7 @@ def child_parent_records(unique_df, mapping_row):
         ]
     ]
     child_parents.columns = ["code", "description", "parent"]
-
     return child_parents
-
 
 
 def add_to_hierarchy(incoming_df, mapping_df, hierarchy_df):
@@ -995,8 +954,8 @@ def add_to_hierarchy(incoming_df, mapping_df, hierarchy_df):
             hierarchy_df = pd.concat([hierarchy_df, new_nodes], ignore_index=True)
 
     hierarchy_df = recalc_hierarchy_levels(hierarchy_df)
-
     return hierarchy_df
+
 
 def update_columns_with_dimension_names(incoming_data, dim_mapping_df):
     incoming_data = incoming_data.copy()
@@ -1009,6 +968,7 @@ def update_columns_with_dimension_names(incoming_data, dim_mapping_df):
             incoming_data = incoming_data.drop(columns=[mapping_row.rel_level_column])
     return incoming_data
 
+
 def parse_data(incoming_data: pd.DataFrame, hierarchy_df: pd.DataFrame):
     dim_mapping_df = validate_and_define_dimensions(incoming_data)
     is_valid, dim_mapping_df = incremental_assign_dimension_names(
@@ -1018,11 +978,9 @@ def parse_data(incoming_data: pd.DataFrame, hierarchy_df: pd.DataFrame):
         raise ValueError("Data is not valid")
 
     hierarchy_df = add_to_hierarchy(incoming_data, dim_mapping_df, hierarchy_df)
-
     incremental_fact_data = update_columns_with_dimension_names(incoming_data, dim_mapping_df)
-    
-    
     return incremental_fact_data, hierarchy_df
+
 
 def merge_atomic_facts(
     atomic_facts_df: pd.DataFrame, 
@@ -1030,23 +988,24 @@ def merge_atomic_facts(
     reserve_tolerance: float
 ) -> pd.DataFrame:
 
-    # Step 1: Identify key columns (all columns except 'value')
+    # Identify key columns (all columns except 'value')
     key_columns = atomic_facts_df.columns.difference(["value"])
 
-    # Step 2: Concatenate the old atomic cube with the incremental data
+    # Concatenate the old atomic cube with the incremental data
     combined_df = pd.concat(
         [atomic_facts_df, incremental_atomic_data], ignore_index=True
     )
 
-    # Step 3: Group by key columns and sum the 'value' column
+    # Group by key columns and sum the 'value' column
     grouped_df: pd.DataFrame = (
         combined_df.groupby(list(key_columns)).agg({"value": "sum"}).reset_index()
     )
 
-    # Step 4: remove records with absolute value below tolerance
+    # Remove records with absolute value below tolerance. 
+    # see comment above in function create_atomic_facts_table
     grouped_df = grouped_df[abs(grouped_df["value"]) > reserve_tolerance]
-
     return grouped_df
+
 
 def establish_founding_data_sets(incoming_data, reserve_tolerance):
     ##Figure out the dimensions
@@ -1087,8 +1046,8 @@ def establish_founding_data_sets(incoming_data, reserve_tolerance):
     flattened_df = create_flat_fact_table(atomic_facts_df, hierarchy_df)
 
     print("Founding data set processing completed successfully.")
-
     return all_facts_df, hierarchy_df, atomic_facts_df, flattened_df
+
 
 def incremental_add(
     all_facts_df: pd.DataFrame,
@@ -1130,10 +1089,11 @@ def incremental_add(
 
     return all_facts_df, hierarchy_df, atomic_facts_df, flattened_df
 
+
 def sort_child_to_parent(facts, hierarchy):
     sorted_orders = {}
 
-    # Step 1: Build a hierarchy tree for each dimension using adjacency lists
+    # Build a hierarchy tree for each dimension using adjacency lists
     dimensions = hierarchy["dimension"].unique()
 
     for dimension in dimensions:
@@ -1157,7 +1117,7 @@ def sort_child_to_parent(facts, hierarchy):
             if code not in tree:
                 tree[code] = []
 
-        # Step 2: Perform DFS to get the order for each dimension
+        # Perform DFS to get the order for each dimension
         sorted_codes = []
 
         def dfs(node):
@@ -1178,7 +1138,7 @@ def sort_child_to_parent(facts, hierarchy):
         # Create a mapping of code to rank (based on the DFS order)
         sorted_orders[dimension] = {code: i for i, code in enumerate(sorted_codes)}
 
-    # Step 3: Replace the codes in the facts table with their ranks
+    # Replace the codes in the facts table with their ranks
     for dimension in dimensions:
         # Map ranks using the order from sorted_orders
         facts[f"{dimension}_rank"] = facts[dimension].map(sorted_orders[dimension])
@@ -1188,8 +1148,141 @@ def sort_child_to_parent(facts, hierarchy):
             facts[f"{dimension}_rank"].max() + 1, inplace=True
         )
 
-    # Step 4: Sort the facts table by the rank columns and drop the rank columns after sorting
+    # Sort the facts table by the rank columns and drop the rank columns after sorting
     rank_columns = [f"{dimension}_rank" for dimension in dimensions]
     sorted_facts = facts.sort_values(by=rank_columns).drop(columns=rank_columns)
-
     return sorted_facts
+
+def prepare_query_set(hierarchy_df: pd.DataFrame, requested_members: dict) -> pd.DataFrame:
+    """
+    Prepares a query dataset based on requested members per dimension.
+    For dimensions not listed in requested_members, uses top-level non-placeholder members.
+    Distinguishes between filter (single-member) and row (multi-member) dimensions.
+    Row dimensions include all parents of requested members.
+    Produces a cartesian product of all dimensions.
+    No 'value' column is included since the output is the query definition.
+    """
+    all_dimensions = hierarchy_df["dimension"].unique()
+
+    # Determine members for each dimension
+    dim_members = {}
+    for dim in all_dimensions:
+        if dim in requested_members and len(requested_members[dim]) > 0:
+            dim_members[dim] = requested_members[dim]
+        else:
+            # Use top-level real members (level=1, not placeholder)
+            top_members = hierarchy_df[
+                (hierarchy_df["dimension"] == dim) & (hierarchy_df["level"] == 1)
+            ].copy()
+            dim_members[dim] = top_members["code"].unique().tolist()
+
+    def get_ancestors(hierarchy, code):
+        ancestors = []
+        code_map = {row["code"]: row for _, row in hierarchy.iterrows()}
+        current_code = code
+        while True:
+            node = code_map[current_code]
+            ancestors.append(node)
+            if pd.isna(node["parent"]):
+                break
+            current_code = node["parent"]
+        return ancestors
+
+    def sort_dimension_by_hierarchy(hierarchy_dim):
+        """
+        Sorts the hierarchy of a dimension such that parents follow their children.
+        """
+        tree = {}
+        for _, row in hierarchy_dim.iterrows():
+            parent = row["parent"]
+            code = row["code"]
+            if parent not in tree:
+                tree[parent] = []
+            tree[parent].append(code)
+            if code not in tree:
+                tree[code] = []
+
+        sorted_codes = []
+
+        def dfs(node):
+            for child in tree[node]:
+                dfs(child)
+            sorted_codes.append(node)
+
+        # Start DFS from top-level nodes
+        top_parents = hierarchy_dim[pd.isna(hierarchy_dim["parent"])]["code"].tolist()
+        for parent in top_parents:
+            dfs(parent)
+
+        # Reorder hierarchy_dim based on DFS result
+        hierarchy_dim["sort_order"] = hierarchy_dim["code"].map(
+            {code: i for i, code in enumerate(sorted_codes)}
+        )
+        hierarchy_dim = hierarchy_dim.sort_values(by="sort_order").drop(
+            columns=["sort_order"]
+        )
+        return hierarchy_dim
+
+    filter_count = 0
+    row_count = 0
+    dimension_dataframes = []
+
+    for dim in all_dimensions:
+        subset = dim_members[dim]
+
+        if len(subset) == 1:
+            # Filter dimension
+            filter_count += 1
+            f_code_col = f"filterDim{filter_count}_code"
+            f_desc_col = f"filterDim{filter_count}_description"
+            subset_df = hierarchy_df[
+                (hierarchy_df["dimension"] == dim)
+                & (hierarchy_df["code"].isin(subset))
+            ]
+            row = subset_df.iloc[0]
+            df_dim = pd.DataFrame(
+                {
+                    f_code_col: [row["code"]],
+                    f_desc_col: [row["description"]],
+                }
+            )
+            dimension_dataframes.append(df_dim)
+        else:
+            # Row dimension
+            row_count += 1
+            r_code_col = f"rowsDim{row_count}_code"
+            r_desc_col = f"rowsDim{row_count}_description"
+            r_lvl_col = f"rowsDim{row_count}_rel_level"
+
+            hierarchy_dim = hierarchy_df[hierarchy_df["dimension"] == dim].copy()
+            all_required_codes = set()
+            for member_code in subset:
+                ancestors = get_ancestors(hierarchy_dim, member_code)
+                for a in ancestors:
+                    all_required_codes.add(a["code"])
+
+            full_set_df = hierarchy_dim[hierarchy_dim["code"].isin(all_required_codes)]
+            full_set_df = sort_dimension_by_hierarchy(full_set_df)
+
+            df_dim = pd.DataFrame(
+                {
+                    r_code_col: full_set_df["code"],
+                    r_desc_col: full_set_df["description"],
+                    r_lvl_col: full_set_df["level"],
+                }
+            )
+            dimension_dataframes.append(df_dim)
+
+    if not dimension_dataframes:
+        return pd.DataFrame()
+
+    # Perform cartesian join
+    result_df = dimension_dataframes[0]
+    for df in dimension_dataframes[1:]:
+        result_df["join_key"] = 1
+        df["join_key"] = 1
+        result_df = pd.merge(result_df, df, on="join_key", how="outer")
+        result_df = result_df.drop(columns=["join_key"])
+
+    # No value column
+    return result_df.reset_index(drop=True)
