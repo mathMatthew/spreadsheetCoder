@@ -3,6 +3,11 @@ import duckdb
 import pandas as pd
 import networkx as nx
 import numpy as np
+import uuid
+
+# Open DuckDB connection as a global
+conn = duckdb.connect(database=':memory:')  # Use ':memory:' for an in-memory database, or specify a file path
+
 
 # Predefined dimension names for auto-feeding
 predefined_dim_names = {
@@ -1153,136 +1158,121 @@ def sort_child_to_parent(facts, hierarchy):
     sorted_facts = facts.sort_values(by=rank_columns).drop(columns=rank_columns)
     return sorted_facts
 
-def prepare_query_set(hierarchy_df: pd.DataFrame, requested_members: dict) -> pd.DataFrame:
+
+def prepare_query_set(hierarchy_df, requested_members):
     """
-    Prepares a query dataset based on requested members per dimension.
-    For dimensions not listed in requested_members, uses top-level non-placeholder members.
-    Distinguishes between filter (single-member) and row (multi-member) dimensions.
-    Row dimensions include all parents of requested members.
-    Produces a cartesian product of all dimensions.
-    No 'value' column is included since the output is the query definition.
+    Prepares a query dataset based on requested members and the given hierarchy,
+    ensuring it respects parent-child relationships. Uses DuckDB for processing.
+
+    Parameters:
+    - hierarchy_df: DataFrame representing the hierarchy of dimensions.
+    - requested_members: Dictionary where each key is a dimension name, and the value is a list of member codes.
+
+    Returns:
+    - A DataFrame suitable for querying the complete dataset.
     """
-    all_dimensions = hierarchy_df["dimension"].unique()
 
-    # Determine members for each dimension
-    dim_members = {}
-    for dim in all_dimensions:
-        if dim in requested_members and len(requested_members[dim]) > 0:
-            dim_members[dim] = requested_members[dim]
-        else:
-            # Use top-level real members (level=1, not placeholder)
-            top_members = hierarchy_df[
-                (hierarchy_df["dimension"] == dim) & (hierarchy_df["level"] == 1)
-            ].copy()
-            dim_members[dim] = top_members["code"].unique().tolist()
+    # Generate a unique table name for this function call
+    table_name = f"hierarchy_{uuid.uuid4().hex}"
 
-    def get_ancestors(hierarchy, code):
-        ancestors = []
-        code_map = {row["code"]: row for _, row in hierarchy.iterrows()}
-        current_code = code
-        while True:
-            node = code_map[current_code]
-            ancestors.append(node)
-            if pd.isna(node["parent"]):
-                break
-            current_code = node["parent"]
-        return ancestors
+    try:
+        # Load hierarchy into DuckDB
+        conn.execute(f"DROP TABLE IF EXISTS {table_name};")
+        conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM hierarchy_df;")
 
-    def sort_dimension_by_hierarchy(hierarchy_dim):
-        """
-        Sorts the hierarchy of a dimension such that parents follow their children.
-        """
-        tree = {}
-        for _, row in hierarchy_dim.iterrows():
-            parent = row["parent"]
-            code = row["code"]
-            if parent not in tree:
-                tree[parent] = []
-            tree[parent].append(code)
-            if code not in tree:
-                tree[code] = []
+        # Helper functions
+        def get_top_level_members(dim):
+            query = f"""
+            SELECT member_code
+            FROM {table_name}
+            WHERE dimension = '{dim}' AND level = 1 AND NOT placeholder;
+            """
+            return [row[0] for row in conn.execute(query).fetchall()]
 
-        sorted_codes = []
+        def get_ancestors(dim, members):
+            query = f"""
+            WITH RECURSIVE ancestors AS (
+                SELECT member_code, parent_code, description, level, CAST(member_code AS VARCHAR) AS path
+                FROM {table_name}
+                WHERE dimension = '{dim}' AND member_code IN ({','.join([f'"{m}"' for m in members])})
+                UNION ALL
+                SELECT h.member_code, h.parent_code, h.description, h.level, CONCAT(a.path, '->', h.member_code) AS path
+                FROM {table_name} h
+                INNER JOIN ancestors a ON h.member_code = a.parent_code
+            )
+            SELECT DISTINCT member_code, description, level, path
+            FROM ancestors
+            ORDER BY path DESC; -- Depth-first ordering ensures children come before parents
+            """
+            return pd.DataFrame(conn.execute(query).fetchall(), columns=["code", "description", "rel_level", "path"])
 
-        def dfs(node):
-            for child in tree[node]:
-                dfs(child)
-            sorted_codes.append(node)
+        # Separate filter and row dimensions
+        filter_dims, row_dims = {}, {}
 
-        # Start DFS from top-level nodes
-        top_parents = hierarchy_dim[pd.isna(hierarchy_dim["parent"])]["code"].tolist()
-        for parent in top_parents:
-            dfs(parent)
+        for dim, members in requested_members.items():
+            if len(members) == 1:
+                filter_dims[dim] = members[0]
+            else:
+                row_dims[dim] = members
 
-        # Reorder hierarchy_dim based on DFS result
-        hierarchy_dim["sort_order"] = hierarchy_dim["code"].map(
-            {code: i for i, code in enumerate(sorted_codes)}
-        )
-        hierarchy_dim = hierarchy_dim.sort_values(by="sort_order").drop(
-            columns=["sort_order"]
-        )
-        return hierarchy_dim
+        # Handle unlisted dimensions as filter dimensions with top-level members
+        listed_dims = set(requested_members.keys())
+        for dim in hierarchy_df["dimension"].unique():
+            if dim not in listed_dims:
+                top_level_members = get_top_level_members(dim)
+                if len(top_level_members) == 1:
+                    filter_dims[dim] = top_level_members[0]
+                else:
+                    row_dims[dim] = top_level_members
 
-    filter_count = 0
-    row_count = 0
-    dimension_dataframes = []
+        # Prepare filter dimensions
+        filter_data = {}
+        filter_count = 1
 
-    for dim in all_dimensions:
-        subset = dim_members[dim]
-
-        if len(subset) == 1:
-            # Filter dimension
+        for dim, member in filter_dims.items():
+            query = f"""
+            SELECT member_code AS filterDim{filter_count}_code,
+                   description AS filterDim{filter_count}_description
+            FROM {table_name}
+            WHERE dimension = '{dim}' AND member_code = '{member}';
+            """
+            filter_data[dim] = pd.DataFrame(conn.execute(query).fetchall(),
+                                            columns=[f"filterDim{filter_count}_code", f"filterDim{filter_count}_description"])
             filter_count += 1
-            f_code_col = f"filterDim{filter_count}_code"
-            f_desc_col = f"filterDim{filter_count}_description"
-            subset_df = hierarchy_df[
-                (hierarchy_df["dimension"] == dim)
-                & (hierarchy_df["code"].isin(subset))
-            ]
-            row = subset_df.iloc[0]
-            df_dim = pd.DataFrame(
-                {
-                    f_code_col: [row["code"]],
-                    f_desc_col: [row["description"]],
-                }
-            )
-            dimension_dataframes.append(df_dim)
-        else:
-            # Row dimension
+
+        # Prepare row dimensions
+        row_data = {}
+        row_count = 1
+
+        for dim, members in row_dims.items():
+            ancestors_df = get_ancestors(dim, members)
+            ancestors_df = ancestors_df.sort_values("path", ascending=False)  # Sort using the depth-first path
+            ancestors_df.drop(columns=["path"], inplace=True)  # Remove the path column after sorting
+            ancestors_df.columns = [f"rowsDim{row_count}_code", f"rowsDim{row_count}_description", f"rowsDim{row_count}_rel_level"]
+            row_data[dim] = ancestors_df
             row_count += 1
-            r_code_col = f"rowsDim{row_count}_code"
-            r_desc_col = f"rowsDim{row_count}_description"
-            r_lvl_col = f"rowsDim{row_count}_rel_level"
 
-            hierarchy_dim = hierarchy_df[hierarchy_df["dimension"] == dim].copy()
-            all_required_codes = set()
-            for member_code in subset:
-                ancestors = get_ancestors(hierarchy_dim, member_code)
-                for a in ancestors:
-                    all_required_codes.add(a["code"])
+        # Cartesian product of all dimensions
+        all_dims = list(filter_data.values()) + list(row_data.values())
 
-            full_set_df = hierarchy_dim[hierarchy_dim["code"].isin(all_required_codes)]
-            full_set_df = sort_dimension_by_hierarchy(full_set_df)
+        # Generate tuples for each DataFrame
+        tuple_dataframes = []
+        for df in all_dims:
+            tuple_dataframes.append(df.itertuples(index=False, name=None))
 
-            df_dim = pd.DataFrame(
-                {
-                    r_code_col: full_set_df["code"],
-                    r_desc_col: full_set_df["description"],
-                    r_lvl_col: full_set_df["level"],
-                }
-            )
-            dimension_dataframes.append(df_dim)
+        # Perform cartesian product
+        cartesian_product = list(product(*tuple_dataframes))
 
-    if not dimension_dataframes:
-        return pd.DataFrame()
+        # Flatten column names for the final DataFrame
+        column_names = []
+        for df in all_dims:
+            column_names.extend(df.columns)
 
-    # Perform cartesian join
-    result_df = dimension_dataframes[0]
-    for df in dimension_dataframes[1:]:
-        result_df["join_key"] = 1
-        df["join_key"] = 1
-        result_df = pd.merge(result_df, df, on="join_key", how="outer")
-        result_df = result_df.drop(columns=["join_key"])
+        # Create the final DataFrame
+        result = pd.DataFrame(cartesian_product, columns=column_names)
 
-    # No value column
-    return result_df.reset_index(drop=True)
+        return result
+
+    finally:
+        # Clean up: Drop the temporary table
+        conn.execute(f"DROP TABLE IF EXISTS {table_name};")
