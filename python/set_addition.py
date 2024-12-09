@@ -1,9 +1,10 @@
-from networkx import all_topological_sorts
 import duckdb
 import pandas as pd
 import networkx as nx
 import numpy as np
 import uuid
+from itertools import product
+
 
 # Open DuckDB connection as a global
 conn = duckdb.connect(database=':memory:')  # Use ':memory:' for an in-memory database, or specify a file path
@@ -1173,7 +1174,7 @@ def prepare_query_set(hierarchy_df, requested_members):
     """
 
     # Generate a unique table name for this function call
-    table_name = f"hierarchy_{uuid.uuid4().hex}"
+    table_name = f"hierarchy_{uuid.uuid4().hex[:6]}"
 
     try:
         # Load hierarchy into DuckDB
@@ -1183,25 +1184,26 @@ def prepare_query_set(hierarchy_df, requested_members):
         # Helper functions
         def get_top_level_members(dim):
             query = f"""
-            SELECT member_code
+            SELECT code
             FROM {table_name}
-            WHERE dimension = '{dim}' AND level = 1 AND NOT placeholder;
+            WHERE dimension = '{dim}' AND level = 1;
             """
             return [row[0] for row in conn.execute(query).fetchall()]
 
         def get_ancestors(dim, members):
             query = f"""
             WITH RECURSIVE ancestors AS (
-                SELECT member_code, parent_code, description, level, CAST(member_code AS VARCHAR) AS path
+                SELECT code, parent, description, level, CAST(code AS VARCHAR) AS path
                 FROM {table_name}
-                WHERE dimension = '{dim}' AND member_code IN ({','.join([f'"{m}"' for m in members])})
+                WHERE dimension = '{dim}' AND code IN ({','.join([f"'{m}'" for m in members])})
                 UNION ALL
-                SELECT h.member_code, h.parent_code, h.description, h.level, CONCAT(a.path, '->', h.member_code) AS path
+                SELECT h.code, h.parent, h.description, h.level, CONCAT(a.path, '->', h.code) AS path
                 FROM {table_name} h
-                INNER JOIN ancestors a ON h.member_code = a.parent_code
+                INNER JOIN ancestors a ON h.code = a.parent
             )
-            SELECT DISTINCT member_code, description, level, path
+            SELECT DISTINCT code, description, level, path
             FROM ancestors
+            WHERE level != 0
             ORDER BY path DESC; -- Depth-first ordering ensures children come before parents
             """
             return pd.DataFrame(conn.execute(query).fetchall(), columns=["code", "description", "rel_level", "path"])
@@ -1231,10 +1233,10 @@ def prepare_query_set(hierarchy_df, requested_members):
 
         for dim, member in filter_dims.items():
             query = f"""
-            SELECT member_code AS filterDim{filter_count}_code,
+            SELECT code AS filterDim{filter_count}_code,
                    description AS filterDim{filter_count}_description
             FROM {table_name}
-            WHERE dimension = '{dim}' AND member_code = '{member}';
+            WHERE dimension = '{dim}' AND code = '{member}';
             """
             filter_data[dim] = pd.DataFrame(conn.execute(query).fetchall(),
                                             columns=[f"filterDim{filter_count}_code", f"filterDim{filter_count}_description"])
@@ -1268,11 +1270,12 @@ def prepare_query_set(hierarchy_df, requested_members):
         for df in all_dims:
             column_names.extend(df.columns)
 
+        flattened_cartesian_product = [tuple(item for sublist in t for item in sublist) for t in cartesian_product]
+
         # Create the final DataFrame
-        result = pd.DataFrame(cartesian_product, columns=column_names)
+        result = pd.DataFrame(flattened_cartesian_product, columns=column_names)
 
         return result
-
     finally:
         # Clean up: Drop the temporary table
         conn.execute(f"DROP TABLE IF EXISTS {table_name};")
