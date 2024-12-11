@@ -1,0 +1,29 @@
+dimension,code,description,parent,level
+Geography,Top_Geography,Top node for the Geography dimension,,0
+Time,Top_Time,Top node for the Time dimension,,0
+Metric,Top_Metric,Top node for the Metric dimension,,0
+Product,Top_Product,Top node for the Product dimension,,0
+Metric,Revenue,Revenue,Top_Metric,1
+Product,Electronics,Electronics,Top_Product,1
+Geography,Global,Global,Top_Geography,1
+Time,2023,2023,Top_Time,1
+Geography,Asia,Asia,Global,2
+Geography,CAN,Canada,N-AM,3
+Geography,Europe,Europe,Global,2
+Geography,GER,Germany,Europe,3
+Geography,N-AM,North America,Global,2
+Geography,US,United States,N-AM,3
+Time,Apr,Apr,2023,2
+Time,Aug,Aug,2023,2
+Time,Dec,Dec,2023,2
+Time,Feb,Feb,2023,2
+Time,Jan,Jan,2023,2
+Time,Jul,Jul,2023,2
+Time,Jun,Jun,2023,2
+Time,Mar,Mar,2023,2
+Time,May,May,2023,2
+Time,Nov,Nov,2023,2
+Time,Oct,Oct,2023,2
+Time,Sep,Sep,2023,2
+Geography,CH,China,Asia,3
+Geography,JA,Japan,Asia,3

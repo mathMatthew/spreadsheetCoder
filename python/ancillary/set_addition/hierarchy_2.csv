@@ -1,0 +1,39 @@
+﻿dimension,code,parent,description,level
+Geography,NYC,US,New York City,3
+Geography,LA,US,Los Angeles,3
+Geography,SF,US,San Francisco,3
+Geography,Toronto,Canada,Toronto,3
+Geography,Vancouver,Canada,Vancouver,3
+Geography,Montreal,Canada,Montreal,3
+Geography,US,NorthAmerica,United States,2
+Geography,Canada,NorthAmerica,Canada,2
+Geography,Mexico,NorthAmerica,Mexico,2
+Geography,NorthAmerica,Top_Geography,North America,1
+Geography,Brazil,SouthAmerica,Brazil,2
+Geography,Argentina,SouthAmerica,Argentina,2
+Geography,Chile,SouthAmerica,Chile,2
+Geography,SouthAmerica,Top_Geography,South America,1
+Geography,Germany,Europe,Germany,2
+Geography,France,Europe,France,2
+Geography,UK,Europe,United Kingdom,2
+Geography,Europe,Top_Geography,Europe,1
+Geography,Asia,Top_Geography,Asia,1
+Geography,Top_Geography,NULL,Top node for the Geography dimension,0
+Product,iPhone,Smartphones,Apple iPhone,3
+Product,Galaxy,Smartphones,Samsung Galaxy,3
+Product,Pixel,Smartphones,Google Pixel,3
+Product,MacBook,Laptops,Apple MacBook,3
+Product,ThinkPad,Laptops,Lenovo ThinkPad,3
+Product,XPS,Laptops,Dell XPS,3
+Product,Smartphones,Electronics,Smartphones,2
+Product,Laptops,Electronics,Laptops,2
+Product,TVs,Electronics,Televisions,2
+Product,Electronics,Top_Product,Electronics,1
+Product,Shampoo,Toiletries,Shampoo,3
+Product,Toothpaste,Toiletries,Toothpaste,3
+Product,Soap,Toiletries,Soap,3
+Product,Toiletries,Top_Product,Toiletries,2
+Product,Snacks,Food,Snacks,2
+Product,Beverages,Food,Beverages,2
+Product,Food,Top_Product,Food,1
+Product,Top_Product,NULL,Top node for the Product dimension,0

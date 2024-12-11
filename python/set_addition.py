@@ -1162,18 +1162,27 @@ def sort_child_to_parent(facts, hierarchy):
 def prepare_query_set(hierarchy_df, requested_members):
     """
     Prepares a query dataset based on requested members and the given hierarchy,
-    ensuring children come before parents and avoiding unnecessary repetitions.
+    ensuring it respects parent-child relationships. Filters are handled separately
+    from rows, maintaining correct hierarchy order.
 
     Parameters:
     - hierarchy_df: DataFrame representing the hierarchy of dimensions.
-    - requested_members: Dictionary where each key is a dimension name, 
-      and the value is a list of member codes.
+    - requested_members: Dictionary where each key is a dimension name, and the value is a list of member codes.
 
     Returns:
-    - A DataFrame combining the requested members from all dimensions.
+    - A DataFrame combining filter dimensions and row dimensions into a query dataset.
     """
-    
-    # Helper function to retrieve hierarchy for a dimension
+
+    # Helper to retrieve top-level members for unspecified dimensions
+    def get_top_level_members(hierarchy_df, dim):
+        query = f"""
+        SELECT code
+        FROM hierarchy_df
+        WHERE dimension = '{dim}' AND level = 1;
+        """
+        return conn.execute(query).df()
+
+    # Helper to retrieve ancestors in depth-first order
     def get_hierarchy_for_dimension(hierarchy_df, dim, members):
         # Run a recursive query with DuckDB to get all ancestors in the correct order
         query = f"""
@@ -1211,25 +1220,50 @@ def prepare_query_set(hierarchy_df, requested_members):
         """
         # Execute the query using DuckDB and return as a DataFrame
         return conn.execute(query).df()
+    
+    # Separate dimensions into filters and rows
+    filter_dims, row_dims = {}, {}
+    for dim, members in requested_members.items():
+        if len(members) == 1:
+            filter_dims[dim] = members[0]
+        else:
+            row_dims[dim] = members
 
-    # Process each dimension
-    dimension_dataframes = []
-    for dimension, members in requested_members.items():
-        dimension_hierarchy = get_hierarchy_for_dimension(hierarchy_df, dimension, members)
-        # Optionally remove parents if not needed for final result
-        dimension_hierarchy = dimension_hierarchy[["code", "description", "level"]]
-        dimension_dataframes.append(dimension_hierarchy)
+    # Handle unlisted dimensions as filters with top-level members
+    for dim in hierarchy_df["dimension"].unique():
+        if dim not in requested_members:
+            top_level = get_top_level_members(hierarchy_df, dim)
+            if len(top_level) == 1:
+                filter_dims[dim] = top_level[0]
+            else:
+                row_dims[dim] = top_level
 
-    # Combine dimensions using Cartesian product
-    combined_product = list(product(*[df.itertuples(index=False, name=None) for df in dimension_dataframes]))
+    # Process filter dimensions
+    filter_data = {}
+    for filter_count, (dim, member) in enumerate(filter_dims.items(), start=1):
+        query = f"""
+        SELECT code AS filterDim{filter_count}_code, 
+                description AS filterDim{filter_count}_description
+        FROM hierarchy_df
+        WHERE dimension = '{dim}' AND code = '{member}';
+        """
+        filter_data[dim] = conn.execute(query).df()
+        filter_data[dim].columns = [f"filterDim{filter_count}_code", f"filterDim{filter_count}_description"]
 
-    # Flatten columns for the final DataFrame
-    column_names = []
-    for i, df in enumerate(dimension_dataframes):
-        column_names.extend([f"{df.columns[0]}_dim{i+1}", f"{df.columns[1]}_dim{i+1}", f"{df.columns[2]}_dim{i+1}"])
+    # Process row dimensions
+    row_data = {}
+    for row_count, (dim, members) in enumerate(row_dims.items(), start=1):
+        dimension_hierarchy = get_hierarchy_for_dimension(hierarchy_df, dim, members)
+        dimension_hierarchy.columns = [f"rowsDim{row_count}_code", f"rowsDim{row_count}_description", f"rowsDim{row_count}_rel_level"]
+        row_data[dim] = dimension_hierarchy
 
-    # Build the final DataFrame
-    flattened_product = [tuple(item for sublist in row for item in sublist) for row in combined_product]
+    # Cartesian product of all dimensions
+    all_dims = list(filter_data.values()) + list(row_data.values())
+    cartesian_product = list(product(*[df.itertuples(index=False, name=None) for df in all_dims]))
+
+    # Flatten results into a DataFrame
+    column_names = [col for df in all_dims for col in df.columns]
+    flattened_product = [tuple(val for tup in row for val in tup) for row in cartesian_product]
     result = pd.DataFrame(flattened_product, columns=column_names)
 
     return result
