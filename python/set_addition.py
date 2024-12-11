@@ -1174,24 +1174,43 @@ def prepare_query_set(hierarchy_df, requested_members):
     """
     
     # Helper function to retrieve hierarchy for a dimension
-    def get_hierarchy_for_dimension(hierarchy_df, dimension, members):
+    def get_hierarchy_for_dimension(hierarchy_df, dim, members):
         # Run a recursive query with DuckDB to get all ancestors in the correct order
         query = f"""
-        WITH RECURSIVE hierarchy AS (
-            SELECT code, parent, description, level, CAST(code AS VARCHAR) AS path
-            FROM hierarchy_df
-            WHERE dimension = '{dimension}' AND code IN ({','.join([f"'{m}'" for m in members])})
-            UNION ALL
-            SELECT h.code, h.parent, h.description, h.level, CONCAT(a.path, '->', h.code) AS path
-            FROM hierarchy_df h
-            INNER JOIN hierarchy a ON h.parent = a.code
-        )
-        SELECT DISTINCT code, description, level
-        FROM hierarchy
-        ORDER BY path ASC; -- Ensures children come before parents
+            WITH RECURSIVE go_up AS (
+                -- Base case: Start with the requested members
+                SELECT DISTINCT code, parent, description, level
+                FROM hierarchy_df
+                WHERE dimension = '{dim}' AND code IN ({','.join([f"'{m}'" for m in members])})
+
+                UNION ALL
+
+                -- Add parents, ensuring distinct results
+                SELECT DISTINCT h.code, h.parent, h.description, h.level
+                FROM hierarchy_df h
+                INNER JOIN go_up g ON h.code = g.parent
+            )
+            , go_down AS (
+                -- Phase 2: Start from topmost ancestors and build paths downward
+                SELECT code, parent, description, level, CAST(code AS VARCHAR) AS path
+                FROM go_up
+                WHERE level = 0
+                UNION ALL
+
+                -- Traverse downward, ensuring no duplicates
+                SELECT DISTINCT g.code, g.parent, g.description, g.level, CONCAT(d.path, '->', g.code) AS path
+                FROM go_up g
+                INNER JOIN go_down d ON g.parent = d.code
+            )
+            -- Final output: Include all nodes with their paths
+            SELECT code, description, level
+            FROM go_down
+            WHERE level != 0
+            ORDER BY path DESC;
+
         """
         # Execute the query using DuckDB and return as a DataFrame
-        return pd.DataFrame(conn.execute(query).fetchall(), columns=["code", "description", "level"])
+        return conn.execute(query).df()
 
     # Process each dimension
     dimension_dataframes = []
