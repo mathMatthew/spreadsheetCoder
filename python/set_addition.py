@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import uuid
 from itertools import product
-
+from typing import Literal
 
 # Open DuckDB connection as a global
 conn = duckdb.connect(database=':memory:')  # Use ':memory:' for an in-memory database, or specify a file path
@@ -19,10 +19,41 @@ predefined_dim_names = {
 
 global_reserve_tolerance = 0.01
 
-def add_dimension_names(dim_mapping_df, founding_df, auto_feed_dim_names):
-    #adds dimension names either by asking the user for them (normal) or
-    #assigning them pre-defined names (auto_feed_dim_names=True) which is used 
-    #for testing.
+def normalize_input(input_data, desired_format: str):
+    """
+    Convert input_data to the desired format.
+    
+    Parameters:
+        input_data: either a pandas DataFrame or a string (table name)
+        desired_format: "df" or "table"
+        conn: DuckDB connection (if conversion to/from DuckDB table is needed)
+    
+    Returns:
+        The input_data in the desired format.
+    """
+    # If already in desired format, return as is.
+    if desired_format == "df":
+        if isinstance(input_data, pd.DataFrame):
+            return input_data
+        else:
+            # Assume input_data is a table name; fetch the table into a DataFrame.
+            return conn.execute(f"SELECT * FROM {input_data}").df()
+    elif desired_format == "table":
+        if isinstance(input_data, str):
+            return input_data  # Already a table name.
+        else:
+            # Assume input_data is a DataFrame; register it as a temporary DuckDB table.
+            table_name = f"temp_table_{uuid.uuid4().hex}"
+            conn.register(table_name, input_data)
+            return table_name
+    else:
+        raise ValueError("Unknown desired format. Use 'df' or 'table'.")
+
+
+def add_dimension_names(dim_mapping_data, founding_data, auto_feed_dim_names, return_format: Literal["df", "table"]):
+    dim_mapping_df = normalize_input(dim_mapping_data, "df")
+    founding_df = normalize_input(founding_data, "df")
+
     for idx, row in dim_mapping_df.iterrows():
         if auto_feed_dim_names:
             dimension_name = predefined_dim_names.get(row["base_name"])
@@ -41,10 +72,19 @@ def add_dimension_names(dim_mapping_df, founding_df, auto_feed_dim_names):
 
         dim_mapping_df.at[idx, "dimension_name"] = dimension_name
 
-    return dim_mapping_df
+    return normalize_input(dim_mapping_df, return_format)
 
 
-def add_first_hierarchy_level(incoming_df, mapping_df, hierarchy_df):
+def add_first_hierarchy_level(
+    incoming_data, 
+    mapping_data, 
+    hierarchy_data, 
+    return_format: Literal["df", "table"]
+):
+    incoming_df = normalize_input(incoming_data, "df")
+    mapping_df = normalize_input(mapping_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+
     for mapping_row in mapping_df[mapping_df["type"] == "filter"].itertuples():
         unique_df = incoming_df.drop_duplicates(
             subset=mapping_row.code_column, keep="first"
@@ -73,11 +113,14 @@ def add_first_hierarchy_level(incoming_df, mapping_df, hierarchy_df):
         rel_level1["parent"] = f"Top_{mapping_row.dimension_name}"
         rel_level1["dimension"] = mapping_row.dimension_name
         hierarchy_df = pd.concat([hierarchy_df, rel_level1], ignore_index=True)
-    return hierarchy_df
+
+    return normalize_input(hierarchy_df, return_format) 
 
 
-def validate_and_merge_new_facts(prior_all_facts_df, new_facts_df, tolerance):
-    # Identify key columns (all columns except the 'value' column)
+def validate_and_merge_new_facts(prior_all_facts_data, new_facts_data, tolerance, return_format: Literal["df", "table"]):
+    prior_all_facts_df = normalize_input(prior_all_facts_data, "df")
+    new_facts_df = normalize_input(new_facts_data, "df")
+
     key_columns = new_facts_df.columns.difference(["value"])
 
     # Merge the old and new data on the key columns to identify overlapping records
@@ -114,11 +157,13 @@ def validate_and_merge_new_facts(prior_all_facts_df, new_facts_df, tolerance):
         new_facts_df, prior_all_facts_df, key_columns.tolist()
     )
 
-    return new_all_facts_df, new_unique_facts
+    return normalize_input(new_all_facts_df, return_format), normalize_input(new_unique_facts, return_format)
 
+def incremental_assign_dimension_names(incoming_data, hierarchy_data, dim_mapping_data, return_format: Literal["df", "table"]):
+    incoming_df = normalize_input(incoming_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+    dim_mapping_df = normalize_input(dim_mapping_data, "df")
 
-def incremental_assign_dimension_names(incoming_df, hierarchy_df, dim_mapping_df):
-    #  map the generic column names of the incoming df to the actual dimension names
     #  based on matching members from hierarchy df.
 
     # validate that filters have only one value which already exists in hierarchy
@@ -183,10 +228,9 @@ def incremental_assign_dimension_names(incoming_df, hierarchy_df, dim_mapping_df
             dim_mapping_df["code_column"] == row["code_column"], "top_level"
         ] = hierarchy_row.iloc[0]["level"]
 
-    return True, dim_mapping_df
+    return True, normalize_input(dim_mapping_df, return_format)
 
-
-def build_hierarchy_mappings(hierarchy_df, include_level_1_child_records):
+def build_hierarchy_mappings(hierarchy_data, include_level_1_child_records, return_format: Literal["df", "table"]):
     """
     Constructs a dictionary of DataFrames containing child-parent mappings for each unique dimension.
 
@@ -197,7 +241,7 @@ def build_hierarchy_mappings(hierarchy_df, include_level_1_child_records):
               - 'prior_member': The original dimension code (either self or parent).
               - 'new_member': The corresponding dimension code (either self or parent).
     """
-
+    hierarchy_df = normalize_input(hierarchy_data, "df")
     hierarchy_mappings = {}
 
     # Loop through each unique dimension in the hierarchy DataFrame
@@ -249,18 +293,20 @@ def build_hierarchy_mappings(hierarchy_df, include_level_1_child_records):
         # Add the dataset for this dimension to the dictionary
         hierarchy_mappings[dimension] = dim_df
 
-    return hierarchy_mappings
+    return normalize_input(hierarchy_mappings, return_format)
 
 
-def required_rows(facts_df, hierarchy_mappings):
+def required_rows(facts_data, hierarchy_mappings_data, return_format: Literal["df", "table"]):
     # This function will build a list of required rows to avoid "partials"
     # This process will produce a set of required rows which is approximately 2^n larger
+    facts_df = normalize_input(facts_data, "df")
+    hierarchy_mappings_df = normalize_input(hierarchy_mappings_data, "df")
 
     required_rows_df = facts_df.copy()
     required_columns = list(hierarchy_mappings.keys())
 
-    for dimension in hierarchy_mappings.keys():
-        dim_df = hierarchy_mappings[dimension]
+    for dimension in hierarchy_mappings_df.keys():
+        dim_df = hierarchy_mappings_df[dimension]
 
         if not dim_df.empty:
             # Merge on the prior_member from the incoming data and the dimension-specific dataframe
@@ -280,7 +326,7 @@ def required_rows(facts_df, hierarchy_mappings):
             required_rows_df = required_rows_df[required_columns]
             required_rows_df = required_rows_df.drop_duplicates()
 
-    return required_rows_df
+    return normalize_input(required_rows_df, return_format)
 
 
 def set_subtract(set1, set2, columns):
@@ -296,8 +342,12 @@ def set_subtract(set1, set2, columns):
     return result
 
 
-def missing_rows_all_ancestors(all_facts_df, hierarchy_df):
+def missing_rows_all_ancestors(all_facts_data, hierarchy_data, return_format: Literal["df", "table"]):
     # Build the hierarchy mappings for each dimension.
+
+    all_facts_df = normalize_input(all_facts_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+
     hierarchy_mappings = build_hierarchy_mappings(hierarchy_df, False)
 
     # Get the list of initial missing rows based on all facts.
@@ -339,9 +389,10 @@ def missing_rows_all_ancestors(all_facts_df, hierarchy_df):
     return True
 
 
-def denormalize_balanced_dimension(hierarchy, dimension):
+def denormalize_balanced_dimension(hierarchy_data, dimension, return_format: Literal["df", "table"]):
     # Filter hierarchy for the given dimension
-    dimension_hierarchy = hierarchy[hierarchy["dimension"] == dimension].copy()
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+    dimension_hierarchy = hierarchy_df[hierarchy_df["dimension"] == dimension].copy()
 
     # Start with the lowest level and move up to create the dernomalized structure
     max_level = dimension_hierarchy["level"].max()
@@ -390,10 +441,10 @@ def denormalize_balanced_dimension(hierarchy, dimension):
             right_on=f"{dimension}_{level}",
         )
 
-    return denormalized_dimension
+    return normalize_input(denormalized_dimension, return_format)
 
-
-def balance_hierarchy_with_reserve_codes(hierarchy_df):
+def balance_hierarchy_with_reserve_codes(hierarchy_data, return_format: Literal["df", "table"]):
+    hierarchy_df = normalize_input(hierarchy_data, "df")
     new_rows = []
     node_mapping = {}
     hierarchy_df = hierarchy_df.sort_values(
@@ -452,10 +503,9 @@ def balance_hierarchy_with_reserve_codes(hierarchy_df):
         drop=True
     )
 
-    return result_df, node_mapping
+    return normalize_input(result_df, return_format), node_mapping
 
-
-def create_flat_fact_table(atomic_fact_table, hierarchy):
+def create_flat_fact_table(atomic_fact_data, hierarchy_data, return_format: Literal["df", "table"]):
     """
     Flattens the atomic_fact_table by joining with dimension tables based on the hierarchy.
     Uses inner joins while performing pre-validation to ensure all keys are present and unique.
@@ -473,11 +523,14 @@ def create_flat_fact_table(atomic_fact_table, hierarchy):
     - ValueError: If missing joins or duplicate join keys are detected.
     - KeyError: If the join key is not found in the flattened dimension.
     """
+    atomic_fact_df = normalize_input(atomic_fact_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+
     print("\n-----------Create flat fact table-----------")
-    atomic_fact_table = atomic_fact_table.copy()
+    atomic_fact_table = atomic_fact_df.copy()
 
     # Add reserve codes to the hierarchy
-    balanced_hierarchy, reserve_mapping = balance_hierarchy_with_reserve_codes(hierarchy)
+    balanced_hierarchy, reserve_mapping = balance_hierarchy_with_reserve_codes(hierarchy_df)
 
     # Remap intermediate nodes to balanced reserve nodes
     if reserve_mapping:
@@ -635,10 +688,9 @@ def create_flat_fact_table(atomic_fact_table, hierarchy):
             " - Final row count verification passed. No records were lost or duplicated."
         )
 
-    return atomic_fact_table
+    return normalize_input(atomic_fact_table, return_format)
 
-
-def create_atomic_facts_table(facts_with_summaries, hierarchy_df, reserve_tolerance):
+def create_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve_tolerance, return_format: Literal["df", "table"]):
     # The key insight is that for everything we add, we also subtract it back out.
     # The only exception is the top level row which represents everything. But once we have that
     # everything else is just filling in details and wont change our totals.
@@ -660,9 +712,12 @@ def create_atomic_facts_table(facts_with_summaries, hierarchy_df, reserve_tolera
     # Note another key thing is that we are at the same time dropping to the "atomic" level.
     # We will use the naming convention {member_name}_reserve_{level} to move an item to the lowest level.
 
+    facts_with_summaries_df = normalize_input(facts_with_summaries_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+
     internal_max_row_count_size = 1_000_000
 
-    result_df = facts_with_summaries.copy()
+    result_df = facts_with_summaries_df.copy()
     dimensions = hierarchy_df["dimension"].unique().tolist()
     hierarchy_mappings = build_hierarchy_mappings(hierarchy_df, True)
 
@@ -758,10 +813,11 @@ def create_atomic_facts_table(facts_with_summaries, hierarchy_df, reserve_tolera
         reduction_ratio = intermediate_record_count / final_record_count
         print(f"Reduction Ratio (intermediate/final): {reduction_ratio:.2f}")
 
-    return final_df, hierarchy_df
+    return normalize_input(final_df, return_format), normalize_input(hierarchy_df, return_format)
 
+def recalc_hierarchy_levels(hierarchy_data, return_format: Literal["df", "table"]):
+    hierarchy_df = normalize_input(hierarchy_data, "df")
 
-def recalc_hierarchy_levels(hierarchy_df):
     hierarchy_df["level"] = hierarchy_df.apply(
         lambda row: 0 if row["parent"] is None else None, axis=1 #xxx downstream issue identified with na records when importing from pandas. determine how best to solve. work around check pd.isna.
     )
@@ -783,10 +839,11 @@ def recalc_hierarchy_levels(hierarchy_df):
         raise ValueError("Null values found in the 'level' column.")
 
     hierarchy_df["level"] = hierarchy_df["level"].astype(int)
-    return hierarchy_df
+    return normalize_input(hierarchy_df, return_format)
 
 
-def validate_and_define_dimensions(df):
+def validate_and_define_dimensions(data, return_format: Literal["df", "table"]):
+    df = normalize_input(data, "df")
     # Validate and map dimensions
     dim_mapping = []
     error_messages = []
@@ -847,10 +904,10 @@ def validate_and_define_dimensions(df):
     if error_messages:
         raise ValueError("\n".join(error_messages))
 
-    return pd.DataFrame(dim_mapping)
+    return normalize_input(pd.DataFrame(dim_mapping), return_format)
 
-
-def child_parent_records(unique_df, mapping_row):
+def child_parent_records(unique_data, mapping_row, return_format: Literal["df", "table"]):
+    unique_df = normalize_input(unique_data, "df")
     # helper function for add_to_hierarchy
     """
     For a given DataFrame of unique dimension members and a mapping_row, generates a DataFrame
@@ -935,10 +992,15 @@ def child_parent_records(unique_df, mapping_row):
         ]
     ]
     child_parents.columns = ["code", "description", "parent"]
-    return child_parents
+
+    return normalize_input(child_parents, return_format)
 
 
-def add_to_hierarchy(incoming_df, mapping_df, hierarchy_df):
+def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data, return_format: Literal["df", "table"]):
+    incoming_df = normalize_input(incoming_data, "df")
+    mapping_df = normalize_input(mapping_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+
     incoming_df = incoming_df.copy()
     incoming_df["row_number"] = incoming_df.index + 1
     #xxx reported slow performance. Hoping switching to duckdb resolves
@@ -959,10 +1021,12 @@ def add_to_hierarchy(incoming_df, mapping_df, hierarchy_df):
             hierarchy_df = pd.concat([hierarchy_df, new_nodes], ignore_index=True)
 
     hierarchy_df = recalc_hierarchy_levels(hierarchy_df)
-    return hierarchy_df
+    return normalize_input(hierarchy_df, return_format)
 
+def update_columns_with_dimension_names(incoming_data, dim_mapping_data, return_format: Literal["df", "table"]):
+    incoming_df = normalize_input(incoming_data, "df")
+    dim_mapping_df = normalize_input(dim_mapping_data, "df")
 
-def update_columns_with_dimension_names(incoming_data, dim_mapping_df):
     incoming_data = incoming_data.copy()
     for mapping_row in dim_mapping_df.itertuples():
         incoming_data = incoming_data.rename(
@@ -971,10 +1035,13 @@ def update_columns_with_dimension_names(incoming_data, dim_mapping_df):
         incoming_data = incoming_data.drop(columns=[mapping_row.description_column])
         if mapping_row.type == "row":
             incoming_data = incoming_data.drop(columns=[mapping_row.rel_level_column])
-    return incoming_data
+
+    return normalize_input(incoming_df, return_format)
 
 
-def parse_data(incoming_data: pd.DataFrame, hierarchy_df: pd.DataFrame):
+def parse_data(incoming_data, hierarchy_data, return_format: Literal["df", "table"]):
+    incoming_df = normalize_input(incoming_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
     dim_mapping_df = validate_and_define_dimensions(incoming_data)
     is_valid, dim_mapping_df = incremental_assign_dimension_names(
         incoming_data, hierarchy_df, dim_mapping_df
@@ -984,14 +1051,16 @@ def parse_data(incoming_data: pd.DataFrame, hierarchy_df: pd.DataFrame):
 
     hierarchy_df = add_to_hierarchy(incoming_data, dim_mapping_df, hierarchy_df)
     incremental_fact_data = update_columns_with_dimension_names(incoming_data, dim_mapping_df)
-    return incremental_fact_data, hierarchy_df
-
+    return normalize_input(incremental_fact_data, return_format), normalize_input(hierarchy_df, return_format)
 
 def merge_atomic_facts(
-    atomic_facts_df: pd.DataFrame, 
-    incremental_atomic_data: pd.DataFrame, 
-    reserve_tolerance: float
-) -> pd.DataFrame:
+    atomic_facts_data, 
+    incremental_atomic_data, 
+    reserve_tolerance, 
+    return_format: Literal["df", "table"]
+):
+    atomic_facts_df = normalize_input(atomic_facts_data, "df")
+    incremental_atomic_df = normalize_input(incremental_atomic_data, "df")
 
     # Identify key columns (all columns except 'value')
     key_columns = atomic_facts_df.columns.difference(["value"])
@@ -1009,11 +1078,11 @@ def merge_atomic_facts(
     # Remove records with absolute value below tolerance. 
     # see comment above in function create_atomic_facts_table
     grouped_df = grouped_df[abs(grouped_df["value"]) > reserve_tolerance]
-    return grouped_df
+    return normalize_input(grouped_df, return_format)
 
-
-def establish_founding_data_sets(incoming_data, reserve_tolerance):
-    ##Figure out the dimensions
+def establish_founding_data_sets(incoming_data, reserve_tolerance, return_format: Literal["df", "table"]):
+    incoming_df = normalize_input(incoming_data, "df")
+        ##Figure out the dimensions
     dim_mapping_df = validate_and_define_dimensions(incoming_data)
     dim_mapping_df = add_dimension_names(dim_mapping_df, incoming_data, True)
 
@@ -1051,22 +1120,33 @@ def establish_founding_data_sets(incoming_data, reserve_tolerance):
     flattened_df = create_flat_fact_table(atomic_facts_df, hierarchy_df)
 
     print("Founding data set processing completed successfully.")
-    return all_facts_df, hierarchy_df, atomic_facts_df, flattened_df
+    return (
+        normalize_input(all_facts_df, return_format),
+        normalize_input(hierarchy_df, return_format),
+        normalize_input(atomic_facts_df, return_format),
+        normalize_input(flattened_df, return_format),
+    )
 
 
 def incremental_add(
-    all_facts_df: pd.DataFrame,
-    hierarchy_df: pd.DataFrame,
-    atomic_facts_df: pd.DataFrame,
-    incremental_data: pd.DataFrame,
-    reserve_tolerance: float,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    all_facts_data,
+    hierarchy_data,
+    atomic_facts_data,
+    incremental_data,
+    reserve_tolerance,
+    return_format: Literal["df", "table"]
+):
+    
+    all_facts_df = normalize_input(all_facts_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
+    atomic_facts_df = normalize_input(atomic_facts_data, "df")
+    incremental_df = normalize_input(incremental_data, "df")
 
     # Parse the data into Incremental_Fact_Summary.
     # hierarchy_df returned is the full hierarchy with new members added
     incremental_facts_df: pd.DataFrame
     incremental_facts_df, hierarchy_df = parse_data(
-        incremental_data, hierarchy_df
+        incremental_df, hierarchy_df
     )
 
     # check for missing rows
@@ -1094,16 +1174,18 @@ def incremental_add(
 
     return all_facts_df, hierarchy_df, atomic_facts_df, flattened_df
 
+def sort_child_to_parent(facts_data, hierarchy_data, return_format: Literal["df", "table"]):
+    facts_df = normalize_input(facts_data, "df")
+    hierarchy_df = normalize_input(hierarchy_data, "df")
 
-def sort_child_to_parent(facts, hierarchy):
     sorted_orders = {}
 
     # Build a hierarchy tree for each dimension using adjacency lists
-    dimensions = hierarchy["dimension"].unique()
+    dimensions = hierarchy_df["dimension"].unique()
 
     for dimension in dimensions:
         # Filter hierarchy for the current dimension
-        dim_hierarchy = hierarchy[hierarchy["dimension"] == dimension]
+        dim_hierarchy = hierarchy_df[hierarchy_df["dimension"] == dimension]
 
         # Initialize the tree as a dictionary for parent -> children relationships
         tree = {}
@@ -1134,7 +1216,7 @@ def sort_child_to_parent(facts, hierarchy):
             sorted_codes.append(node)
 
         # Identify top-level parents (nodes where parent is NaN)
-        top_parents = dim_hierarchy[pd.isna(dim_hierarchy["parent"])]["code"].tolist()
+        top_parents = dim_hierarchy_df[pd.isna(dim_hierarchy_df["parent"])]["code"].tolist()
 
         # Start DFS traversal from all top-level parents
         for parent in top_parents:
@@ -1146,19 +1228,20 @@ def sort_child_to_parent(facts, hierarchy):
     # Replace the codes in the facts table with their ranks
     for dimension in dimensions:
         # Map ranks using the order from sorted_orders
-        facts[f"{dimension}_rank"] = facts[dimension].map(sorted_orders[dimension])
+        facts_df[f"{dimension}_rank"] = facts_df[dimension].map(sorted_orders[dimension])
 
         # Fill any NaN ranks (if they exist) with the maximum rank + 1 to ensure proper sorting
-        facts[f"{dimension}_rank"].fillna(
-            facts[f"{dimension}_rank"].max() + 1, inplace=True
+        facts_df[f"{dimension}_rank"].fillna(
+            facts_df[f"{dimension}_rank"].max() + 1, inplace=True
         )
 
     # Sort the facts table by the rank columns and drop the rank columns after sorting
     rank_columns = [f"{dimension}_rank" for dimension in dimensions]
-    sorted_facts = facts.sort_values(by=rank_columns).drop(columns=rank_columns)
-    return sorted_facts
+    sorted_facts = facts_df.sort_values(by=rank_columns).drop(columns=rank_columns)
+    return normalize_input(sorted_facts, return_format)
 
-def prepare_query_set(hierarchy_df, requested_members):
+def prepare_query_set(hierarchy_data, requested_members, return_format: Literal["df", "table"]):
+    hierarchy_df = normalize_input(hierarchy_data, "df")
     """
     Prepares a query dataset based on requested members and the given hierarchy,
     ensuring it respects parent-child relationships. Filters are handled separately
@@ -1265,4 +1348,4 @@ def prepare_query_set(hierarchy_df, requested_members):
     flattened_product = [tuple(val for tup in row for val in tup) for row in cartesian_product]
     result = pd.DataFrame(flattened_product, columns=column_names)
 
-    return result
+    return normalize_input(result, return_format)
