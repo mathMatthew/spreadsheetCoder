@@ -19,9 +19,37 @@ predefined_dim_names = {
 
 global_reserve_tolerance = 0.01
 
-from typing import Literal
-import pandas as pd
 
+def _generate_table_name():
+    return f"tmp_{uuid.uuid4().hex}"
+
+def _temp_table_from_q(query):
+    table_name = _generate_table_name()
+    conn.execute(f"CREATE TEMP TABLE {table_name} AS {query}")
+    return table_name
+
+def _validate_zero_query(query, message):
+    """
+    Executes a query that is expected to return zero rows.
+    If the query returns any results, it raises an error with a custom message and shows the first 20 rows.
+    """
+    result = conn.execute(query).fetchdf()  # Fetch result as Pandas DataFrame
+    
+    if not result.empty:
+        error_message = f"Validation failed: {message}\n"
+        error_message += f"First {min(len(result), 20)} violating rows:\n"
+        error_message += result.head(20).to_string(index=False)  # Show first 20 rows
+        raise ValueError(error_message)
+
+def _validate_nonzero_query(query, message):
+    """
+    Executes a query that is expected to return at least one row.
+    If the query returns no results, it raises an error with a custom message.
+    """
+    result = conn.execute(query).fetchdf()  # Fetch result as Pandas DataFrame
+
+    if result.empty:
+        raise ValueError(f"Validation failed: {message}\nNo rows were returned!")
 
 def to_dataframe(data) -> pd.DataFrame:
     """Ensures the result is returned as a Pandas DataFrame."""
@@ -30,16 +58,15 @@ def to_dataframe(data) -> pd.DataFrame:
     else:
         return conn.execute(f"SELECT * FROM {data}").df()
 
+
 def to_duckdb_table(data) -> str:
     """Ensures the result is returned as a DuckDB table name."""
     if isinstance(data, str):
         return data  # Already a table name
     else:
-        table_name = f"temp_table_{uuid.uuid4().hex}"
+        table_name = _generate_table_name()
         conn.register(table_name, data)
         return table_name
-
-
 
 def add_dimension_names(dim_mapping_data, founding_data, auto_feed_dim_names):
     dim_mapping_df = to_dataframe(dim_mapping_data)
@@ -289,17 +316,16 @@ def build_hierarchy_mappings(hierarchy_data, include_level_1_child_records):
     return hierarchy_mappings
 
 
-def required_rows(facts_data, hierarchy_mappings_data):
+def required_rows(facts_data, hierarchy_mappings):
     # This function will build a list of required rows to avoid "partials"
     # This process will produce a set of required rows which is approximately 2^n larger
     facts_df = to_dataframe(facts_data)
-    hierarchy_mappings_df = to_dataframe(hierarchy_mappings_data)
 
     required_rows_df = facts_df.copy()
-    required_columns = list(hierarchy_mappings_df.keys())
+    required_columns = list(hierarchy_mappings.keys())
 
-    for dimension in hierarchy_mappings_df.keys():
-        dim_df = hierarchy_mappings_df[dimension]
+    for dimension in hierarchy_mappings.keys():
+        dim_df = hierarchy_mappings[dimension]
 
         if not dim_df.empty:
             # Merge on the prior_member from the incoming data and the dimension-specific dataframe
@@ -341,7 +367,7 @@ def missing_rows_all_ancestors(all_facts_data, hierarchy_data):
     all_facts_df = to_dataframe(all_facts_data)
     hierarchy_df = to_dataframe(hierarchy_data)
 
-    hierarchy_mappings = to_dataframe(build_hierarchy_mappings(hierarchy_df, False))
+    hierarchy_mappings = build_hierarchy_mappings(hierarchy_df, False)
 
     # Get the list of initial missing rows based on all facts.
     initial_required_rows = to_dataframe(required_rows(all_facts_df, hierarchy_mappings))
@@ -523,8 +549,9 @@ def create_flat_fact_table(atomic_fact_data, hierarchy_data):
     atomic_fact_table = atomic_fact_df.copy()
 
     # Add reserve codes to the hierarchy
-    balanced_hierarchy, reserve_mapping = to_dataframe(balance_hierarchy_with_reserve_codes(hierarchy_df))
-
+    balanced_hierarchy, reserve_mapping = balance_hierarchy_with_reserve_codes(hierarchy_df)
+    balanced_hierarchy = to_dataframe(balanced_hierarchy)
+    
     # Remap intermediate nodes to balanced reserve nodes
     if reserve_mapping:
         for dim in reserve_mapping:
@@ -712,7 +739,7 @@ def create_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve
 
     result_df = facts_with_summaries_df.copy()
     dimensions = hierarchy_df["dimension"].unique().tolist()
-    hierarchy_mappings = to_dataframe(build_hierarchy_mappings(hierarchy_df, True))
+    hierarchy_mappings = build_hierarchy_mappings(hierarchy_df, True)
 
     # Identify the "double dimensions" (those with non-empty hierarchy mappings. Each double dimension will double the size of the result set.)
     doubled_dimensions = [
@@ -898,95 +925,100 @@ def validate_and_define_dimensions(data):
         raise ValueError("\n".join(error_messages))
 
     return pd.DataFrame(dim_mapping)
-
-def child_parent_records(unique_data, mapping_row):
-    unique_df = to_dataframe(unique_data)
-    # helper function for add_to_hierarchy
     """
-    For a given DataFrame of unique dimension members and a mapping_row, generates a DataFrame
-    of child-parent records.
+    The incoming_data is assumed to have a column for the dimension code, description, and
+    rel_level. The mapping_row is a df tuple with the column names for these columns.
 
-    The input DataFrame is assumed to have a column for the dimension code, description, and
-    rel_level. The mapping_row is a tuple with the column names for these columns.
-
-    The function first adds a new rel_level column to represent the parent level of each node,
-    then performs a self-merge to align each node with potential parent nodes. The result is
-    filtered to only include parents with a lower row_number (i.e. above the current node in
-    the original DataFrame), and then sorted by node and parent. The highest (i.e. most recent
-    if going down the table) parent is selected for each node, and the resulting DataFrame is
-    sorted by node and parent, and then grouped by node. That is the node's parent.
-
-    The final DataFrame has columns for the child code, description, and parent code, and is
+    The result has columns for the child code, description, and parent code, and is
     sorted by child code.
-
-    Parameters
-    ----------
-    unique_df : DataFrame
-        DataFrame of unique dimension members
-    mapping_row : tuple
-        Tuple with column names for the dimension code, description, and rel_level
-
-    Returns
-    -------
-    DataFrame
-        DataFrame of child-parent records
-
     """
 
-    # Adjust the levels in the DataFrame for the merge
-
-    unique_df[f"{mapping_row.rel_level_column}_parent"] = (
-        unique_df[mapping_row.rel_level_column] - 1
-    )
-
-    #xxx reported slow performance. evidently moving to a row based approach and finding the next parent is faster
-    # Get unique levels in the dataframe
-    unique_levels = unique_df[mapping_row.rel_level_column].unique()
-
-    for level in unique_levels:
-        if (level - 1) not in unique_levels and level > 1:
-            raise ValueError(f"No rows with level {level - 1} found for level {level} for {mapping_row.rel_level_column} in the data.")
+def child_parent_records(incoming_data, mapping_row, check_validation):
+    incoming_table = to_duckdb_table(incoming_data)
     
-
-    # Perform the self-merge to align each node with potential parent nodes
-    potential_parents = unique_df.merge(
-        unique_df[
-            [
-                mapping_row.code_column,
-                mapping_row.rel_level_column,
-                "row_number",
-                mapping_row.description_column,
-            ]
-        ],
-        left_on=f"{mapping_row.rel_level_column}_parent",
-        right_on=mapping_row.rel_level_column,
-        suffixes=("", "_parent"),
+    # Generate all possible parent-child relationships (including duplicates)
+    q_all_parents = f"""
+    WITH all_parents AS (
+        SELECT 
+            child.{mapping_row['code_column']} AS child_code,
+            child.{mapping_row['description_column']} AS child_description,
+            child.{mapping_row['rel_level_column']} AS child_rel_level,
+            parent.{mapping_row['code_column']} AS parent_code,
+            parent.{mapping_row['description_column']} AS parent_description,
+            parent.{mapping_row['rel_level_column']} AS parent_rel_level,
+            child.row_number AS child_row_number,
+            parent.row_number AS parent_row_number
+        FROM {incoming_table} child
+        LEFT JOIN {incoming_table} parent
+            ON parent.{mapping_row['rel_level_column']} < child.{mapping_row['rel_level_column']}
+            AND parent.row_number = (
+                SELECT MIN(sub.row_number)
+                FROM {incoming_table} sub
+                WHERE sub.{mapping_row['rel_level_column']} < child.{mapping_row['rel_level_column']}
+                  AND sub.row_number > child.row_number
+            )
     )
-
-    potential_parents = potential_parents[
-        potential_parents["row_number"] < potential_parents["row_number_parent"]
-    ]
-
-    # Sort by 'row_id' and 'row_id_parent' ascending
-    potential_parents = potential_parents.sort_values(
-        by=["row_number", "row_number_parent"]
+    SELECT * FROM all_parents;
+    """
+    child_parent_map = _temp_table_from_q(q_all_parents)
+    
+    #Dedupe
+    q_deduped = f"""
+    WITH deduplicated AS (
+        SELECT DISTINCT 
+            child_code, 
+            child_description, 
+            parent_code
+        FROM {child_parent_map}
     )
-    # Group by the node and select the first parent within the sorted group
-    child_parents = (
-        potential_parents.groupby(mapping_row.code_column).first().reset_index()
-    )
-
-    # Select & rename the relevant columns
-    child_parents = child_parents[
-        [
-            mapping_row.code_column,
-            mapping_row.description_column,
-            f"{mapping_row.code_column}_parent",
-        ]
-    ]
-    child_parents.columns = ["code", "description", "parent"]
-
-    return child_parents
+    SELECT child_code code, child_description description, parent_code parent
+    FROM deduplicated
+    ORDER BY child_code; 
+    """ #consider removing order by. I no longer see the point.
+    deduped_child_parent_map = _temp_table_from_q(q_deduped)
+    
+    if check_validation:
+        #No child has multiple parents
+        q_validate_parents = f"""
+        SELECT 
+            code, 
+            COUNT(DISTINCT parent) AS parent_count
+        FROM {deduped_child_parent_map}
+        WHERE parent IS NOT NULL
+        GROUP BY code
+        HAVING COUNT(DISTINCT parent) > 1;
+        """
+        _validate_zero_query(q_validate_parents, "Some codes have inconsistent parents.")
+        
+        #No orphaned children (non-root nodes must have a parent)
+        q_validate_orphans = f"""
+        SELECT code 
+        FROM {deduped_child_parent_map}
+        WHERE parent IS NULL 
+        AND code NOT IN (
+            SELECT DISTINCT parent FROM {deduped_child_parent_map} WHERE parent IS NOT NULL
+        );
+        """
+        _validate_zero_query(q_validate_orphans, "Some non-root nodes do not have a parent!")
+        
+        #No cycles (a child cannot be its own ancestor)
+        q_validate_cycles = f"""
+        SELECT code, parent 
+        FROM {deduped_child_parent_map}
+        WHERE code = parent;
+        """
+        _validate_zero_query(q_validate_cycles, "Cycle detected: A child is its own parent!")
+        
+        #Hierarchy levels should be sequential
+        q_validate_levels = f"""
+        SELECT child_code, child_rel_level, parent_code, parent_rel_level
+        FROM {child_parent_map}
+        WHERE child_rel_level != parent_rel_level + 1;
+        """
+        _validate_zero_query(q_validate_levels, "Hierarchy levels are not sequential! Some levels are missing.")
+    
+    # Step 3: Return the final cleaned table
+    return deduped_child_parent_map
 
 
 def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data):
@@ -997,8 +1029,8 @@ def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data):
     incoming_df = incoming_df.copy()
     incoming_df["row_number"] = incoming_df.index + 1
     #xxx reported slow performance. Hoping switching to duckdb resolves
-    for mapping_row in mapping_df[mapping_df["type"] == "row"].itertuples():
-        result = to_dataframe(child_parent_records(incoming_df, mapping_row))
+    for _, mapping_row in mapping_df[mapping_df["type"] == "row"].iterrows():
+        result = to_dataframe(child_parent_records(incoming_df, mapping_row, True))
         if hierarchy_df.empty:
             hierarchy_df = result
             hierarchy_df["dimension"] = mapping_row.dimension_name
@@ -1020,14 +1052,14 @@ def update_columns_with_dimension_names(incoming_data, dim_mapping_data):
     incoming_df = to_dataframe(incoming_data)
     dim_mapping_df = to_dataframe(dim_mapping_data)
 
-    incoming_data = incoming_data.copy()
+    incoming_df = incoming_df.copy()
     for mapping_row in dim_mapping_df.itertuples():
-        incoming_data = incoming_data.rename(
+        incoming_df = incoming_df.rename(
             columns={mapping_row.code_column: mapping_row.dimension_name}
         )
-        incoming_data = incoming_data.drop(columns=[mapping_row.description_column])
+        incoming_df = incoming_df.drop(columns=[mapping_row.description_column])
         if mapping_row.type == "row":
-            incoming_data = incoming_data.drop(columns=[mapping_row.rel_level_column])
+            incoming_df = incoming_df.drop(columns=[mapping_row.rel_level_column])
 
     return incoming_df
 
@@ -1100,7 +1132,7 @@ def establish_founding_data_sets(incoming_data, reserve_tolerance):
     
     ## Validate
     # Ensure all_facts_df has all required facts
-    to_dataframe(missing_rows_all_ancestors(all_facts_df, hierarchy_df))
+    missing_rows_all_ancestors(all_facts_df, hierarchy_df)
 
     ##Create atomic facts table
     atomic_facts_df, hierarchy_df = create_atomic_facts_table(
@@ -1140,7 +1172,7 @@ def incremental_add(
 
     # check for missing rows
     # process will fail if invalid
-    to_dataframe(missing_rows_all_ancestors(incremental_facts_df, hierarchy_df))
+    missing_rows_all_ancestors(incremental_facts_df, hierarchy_df)
 
     # validate incremental fact summary
     # merge new facts into all_facts_df. 
@@ -1151,8 +1183,9 @@ def incremental_add(
     )
 
     # Generate incremental atomic data
-    incremental_atomic_data, hierarchy_with_reserves = to_dataframe(create_atomic_facts_table(incremental_facts_df, hierarchy_df, reserve_tolerance))
-
+    incremental_atomic_data, hierarchy_with_reserves = create_atomic_facts_table(incremental_facts_df, hierarchy_df, reserve_tolerance)
+    incremental_atomic_data = to_dataframe(incremental_atomic_data)
+    
     # Merge into Atomic_Fact_Cube
     atomic_facts_df = to_dataframe(merge_atomic_facts(atomic_facts_df, incremental_atomic_data, reserve_tolerance))
 

@@ -35,9 +35,9 @@ flattened_df.to_csv(export_flat_1, index=False)
 incremental_data = pd.read_csv(incremental_add_file)
 
 all_facts_df, hierarchy_df, atomic_facts_df, flattened_df = incremental_add(
-    all_facts_df=all_facts_df, 
-    hierarchy_df=hierarchy_df, 
-    atomic_facts_df=atomic_facts_df, 
+    all_facts_data=all_facts_df, 
+    hierarchy_data=hierarchy_df, 
+    atomic_facts_data=atomic_facts_df, 
     incremental_data=incremental_data, 
     reserve_tolerance=global_reserve_tolerance
     )
