@@ -872,7 +872,7 @@ def recalc_hierarchy_levels(hierarchy_data):
         FROM {base_table} h
         JOIN level_calc lc ON h.parent = lc.code AND h.dimension = lc.dimension
     )
-    -- Select all desired columns from the original table (excluding the old level)
+    -- Select desired columns from the original table (excluding the old level)
     -- and attach the computed level
     SELECT 
         h.dimension, 
@@ -883,6 +883,7 @@ def recalc_hierarchy_levels(hierarchy_data):
     FROM {base_table} h
     JOIN level_calc lc ON h.code = lc.code AND h.dimension = lc.dimension;
     """
+    
     result_table = _temp_table_from_q(query)
     
     null_check_query = f"SELECT * FROM {result_table} WHERE level IS NULL;"
@@ -1084,9 +1085,11 @@ def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data):
             new_nodes_table = "new_nodes_table"
             conn.execute(f"CREATE OR REPLACE TEMP TABLE {new_nodes_table} AS {new_nodes_query}")
             conn.execute(f"ALTER TABLE {new_nodes_table} ADD COLUMN dimension TEXT;")
-#            conn.execute(f"ALTER TABLE {new_nodes_table} ADD COLUMN level INTEGER;")
             conn.execute(f"UPDATE {new_nodes_table} SET dimension = ?;", (mapping_row["dimension_name"],))
-            conn.execute(f"INSERT INTO {hierarchy_table} SELECT * FROM {new_nodes_table};")
+            conn.execute(f"""
+                INSERT INTO {hierarchy_table} (code, description, parent, dimension)
+                SELECT code, description, parent, dimension FROM {new_nodes_table};
+                """)
     
     hierarchy_table = recalc_hierarchy_levels(hierarchy_table)
     
