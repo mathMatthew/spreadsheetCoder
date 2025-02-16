@@ -8,7 +8,6 @@ from typing import Literal
 # Open DuckDB connection as a global
 conn = duckdb.connect(database=':memory:')  # Use ':memory:' for an in-memory database, or specify a file path
 
-
 # Predefined dimension names for auto-feeding
 predefined_dim_names = {
     "filterDim1": "Metric",
@@ -55,18 +54,28 @@ def to_dataframe(data) -> pd.DataFrame:
     """Ensures the result is returned as a Pandas DataFrame."""
     if isinstance(data, pd.DataFrame):
         return data
-    else:
+    elif isinstance(data, str):
         return conn.execute(f"SELECT * FROM {data}").df()
+    else:
+        raise TypeError("Expected a DataFrame or a string representing a table name.")
+    
 
-
-def to_duckdb_table(data) -> str:
+def to_duckdb(data, create_table) -> str:
     """Ensures the result is returned as a DuckDB table name."""
     if isinstance(data, str):
         return data  # Already a table name
-    else:
+    elif isinstance(data, pd.DataFrame):
         table_name = _generate_table_name()
-        conn.register(table_name, data)
+        if create_table:
+            conn.from_df(data).create(table_name)
+        else:
+            conn.register(table_name, data)
         return table_name
+    elif not data:
+        return ""
+    else:
+        raise TypeError("Expected a string (table name) or a Pandas DataFrame.")
+
 
 def add_dimension_names(dim_mapping_data, founding_data, auto_feed_dim_names):
     dim_mapping_df = to_dataframe(dim_mapping_data)
@@ -835,32 +844,51 @@ def create_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve
 
     return final_df, hierarchy_df
 
+def drop_column_if_exists(table_name, column_name):
+    """Drops a column if it exists in a DuckDB table."""
+    column_exists = conn.execute(f"""
+        SELECT COUNT(*) 
+        FROM information_schema.columns 
+        WHERE table_name = '{table_name}' AND column_name = '{column_name}';
+    """).fetchone()[0] > 0
+    
+    if column_exists:
+        conn.execute(f"ALTER TABLE {table_name} DROP COLUMN {column_name};")
+
+
 def recalc_hierarchy_levels(hierarchy_data):
-    hierarchy_df = to_dataframe(hierarchy_data)
-
-    hierarchy_df["level"] = hierarchy_df.apply(
-        lambda row: 0 if row["parent"] is None else None, axis=1 #xxx downstream issue identified with na records when importing from pandas. determine how best to solve. work around check pd.isna.
+    # Convert the input data into a DuckDB table name.
+    base_table = to_duckdb(hierarchy_data, False)
+    
+    query = f"""
+    WITH RECURSIVE level_calc AS (
+        -- Base case: top-level nodes have level 0
+        SELECT code, parent, dimension, 0 AS level
+        FROM {base_table}
+        WHERE parent IS NULL
+        UNION ALL
+        -- Recursive case: add 1 to the parent's level
+        SELECT h.code, h.parent, h.dimension, lc.level + 1 AS level
+        FROM {base_table} h
+        JOIN level_calc lc ON h.parent = lc.code AND h.dimension = lc.dimension
     )
-
-    def set_level(parent_code, level):
-        hierarchy_df.loc[hierarchy_df["parent"] == parent_code, "level"] = int(
-            level
-        )  # level
-        children = hierarchy_df[hierarchy_df["parent"] == parent_code]["code"]
-        for child in children:
-            set_level(child, level + 1)
-
-    top_level_nodes = hierarchy_df[hierarchy_df["parent"].isnull()]["code"]
-    for node in top_level_nodes:
-        set_level(node, 1)
-
-    #raise error if nulls in level
-    if hierarchy_df["level"].isnull().any():
-        raise ValueError("Null values found in the 'level' column.")
-
-    hierarchy_df["level"] = hierarchy_df["level"].astype(int)
-    return hierarchy_df
-
+    -- Select all desired columns from the original table (excluding the old level)
+    -- and attach the computed level
+    SELECT 
+        h.dimension, 
+        h.code, 
+        h.description, 
+        h.parent, 
+        lc.level AS level
+    FROM {base_table} h
+    JOIN level_calc lc ON h.code = lc.code AND h.dimension = lc.dimension;
+    """
+    result_table = _temp_table_from_q(query)
+    
+    null_check_query = f"SELECT * FROM {result_table} WHERE level IS NULL;"
+    _validate_zero_query(null_check_query, "Null values found in the 'level' column.")
+    
+    return result_table
 
 def validate_and_define_dimensions(data):
     df = to_dataframe(data)
@@ -934,7 +962,7 @@ def validate_and_define_dimensions(data):
     """
 
 def child_parent_records(incoming_data, mapping_row, check_validation):
-    incoming_table = to_duckdb_table(incoming_data)
+    incoming_table = to_duckdb(incoming_data, False)
     
     # Generate all possible parent-child relationships (including duplicates)
     q_all_parents = f"""
@@ -1022,31 +1050,47 @@ def child_parent_records(incoming_data, mapping_row, check_validation):
 
 
 def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data):
-    incoming_df = to_dataframe(incoming_data)
-    mapping_df = to_dataframe(mapping_data)
-    hierarchy_df = to_dataframe(hierarchy_data)
+    incoming_table = to_duckdb(incoming_data, True)
+    mapping_table = to_duckdb(mapping_data, False)
+    hierarchy_table = to_duckdb(hierarchy_data, True)
 
-    incoming_df = incoming_df.copy()
-    incoming_df["row_number"] = incoming_df.index + 1
-    #xxx reported slow performance. Hoping switching to duckdb resolves
-    for _, mapping_row in mapping_df[mapping_df["type"] == "row"].iterrows():
-        result = to_dataframe(child_parent_records(incoming_df, mapping_row, True))
-        if hierarchy_df.empty:
-            hierarchy_df = result
-            hierarchy_df["dimension"] = mapping_row.dimension_name
+    # Add row_number to incoming_table (rowid preserves insertion order)
+    drop_column_if_exists(incoming_table, 'row_number')
+    conn.execute(f"""
+        ALTER TABLE {incoming_table} ADD COLUMN row_number INTEGER;
+        UPDATE {incoming_table} SET row_number = rowid;
+    """)
+    
+    mapping_query = f"SELECT * FROM {mapping_table} WHERE type = 'row';"
+    mapping_df = conn.execute(mapping_query).fetchdf()
+    
+    for _, mapping_row in mapping_df.iterrows():
+        result_table = child_parent_records(incoming_table, mapping_row, True)
+        
+        if not hierarchy_table:
+            # If hierarchy_table is empty, initialize it from the result_table.
+            hierarchy_table = result_table
+            conn.execute(f"ALTER TABLE {hierarchy_table} ADD COLUMN dimension TEXT;")
+            conn.execute(f"ALTER TABLE {hierarchy_table} ADD COLUMN level INTEGER;")
+            conn.execute(f"UPDATE {hierarchy_table} SET dimension = ?;", (mapping_row["dimension_name"],))
         else:
-            new_nodes = (
-                result.merge(
-                    hierarchy_df["code"], on="code", how="left", indicator=True
-                )
-                .loc[lambda x: x["_merge"] == "left_only"]
-                .drop(columns=["_merge"])
-            )
-            new_nodes["dimension"] = mapping_row.dimension_name
-            hierarchy_df = pd.concat([hierarchy_df, new_nodes], ignore_index=True)
-
-    hierarchy_df = to_dataframe(recalc_hierarchy_levels(hierarchy_df))
-    return hierarchy_df
+            # Identify new nodes (rows in result_table not already in hierarchy_table).
+            new_nodes_query = f"""
+                SELECT r.code, r.description, r.parent
+                FROM {result_table} r
+                LEFT JOIN {hierarchy_table} h ON r.code = h.code
+                WHERE h.code IS NULL;
+            """
+            new_nodes_table = "new_nodes_table"
+            conn.execute(f"CREATE OR REPLACE TEMP TABLE {new_nodes_table} AS {new_nodes_query}")
+            conn.execute(f"ALTER TABLE {new_nodes_table} ADD COLUMN dimension TEXT;")
+#            conn.execute(f"ALTER TABLE {new_nodes_table} ADD COLUMN level INTEGER;")
+            conn.execute(f"UPDATE {new_nodes_table} SET dimension = ?;", (mapping_row["dimension_name"],))
+            conn.execute(f"INSERT INTO {hierarchy_table} SELECT * FROM {new_nodes_table};")
+    
+    hierarchy_table = recalc_hierarchy_levels(hierarchy_table)
+    
+    return hierarchy_table
 
 def update_columns_with_dimension_names(incoming_data, dim_mapping_data):
     incoming_df = to_dataframe(incoming_data)
@@ -1262,18 +1306,6 @@ def sort_child_to_parent(facts_data, hierarchy_data):
 
 def prepare_query_set(hierarchy_data, requested_members):
     hierarchy_df = to_dataframe(hierarchy_data)
-    """
-    Prepares a query dataset based on requested members and the given hierarchy,
-    ensuring it respects parent-child relationships. Filters are handled separately
-    from rows, maintaining correct hierarchy order.
-
-    Parameters:
-    - hierarchy_df: DataFrame representing the hierarchy of dimensions.
-    - requested_members: Dictionary where each key is a dimension name, and the value is a list of member codes.
-
-    Returns:
-    - A DataFrame combining filter dimensions and row dimensions into a query dataset.
-    """
 
     # Helper to retrieve top-level members for unspecified dimensions
     def get_top_level_members(hierarchy_df, dim):
