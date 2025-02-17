@@ -59,7 +59,6 @@ def to_dataframe(data) -> pd.DataFrame:
     else:
         raise TypeError("Expected a DataFrame or a string representing a table name.")
     
-
 def to_duckdb(data, create_table) -> str:
     """Ensures the result is returned as a DuckDB table name."""
     if isinstance(data, str):
@@ -74,8 +73,7 @@ def to_duckdb(data, create_table) -> str:
     elif not data:
         return ""
     else:
-        raise TypeError("Expected a string (table name) or a Pandas DataFrame.")
-
+        raise TypeError("Expected a string (table name) or a Pandas DataFrame.")\
 
 def add_dimension_names(dim_mapping_data, founding_data, auto_feed_dim_names):
     dim_mapping_df = to_dataframe(dim_mapping_data)
@@ -103,7 +101,6 @@ def add_dimension_names(dim_mapping_data, founding_data, auto_feed_dim_names):
         dim_mapping_df.at[idx, "dimension_name"] = dimension_name
 
     return dim_mapping_df
-
 
 def add_first_hierarchy_level(
     incoming_data, 
@@ -144,7 +141,6 @@ def add_first_hierarchy_level(
         hierarchy_df = pd.concat([hierarchy_df, rel_level1], ignore_index=True)
 
     return hierarchy_df 
-
 
 def validate_and_merge_new_facts(prior_all_facts_data, new_facts_data, tolerance):
     prior_all_facts_df = to_dataframe(prior_all_facts_data)
@@ -324,7 +320,6 @@ def build_hierarchy_mappings(hierarchy_data, include_level_1_child_records):
 
     return hierarchy_mappings
 
-
 def required_rows(facts_data, hierarchy_mappings):
     # This function will build a list of required rows to avoid "partials"
     # This process will produce a set of required rows which is approximately 2^n larger
@@ -356,7 +351,6 @@ def required_rows(facts_data, hierarchy_mappings):
 
     return required_rows_df
 
-
 def set_subtract(set1, set2, columns):
     # Subtract set2 from set1 based on the specified columns
     set1_subset = set1[columns]
@@ -368,7 +362,6 @@ def set_subtract(set1, set2, columns):
     # Return the full set1 rows where the mask is True
     result = set1[mask]
     return result
-
 
 def missing_rows_all_ancestors(all_facts_data, hierarchy_data):
     # Build the hierarchy mappings for each dimension.
@@ -415,7 +408,6 @@ def missing_rows_all_ancestors(all_facts_data, hierarchy_data):
         )
 
     return True
-
 
 def denormalize_balanced_dimension(hierarchy_data, dimension):
     # Filter hierarchy for the given dimension
@@ -855,7 +847,6 @@ def drop_column_if_exists(table_name, column_name):
     if column_exists:
         conn.execute(f"ALTER TABLE {table_name} DROP COLUMN {column_name};")
 
-
 def recalc_hierarchy_levels(hierarchy_data):
     # Convert the input data into a DuckDB table name.
     base_table = to_duckdb(hierarchy_data, False)
@@ -1049,7 +1040,6 @@ def child_parent_records(incoming_data, mapping_row, check_validation):
     # Step 3: Return the final cleaned table
     return deduped_child_parent_map
 
-
 def normalize_incoming_data(incoming_data, mapping_data):
     incoming_table = to_duckdb(incoming_data, True) 
     mapping_df = to_dataframe(mapping_data) 
@@ -1140,7 +1130,6 @@ def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data):
     hierarchy_table = recalc_hierarchy_levels(hierarchy_table)
     
     return hierarchy_table
-
 
 def update_columns_with_dimension_names(incoming_data, dim_mapping_data):
     incoming_df = to_dataframe(incoming_data)
@@ -1244,7 +1233,6 @@ def establish_founding_data_sets(incoming_data, reserve_tolerance):
         flattened_df,
     )
 
-
 def incremental_add(
     all_facts_data,
     hierarchy_data,
@@ -1289,7 +1277,7 @@ def incremental_add(
     return all_facts_df, hierarchy_df, atomic_facts_df, flattened_df
 
 def sort_child_to_parent(facts_data, hierarchy_data):
-    facts_df = to_dataframe(facts_data)
+    facts_df = to_dataframe(facts_data) 
     hierarchy_df = to_dataframe(hierarchy_data)
 
     sorted_orders = {}
