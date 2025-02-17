@@ -1050,50 +1050,97 @@ def child_parent_records(incoming_data, mapping_row, check_validation):
     return deduped_child_parent_map
 
 
-def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data):
-    incoming_table = to_duckdb(incoming_data, True)
-    mapping_table = to_duckdb(mapping_data, False)
-    hierarchy_table = to_duckdb(hierarchy_data, True)
+def normalize_incoming_data(incoming_data, mapping_data):
+    incoming_table = to_duckdb(incoming_data, True) 
+    mapping_df = to_dataframe(mapping_data) 
+    mapping_df = mapping_df[mapping_df["type"] == "row"]
+    union_queries = []
+    for _, mapping_row in mapping_df.iterrows():
+        q = f"""
+        SELECT 
+            '{mapping_row['dimension_name']}' AS dimension,
+            {mapping_row['code_column']} AS code,
+            {mapping_row['description_column']} AS description,
+            {mapping_row['rel_level_column']} AS rel_level,
+            rowid AS row_number
+        FROM {incoming_table}
+        """
+        union_queries.append(q)
+    
+    # Combine all the individual queries using UNION ALL.
+    full_query = "\nUNION ALL\n".join(union_queries)
+    
+    normalized_table = _temp_table_from_q(full_query)
+    return normalized_table
 
-    # Add row_number to incoming_table (rowid preserves insertion order)
+def extract_hierarchy(normalized_table):
+    query = f"""
+    WITH child_parent AS (
+      SELECT 
+        child.code,
+        child.description,
+        child.dimension,
+        (
+          SELECT parent.code
+          FROM {normalized_table} parent
+          WHERE parent.dimension = child.dimension
+            AND parent.rel_level < child.rel_level
+            AND parent.row_number = (
+              SELECT MIN(sub.row_number)
+              FROM {normalized_table} sub
+              WHERE sub.dimension = child.dimension
+                AND sub.rel_level < child.rel_level
+                AND sub.row_number > child.row_number
+            )
+        ) AS parent
+      FROM {normalized_table} child
+    ),
+    deduped AS (
+      SELECT DISTINCT code, description, parent, dimension
+      FROM child_parent
+    )
+    SELECT * FROM deduped;
+    """
+    return _temp_table_from_q(query)
+
+def add_to_hierarchy(incoming_data, mapping_data, hierarchy_data):
+    # Ensure the incoming table has a row_number column for ordering
+    incoming_table = to_duckdb(incoming_data, True)
     drop_column_if_exists(incoming_table, 'row_number')
     conn.execute(f"""
         ALTER TABLE {incoming_table} ADD COLUMN row_number INTEGER;
         UPDATE {incoming_table} SET row_number = rowid;
     """)
     
-    mapping_query = f"SELECT * FROM {mapping_table} WHERE type = 'row';"
-    mapping_df = conn.execute(mapping_query).fetchdf()
+    # Normalize incoming data and extract parent-child relationships
+    normalized_table = normalize_incoming_data(incoming_data, mapping_data)
+    extracted_hierarchy = extract_hierarchy(normalized_table)
+    extracted_hierarchy = to_duckdb(extracted_hierarchy, False)
     
-    for _, mapping_row in mapping_df.iterrows():
-        result_table = child_parent_records(incoming_table, mapping_row, True)
-        
-        if not hierarchy_table:
-            # If hierarchy_table is empty, initialize it from the result_table.
-            hierarchy_table = result_table
-            conn.execute(f"ALTER TABLE {hierarchy_table} ADD COLUMN dimension TEXT;")
-            conn.execute(f"ALTER TABLE {hierarchy_table} ADD COLUMN level INTEGER;")
-            conn.execute(f"UPDATE {hierarchy_table} SET dimension = ?;", (mapping_row["dimension_name"],))
-        else:
-            # Identify new nodes (rows in result_table not already in hierarchy_table).
-            new_nodes_query = f"""
-                SELECT r.code, r.description, r.parent
-                FROM {result_table} r
-                LEFT JOIN {hierarchy_table} h ON r.code = h.code
-                WHERE h.code IS NULL;
-            """
-            new_nodes_table = "new_nodes_table"
-            conn.execute(f"CREATE OR REPLACE TEMP TABLE {new_nodes_table} AS {new_nodes_query}")
-            conn.execute(f"ALTER TABLE {new_nodes_table} ADD COLUMN dimension TEXT;")
-            conn.execute(f"UPDATE {new_nodes_table} SET dimension = ?;", (mapping_row["dimension_name"],))
-            conn.execute(f"""
-                INSERT INTO {hierarchy_table} (code, description, parent, dimension)
-                SELECT code, description, parent, dimension FROM {new_nodes_table};
-                """)
+    # Get the existing hierarchy table
+    hierarchy_table = to_duckdb(hierarchy_data, True)
     
+    # Identify new nodes: those present in extracted_hierarchy but not in hierarchy_table
+    new_nodes_query = f"""
+        SELECT e.code, e.description, e.parent, e.dimension
+        FROM {extracted_hierarchy} e
+        LEFT JOIN {hierarchy_table} h 
+          ON e.code = h.code AND e.dimension = h.dimension
+        WHERE h.code IS NULL
+    """
+    new_nodes_table = _temp_table_from_q(new_nodes_query)
+    
+    # Insert the new nodes explicitly into the hierarchy_table
+    conn.execute(f"""
+        INSERT INTO {hierarchy_table} (code, description, parent, dimension)
+        SELECT code, description, parent, dimension FROM {new_nodes_table};
+    """)
+    
+    # Recalculate the hierarchy levels now that new nodes have been added.
     hierarchy_table = recalc_hierarchy_levels(hierarchy_table)
     
     return hierarchy_table
+
 
 def update_columns_with_dimension_names(incoming_data, dim_mapping_data):
     incoming_df = to_dataframe(incoming_data)
