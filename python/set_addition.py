@@ -711,130 +711,112 @@ def create_flat_fact_table(atomic_fact_data, hierarchy_data):
 
     return atomic_fact_table
 
-def create_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve_tolerance):
-    # The key insight is that for everything we add, we also subtract it back out.
-    # The only exception is the top level row which represents everything. But once we have that
-    # everything else is just filling in details and wont change our totals.
-    # To achive this I follow the insight behind inclusion-exlucion principle in set theory.
-    # For 3 sets that is: ∣A∪B∪C∣=∣A∣+∣B∣+∣C∣−∣A∩B∣−∣A∩C∣−∣B∩C∣+∣A∩B∩C∣
-    # The combinatorial application of that uses the parent/child relationships.
-    # For 3 dimensions, each with a parent, this would add 8 records, like so:
-    # +[A-Child, B-Child, C-Child] (the original record--next we neutralize it with 7 more records),
-    # -[A-Parent, B-Child, C-Child], -[A-Child, B-Parent, C-Child], -[A-Child, B-Parent, C-Child],
-    # +[A-Parent, B-Parent, C-Child], +[A-Child, B-Parent, C-Parent], +[A-Parent, B-Child, C-Parent],
-    # -[A-Parent, B-Parent, C-Parent]. You can see how they are sort of the same.
-    # The beauty is that the value in all 8 cases is the same, making it a very simple calculuation.
+def creat_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve_tolerance):
+    # Construct atomic facts using hierarchical mappings, applying the inclusion-exclusion principle.
+    # Each fact is both added and subtracted to maintain accurate totals, except for the top-level row.
+    # For n dimensions with parent-child relationships, this creates 2^n records.
+    # Example (3 dimensions): The original record is adjusted with 7 complementary records 
+    # to balance parent-child relationships.
+    #
+    # Parameters:
+    #   facts_with_summaries_data : DataFrame or table name
+    #   hierarchy_data            : DataFrame or table name
+    #   reserve_tolerance         : Numeric threshold for filtering small values
+    #
+    # Returns:
+    #   (final_table, hierarchy_table): Final aggregated result (DuckDB table name)
+    #                                   and the hierarchy table (DuckDB table name)
 
-    # The obvious downside is the potential for data explosion. This will multiply the data set by
-    # 2^n where n is the number of dimensions with parent-child structure.
-    # To avoid the possibility of running out of memory in trying to do this, I split it into batches
-    # based on the parameter internal_max_row_count_size parameter
-
-    # Note another key thing is that we are at the same time dropping to the "atomic" level.
-    # We will use the naming convention {member_name}_reserve_{level} to move an item to the lowest level.
-
-    facts_with_summaries_df = to_dataframe(facts_with_summaries_data)
+    # Convert incoming facts and hierarchy to DuckDB tables.
+    facts_table = to_duckdb(facts_with_summaries_data, create_table=True)
+    hierarchy_table = to_duckdb(hierarchy_data, create_table=True)
+    
+    # Get the list of dimensions from the hierarchy data.
     hierarchy_df = to_dataframe(hierarchy_data)
-
-    internal_max_row_count_size = 1_000_000
-
-    result_df = facts_with_summaries_df.copy()
     dimensions = hierarchy_df["dimension"].unique().tolist()
-    hierarchy_mappings = build_hierarchy_mappings(hierarchy_df, True)
-
-    # Identify the "double dimensions" (those with non-empty hierarchy mappings. Each double dimension will double the size of the result set.)
-    doubled_dimensions = [
-        dimension for dimension in dimensions if not hierarchy_mappings[dimension].empty
-    ]
-    n_double_dimensions = len(doubled_dimensions)
-
-    # Estimate the number of rows after the explosion
-    estimated_intermediate_size = len(result_df) * (2**n_double_dimensions)
-
-    # Calculate the number of batches based on the internal batch size
-    num_batches = max(
-        1, int(np.ceil(estimated_intermediate_size / internal_max_row_count_size))
+    
+    # Build the hierarchy mappings using the helper.
+    # This returns a dict mapping each dimension to its mapping DataFrame.
+    hierarchy_mappings = build_hierarchy_mappings(hierarchy_data, include_level_1_child_records=True)
+    
+    # Identify dimensions that have non-empty mappings (the ΓÇ£doubled dimensionsΓÇ¥).
+    doubled_dimensions = [dim for dim in dimensions if not hierarchy_mappings.get(dim, pd.DataFrame()).empty]
+    
+    # Build a CTE for the hierarchy mapping.
+    mapping_cte = f"""
+    WITH mapping AS (
+      SELECT dimension, prior_member, new_member, new_member_type, level FROM (
+        -- Self-referential child mapping for levels >= 2
+        SELECT dimension, code AS prior_member, code AS new_member, 'child' AS new_member_type, level
+        FROM {hierarchy_table} WHERE level >= 2
+        UNION ALL
+        -- Parent mapping for levels >= 2 (drop rows with no parent)
+        SELECT dimension, code AS prior_member, parent AS new_member, 'parent' AS new_member_type, level - 1 AS level
+        FROM {hierarchy_table} WHERE level >= 2 AND parent IS NOT NULL
+        UNION ALL
+        -- Optionally include level 1 child records
+        SELECT dimension, code AS prior_member, code AS new_member, 'child' AS new_member_type, level
+        FROM {hierarchy_table} WHERE level = 1
+      )
     )
-
-    # Calculate the number of rows per batch based on num_batches
-    batch_size = max(1, int(len(result_df) / num_batches))
-
-    final_results = []
-    intermediate_record_count = 0
-    initial_record_count = len(result_df)
-
-    # Process the DataFrame in chunks by index slicing
-    for i in range(0, len(result_df), batch_size):
-        batch = result_df.iloc[i : i + batch_size]
-
-        # Process each dimension in the batch
-        for dimension in doubled_dimensions:
-            dim_df = hierarchy_mappings[dimension]
-
-            # Merge the batch with the hierarchy mappings for the current dimension
-            batch = batch.merge(
-                dim_df, left_on=dimension, right_on="prior_member", how="inner"
-            )
-
-            # Rename columns to avoid conflicts
-            batch.rename(columns={dimension: f"{dimension}_prior"}, inplace=True)
-            batch.rename(
-                columns={
-                    "new_member": dimension,
-                    "new_member_type": f"{dimension}_type",
-                },
-                inplace=True,
-            )
-            # Drop columns related to prior member and level
-            batch.drop(columns=["prior_member", "level"], inplace=True)
-
-        # Count the parent records in each row
-        batch["parent_count"] = batch[
-            [f"{dimension}_type" for dimension in doubled_dimensions]
-        ].apply(lambda row: (row == "parent").sum(), axis=1)
-
-        # Apply the balancing mechanism (multiply value by -1 if odd parent count)
-        batch.loc[batch["parent_count"] % 2 == 1, "value"] *= -1
-
-        # Track intermediate record count
-        intermediate_record_count += len(batch)
-
-        # Group by dimensions and sum values for this batch
-        batch = batch.groupby(dimensions)["value"].sum().reset_index()
-
-        # Append batch results
-        final_results.append(batch)
-
-    # Concatenate all batch results
-    concatenated_df = pd.concat(final_results)
-
-    # Final aggregation across all batches
-    final_df: pd.DataFrame
-    final_df = concatenated_df.groupby(dimensions)["value"].sum().reset_index()
-
-    # Apply the reserve tolerance filter. 
-    # may want to think a bit about this one more. or maybe it is more about how it is used
-    # I am not sure the tolerance for identifyin errors should be the same as the tolerance
-    # for removing very small values.
-    final_df = final_df[abs(final_df["value"]) > reserve_tolerance]
-    final_record_count = len(final_df)
-
-    # Output the counts and ratios, including the inflation ratio
-    print(f"\n----------Create atomic facts-------------")
-    print(f"Initial record count: {initial_record_count}")
-    print(f"Intermediate record count: {intermediate_record_count}")
-    print(f"Final record count: {final_record_count}")
-
-    # Calculate and print the inflation and reduction ratios
-    if initial_record_count > 0:
-        inflation_ratio = intermediate_record_count / initial_record_count
-        print(f"Inflation Ratio (intermediate/initial): {inflation_ratio:.2f}")
-
-    if final_record_count > 0:
-        reduction_ratio = intermediate_record_count / final_record_count
-        print(f"Reduction Ratio (intermediate/final): {reduction_ratio:.2f}")
-
-    return final_df, hierarchy_df
+    """
+    
+    # Build dynamic JOIN clauses for each doubled dimension.
+    join_clauses = ""
+    for dim in doubled_dimensions:
+        join_clauses += f"""
+        JOIN (
+          SELECT * FROM mapping WHERE dimension = '{dim}'
+        ) AS hm_{dim}
+          ON f.{dim} = hm_{dim}.prior_member
+        """
+    
+    # Build the SELECT expressions for dimensions.
+    select_dimension_exprs = []
+    for dim in dimensions:
+        if dim in doubled_dimensions:
+            # Use the updated value from the hierarchy mapping.
+            select_dimension_exprs.append(f"hm_{dim}.new_member AS {dim}")
+        else:
+            select_dimension_exprs.append(f"f.{dim} AS {dim}")
+    
+    # Build the parent count expression by summing over each doubled dimension.
+    parent_count_exprs = []
+    for dim in doubled_dimensions:
+        parent_count_exprs.append(f"CASE WHEN hm_{dim}.new_member_type = 'parent' THEN 1 ELSE 0 END")
+    if parent_count_exprs:
+        parent_count_expr = " + ".join(parent_count_exprs)
+    else:
+        parent_count_expr = "0"
+    
+    # Compute the adjusted value: flip f.value if the sum of parent counts is odd.
+    adjusted_value_expr = f"CASE WHEN (({parent_count_expr}) % 2) = 1 THEN f.value * -1 ELSE f.value END AS adjusted_value"
+    
+    # Build the inner query that joins the facts with the hierarchy mappings and computes adjusted_value.
+    inner_query = f"""
+    {mapping_cte}
+    SELECT
+      {', '.join(select_dimension_exprs)},
+      {adjusted_value_expr}
+    FROM {facts_table} f
+    {join_clauses}
+    """
+    
+    # The outer query aggregates by the dimension values and filters based on reserve_tolerance.
+    group_by_expr = ", ".join(dimensions)
+    outer_query = f"""
+    SELECT {group_by_expr}, SUM(adjusted_value) AS value
+    FROM (
+      {inner_query}
+    ) sub
+    GROUP BY {group_by_expr}
+    HAVING ABS(SUM(adjusted_value)) > {reserve_tolerance}
+    """
+    
+    # Execute the query and create a temporary table for the result.
+    final_table = _temp_table_from_q(outer_query)
+    
+    return final_table, hierarchy_table
 
 def drop_column_if_exists(table_name, column_name):
     """Drops a column if it exists in a DuckDB table."""
@@ -1186,6 +1168,60 @@ def merge_atomic_facts(
     grouped_df = grouped_df[abs(grouped_df["value"]) > reserve_tolerance]
     return grouped_df
 
+def compare_dfs_with_tolerance(df1, df2, numeric_cols, tolerance=1e-6):
+    """
+    Compare two DataFrames column-by-column.
+    
+    - For columns listed in `numeric_cols`, values are compared using np.allclose with the given tolerance.
+    - For all other columns, values must match exactly.
+    
+    Returns True if all comparisons pass, False otherwise.
+    """
+    # Check if both DataFrames have the same columns in the same order.
+    if list(df1.columns) != list(df2.columns):
+        print("Column mismatch!")
+        return False
+    
+    for col in df1.columns:
+        if col in numeric_cols:
+            if not np.allclose(df1[col].values, df2[col].values, atol=tolerance, equal_nan=True):
+                print(f"Numeric column '{col}' differs more than tolerance {tolerance}.")
+                return False
+        else:
+            if not df1[col].equals(df2[col]):
+                print(f"Non-numeric column '{col}' does not match exactly.")
+                return False
+    return True
+
+
+import numpy as np
+import pandas as pd
+
+def compare_dfs_with_tolerance(df1, df2, numeric_cols, tolerance=1e-6):
+    """
+    Compare two DataFrames column-by-column.
+    
+    - For columns in `numeric_cols`, values are compared using np.allclose with the given tolerance.
+    - For all other columns, values must match exactly.
+    
+    Returns True if all comparisons pass, False otherwise.
+    """
+    # Check that both DataFrames have the same columns in the same order.
+    if list(df1.columns) != list(df2.columns):
+        print("Column mismatch!")
+        return False
+    
+    for col in df1.columns:
+        if col in numeric_cols:
+            if not np.allclose(df1[col].values, df2[col].values, atol=tolerance, equal_nan=True):
+                print(f"Numeric column '{col}' differs more than tolerance {tolerance}.")
+                return False
+        else:
+            if not df1[col].equals(df2[col]):
+                print(f"Non-numeric column '{col}' does not match exactly.")
+                return False
+    return True
+
 def establish_founding_data_sets(incoming_data, reserve_tolerance):
     incoming_df = to_dataframe(incoming_data)
         ##Figure out the dimensions
@@ -1218,7 +1254,7 @@ def establish_founding_data_sets(incoming_data, reserve_tolerance):
     missing_rows_all_ancestors(all_facts_df, hierarchy_df)
 
     ##Create atomic facts table
-    atomic_facts_df, hierarchy_df = create_atomic_facts_table(
+    atomic_facts_df, hierarchy_df = new_atomic_facts_table(
         all_facts_df, hierarchy_df, reserve_tolerance
     )
 
@@ -1265,7 +1301,7 @@ def incremental_add(
     )
 
     # Generate incremental atomic data
-    incremental_atomic_data, hierarchy_with_reserves = create_atomic_facts_table(incremental_facts_df, hierarchy_df, reserve_tolerance)
+    incremental_atomic_data, hierarchy_with_reserves = new_atomic_facts_table(incremental_facts_df, hierarchy_df, reserve_tolerance) ##xxx the current function isn't adding reserves. does it do it later? or not need it?
     incremental_atomic_data = to_dataframe(incremental_atomic_data)
     
     # Merge into Atomic_Fact_Cube
