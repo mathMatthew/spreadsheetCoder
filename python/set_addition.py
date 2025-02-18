@@ -711,7 +711,7 @@ def create_flat_fact_table(atomic_fact_data, hierarchy_data):
 
     return atomic_fact_table
 
-def creat_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve_tolerance):
+def create_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve_tolerance):
     # Construct atomic facts using hierarchical mappings, applying the inclusion-exclusion principle.
     # Each fact is both added and subtracted to maintain accurate totals, except for the top-level row.
     # For n dimensions with parent-child relationships, this creates 2^n records.
@@ -1254,7 +1254,7 @@ def establish_founding_data_sets(incoming_data, reserve_tolerance):
     missing_rows_all_ancestors(all_facts_df, hierarchy_df)
 
     ##Create atomic facts table
-    atomic_facts_df, hierarchy_df = new_atomic_facts_table(
+    atomic_facts_df, hierarchy_df = create_atomic_facts_table(
         all_facts_df, hierarchy_df, reserve_tolerance
     )
 
@@ -1301,7 +1301,7 @@ def incremental_add(
     )
 
     # Generate incremental atomic data
-    incremental_atomic_data, hierarchy_with_reserves = new_atomic_facts_table(incremental_facts_df, hierarchy_df, reserve_tolerance) ##xxx the current function isn't adding reserves. does it do it later? or not need it?
+    incremental_atomic_data, hierarchy_with_reserves = create_atomic_facts_table(incremental_facts_df, hierarchy_df, reserve_tolerance) ##xxx the current function isn't adding reserves. does it do it later? or not need it?
     incremental_atomic_data = to_dataframe(incremental_atomic_data)
     
     # Merge into Atomic_Fact_Cube
