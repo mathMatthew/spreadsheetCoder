@@ -730,11 +730,10 @@ def create_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve
     # Convert incoming facts and hierarchy to DuckDB tables.
     facts_table = to_duckdb(facts_with_summaries_data, create_table=True)
     hierarchy_table = to_duckdb(hierarchy_data, create_table=True)
-    
-    # Get the list of dimensions from the hierarchy data.
-    hierarchy_df = to_dataframe(hierarchy_data)
-    dimensions = hierarchy_df["dimension"].unique().tolist()
-    
+
+    # Get the list of unique dimensions using conn.sql() and convert to list
+    dimensions = [row[0] for row in conn.execute(f"SELECT DISTINCT dimension FROM {hierarchy_table}").fetchall()]
+
     # Build the hierarchy mappings using the helper.
     # This returns a dict mapping each dimension to its mapping DataFrame.
     hierarchy_mappings = build_hierarchy_mappings(hierarchy_data, include_level_1_child_records=True)
@@ -754,7 +753,7 @@ def create_atomic_facts_table(facts_with_summaries_data, hierarchy_data, reserve
         SELECT dimension, code AS prior_member, parent AS new_member, 'parent' AS new_member_type, level - 1 AS level
         FROM {hierarchy_table} WHERE level >= 2 AND parent IS NOT NULL
         UNION ALL
-        -- Optionally include level 1 child records
+        -- Include level 1 child records
         SELECT dimension, code AS prior_member, code AS new_member, 'child' AS new_member_type, level
         FROM {hierarchy_table} WHERE level = 1
       )
