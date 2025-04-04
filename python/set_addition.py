@@ -8,6 +8,9 @@ from typing import Literal
 # Open DuckDB connection as a global
 conn = duckdb.connect(database=':memory:')  # Use ':memory:' for an in-memory database, or specify a file path
 
+def get_db_connection():
+    return conn
+
 # Predefined dimension names for auto-feeding
 predefined_dim_names = {
     "filterDim1": "Metric",
@@ -1221,9 +1224,11 @@ def establish_founding_data_sets(incoming_data, reserve_tolerance):
     missing_rows(all_facts_df, hierarchy_df)
 
     ##Create atomic facts table
-    atomic_facts_df, hierarchy_df = create_atomic_facts_table(
+    atomic_facts, hierarchy = create_atomic_facts_table(
         all_facts_df, hierarchy_df, reserve_tolerance
     )
+    atomic_facts_df = to_dataframe(atomic_facts)
+    hierarchy_df = to_dataframe(hierarchy)
 
     ##Flatten hierarchy
     flattened_df = to_dataframe(create_flat_fact_table(atomic_facts_df, hierarchy_df))
